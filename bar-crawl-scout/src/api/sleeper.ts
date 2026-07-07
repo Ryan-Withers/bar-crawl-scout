@@ -28,6 +28,27 @@ export const getTrendingDrops = (limit = 25) =>
   get<TrendingPlayer[]>(`/players/nfl/trending/drop?limit=${limit}`);
 export const getRawPlayers = () => get<Record<string, SleeperPlayer>>(`/players/nfl`);
 
+// Drafts: a league's drafts, then that draft's picks (for the custody chain).
+export const getLeagueDrafts = (id: string = LEAGUE_ID) =>
+  get<Array<{ draft_id: string; season: string }>>(`/league/${id}/drafts`);
+export const getDraftPicks = (draftId: string) =>
+  get<Array<Record<string, unknown>>>(`/draft/${draftId}/picks`);
+
+// Walk previous_league_id -> [{season, league_id}] newest-first, so we can pull
+// draft/txn/matchup history across every season the dynasty has existed.
+export async function getLeagueChain(id: string = LEAGUE_ID): Promise<Array<{ season: string; league_id: string }>> {
+  const out: Array<{ season: string; league_id: string }> = [];
+  let cur: SleeperLeague | null = await getLeague(id);
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.league_id)) {
+    seen.add(cur.league_id);
+    out.push({ season: cur.season, league_id: cur.league_id });
+    if (!cur.previous_league_id) break;
+    try { cur = await getLeague(cur.previous_league_id); } catch { break; }
+  }
+  return out;
+}
+
 // Stats + projections (undocumented but stable). Shape: { player_id: { stat_key: value } }.
 export const getWeekStats = (season: string, week: number) =>
   get<Record<string, Record<string, number>>>(`/stats/nfl/regular/${season}/${week}`);

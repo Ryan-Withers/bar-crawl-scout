@@ -2,8 +2,13 @@
 // chainOfCustody() wants SeasonData[]; vsLeague() wants VsLine[]. Both need
 // roster_id -> handle, which we build from rosters + the user->handle map.
 // Pure + fixture-tested; the live queries pass the raw blobs straight through.
-import type { SeasonData, DraftPick, Transaction } from '../lib/engine/chain';
-import type { VsLine } from '../lib/engine/vsleague';
+import type { SeasonData, DraftPick, Transaction, ChainEvent } from '../lib/engine/chain';
+import type { VsLine, VsRow } from '../lib/engine/vsleague';
+import { chainOfCustody } from '../lib/engine/chain';
+import { vsLeague } from '../lib/engine/vsleague';
+import * as S from './sleeper';
+import { userHandleMap } from './league';
+import type { PlayerLite } from './types';
 
 interface RosterLite { roster_id: number; owner_id: string }
 
@@ -75,4 +80,57 @@ export function vsLinesForPlayer(
     lines.push({ opponent: handle, points: pts });
   }
   return lines;
+}
+
+// Our board is name-based; Sleeper is id-based. Resolve a name -> player_id.
+export function resolvePlayerId(name: string, byId: Record<string, PlayerLite>): string | null {
+  const want = name.toLowerCase();
+  for (const id in byId) if ((byId[id][0] || '').toLowerCase() === want) return id;
+  return null;
+}
+
+export interface PlayerHistory {
+  chain: ChainEvent[];
+  vs: VsRow[];
+}
+
+const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1);
+const settle = <T>(p: Promise<T>, fallback: T): Promise<T> => p.then((x) => x, () => fallback);
+
+// Orchestrate every season's drafts/txns/matchups into the custody chain + the
+// vs-league table for one player. Browser-only (many live calls); each request
+// is best-effort so a missing week or season never sinks the whole file.
+export async function assemblePlayerHistory(
+  name: string,
+  byId: Record<string, PlayerLite>,
+): Promise<PlayerHistory> {
+  const pid = resolvePlayerId(name, byId);
+  if (!pid) return { chain: [], vs: [] };
+
+  const chainSeasons = await settle(S.getLeagueChain(), [] as Array<{ season: string; league_id: string }>);
+  const seasonData: SeasonData[] = [];
+  const vsLines: VsLine[] = [];
+
+  for (const { season, league_id } of chainSeasons) {
+    const [users, rosters, drafts] = await Promise.all([
+      settle(S.getUsers(league_id), []),
+      settle(S.getRosters(league_id), []),
+      settle(S.getLeagueDrafts(league_id), [] as Array<{ draft_id: string; season: string }>),
+    ]);
+    const rh = rosterHandleMap(rosters as { roster_id: number; owner_id: string }[], userHandleMap(users));
+
+    const pickLists = await Promise.all(drafts.map((d) => settle(S.getDraftPicks(d.draft_id), [])));
+    const rawPicks = pickLists.flat() as unknown as Parameters<typeof buildSeasonData>[2];
+
+    const txnWeeks = await Promise.all(WEEKS.map((w) => settle(S.getTransactions(w, league_id), [])));
+    const rawTxns = txnWeeks.flat() as unknown as Parameters<typeof buildSeasonData>[3];
+
+    seasonData.push(buildSeasonData(season, rh, rawPicks, rawTxns));
+
+    const matchWeeks = await Promise.all(WEEKS.map((w) => settle(S.getMatchups(w, league_id), [])));
+    vsLines.push(...vsLinesForPlayer(pid, matchWeeks as Parameters<typeof vsLinesForPlayer>[1], rh));
+  }
+
+  // Chain uses OUR player_id key; resolve draft/txn player_ids are Sleeper's -> use pid.
+  return { chain: chainOfCustody(pid, seasonData), vs: vsLeague(vsLines) };
 }

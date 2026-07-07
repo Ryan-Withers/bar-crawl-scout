@@ -8,6 +8,8 @@
   import ChainOfCustody from './ChainOfCustody.svelte';
   import VsLeague from './VsLeague.svelte';
   import { similarPlayers } from '../lib/engine/similar.ts';
+  import { assemblePlayerHistory } from '../api/history.ts';
+  import { loadPlayers } from '../api/players.ts';
 
   export let params = {};
   export let variant = 'page'; // 'page' | 'drawer'
@@ -31,6 +33,27 @@
   // Similar files — nearest peers on the board (runs offline; pure board math).
   $: pool = PLAYERS.map((pp) => ({ name: pp[1], pos: pp[2], r26: r26(pp), adp: pp[5] }));
   $: peers = p ? similarPlayers({ name, pos: p[2], r26: R26, adp: p[5] }, pool, 5) : [];
+
+  // Live custody chain + vs-league — walks every season in the browser. Blocked/
+  // offline just leaves the empty states in place; guarded against re-fetch churn.
+  let hist = { chain: [], vs: [] };
+  let histLoading = false;
+  let histFor = '';
+  $: if (name && p && !classified && name !== histFor) loadHistory(name);
+  async function loadHistory(n) {
+    histFor = n;
+    histLoading = true;
+    hist = { chain: [], vs: [] };
+    try {
+      const byId = await loadPlayers();
+      const h = await assemblePlayerHistory(n, byId);
+      if (histFor === n) hist = h;
+    } catch {
+      /* Sleeper blocked/offline — components keep their empty state */
+    } finally {
+      if (histFor === n) histLoading = false;
+    }
+  }
 
   let cmp = '';
   function doCompare() {
@@ -102,12 +125,12 @@
 
         <!-- Head-to-head: what he averages against each manager -->
         <div class="sheet stub">
-          <VsLeague rows={[]} />
+          <VsLeague rows={hist.vs} loading={histLoading} />
         </div>
 
         <!-- The showpiece: full league custody chain, reconstructed from draft + txns -->
         <div class="sheet stub">
-          <ChainOfCustody events={[]} />
+          <ChainOfCustody events={hist.chain} loading={histLoading} />
         </div>
 
         <!-- Similar Files — nearest peers by position + value (live, board-derived) -->
