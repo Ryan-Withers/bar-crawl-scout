@@ -144,7 +144,7 @@
       <div class="ghd">🔒 Enter your bettor code</div>
       <p>Everyone's got a private code so nobody drops a bet in your name. Ask the commissioner for yours.</p>
       <form on:submit|preventDefault={doLogin}>
-        <input placeholder="e.g. BUCKLE" bind:value={codeInput} class:err={loginErr} spellcheck="false" autocomplete="off" disabled={busy} />
+        <input placeholder="YOUR CODE" bind:value={codeInput} class:err={loginErr} spellcheck="false" autocomplete="off" disabled={busy} />
         <button type="submit" disabled={busy}>{busy ? '…' : 'Log in'}</button>
       </form>
       {#if loginErr}<div class="gerr">That code didn't match. Try again.</div>{/if}
