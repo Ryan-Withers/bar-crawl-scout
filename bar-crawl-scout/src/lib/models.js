@@ -2,8 +2,8 @@
 // In the single-file app these read module-global KS/MODE; here they take the
 // keeper map (ks) and window mode explicitly, so they are pure and unit-testable.
 import {
-  TEAMS, KEPT2025, STAGE, MODES, PTS_BASE, POSRANK, GROWTH,
-  CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT,
+  PLAYERS, TEAMS, KEPT2025, STAGE, MODES, PTS_BASE, POSRANK, GROWTH,
+  CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT, RYAN,
 } from './data.js';
 
 export const tierFromADP = a => (a <= 12 ? 100 : a <= 30 ? 85 : a <= 60 ? 68 : a <= 110 ? 48 : a <= 160 ? 32 : 20);
@@ -89,3 +89,15 @@ export function buildRosterOwn(rosterStore) {
   return m;
 }
 export const rosterOwner = (own, name) => (own ? (own[name.toLowerCase()] || null) : null);
+
+// Redaction + trade helpers.
+export const isRyanPlayer = (ks, name) => { const o = ownerOf(ks, name); return !!o && o.owner === RYAN; };
+export const draftable = (ks) => PLAYERS.filter((p) => !isKept(ks, p[1]));
+// A pick is valued as the real player you would land after ~30 keepers are gone.
+export function pickValue(season, round, ks, mode) {
+  const pv = draftable(ks).map((p) => windowVal(p, ks, mode)).sort((a, b) => b - a);
+  const slot = (round - 1) * 10 + 4;
+  let base = pv[Math.min(slot, pv.length - 1)] || 0;
+  if (String(season) === '2027') base = Math.round(base * 0.6);
+  return Math.round(base);
+}

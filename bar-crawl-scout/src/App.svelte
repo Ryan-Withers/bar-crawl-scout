@@ -1,7 +1,10 @@
 <script>
   import { mode, lastSync } from './lib/store.js';
-  import { MODEHINT } from './lib/data.js';
+  import { MODEHINT, PLAYERS } from './lib/data.js';
   import Board from './components/Board.svelte';
+  import Keepers from './components/Keepers.svelte';
+  import Managers from './components/Managers.svelte';
+  import Intel from './components/Intel.svelte';
 
   const TABS = [
     { id: 'board', label: 'Board' },
@@ -48,6 +51,12 @@
 
   {#if active === 'board'}
     <Board />
+  {:else if active === 'keepers'}
+    <Keepers />
+  {:else if active === 'mgrs'}
+    <Managers />
+  {:else if active === 'plan'}
+    <Intel />
   {:else}
     <section class="tab on">
       <div class="note">The <b>{TABS.find((t) => t.id === active).label}</b> tab is being ported to the new app — coming shortly.</div>
@@ -56,3 +65,7 @@
 
   <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · {$lastSync ? 'Sleeper synced ' + $lastSync : 'Sleeper not yet synced'}</p>
 </div>
+
+<datalist id="plist">
+  {#each PLAYERS as p}<option value={p[1]}></option>{/each}
+</datalist>
