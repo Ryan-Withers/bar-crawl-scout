@@ -18,6 +18,7 @@
   import PlayerFile from './components/PlayerFile.svelte';
   import Compare from './components/Compare.svelte';
   import HoverCard from './components/HoverCard.svelte';
+  import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
 
   // Pull live rosters from the Worker on open (silent if offline/blocked).
@@ -70,6 +71,7 @@
 </QueryClientProvider>
 
 <HoverCard />
+<CommandPalette />
 
 <datalist id="plist">
   {#each PLAYERS as p}<option value={p[1]}></option>{/each}

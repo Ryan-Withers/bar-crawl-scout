@@ -21,9 +21,16 @@
     <SyncCoaster />
     <ToggleSwitch />
     <p class="modehint">{MODEHINT[$mode]}</p>
+    <button class="jump" on:click={() => window.dispatchEvent(new CustomEvent('palette:open'))}>
+      <span class="lens">⌕</span> Jump to a file <kbd>⌘K</kbd>
+    </button>
   </div>
 </header>
 
 <style>
   .right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .jump { display: inline-flex; align-items: center; gap: 7px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; transition: border-color .15s, color .15s; }
+  .jump:hover { border-color: rgba(130,201,252,.5); color: var(--chalk); }
+  .jump .lens { color: var(--neon); font-size: 13px; }
+  .jump kbd { font-size: 9px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
 </style>
