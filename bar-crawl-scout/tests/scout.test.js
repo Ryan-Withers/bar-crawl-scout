@@ -7,9 +7,24 @@
 */
 const fs = require("fs");
 const path = require("path");
-const { JSDOM } = require("jsdom");
+const { JSDOM, ResourceLoader } = require("jsdom");
 
 const HTML = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+
+// The app is split into local css/ + js/ modules. Serve those from disk so the real
+// deployed files are what gets tested, but block http(s) (fonts/CDN) to avoid the
+// network flakiness the suite has always deliberately avoided. Keeping a real https
+// origin (below) also means jsdom localStorage works, which the app relies on.
+class LocalLoader extends ResourceLoader {
+  fetch(url, options) {
+    const m = url.match(/\/(css|js)\/([\w.-]+)$/);
+    if (m) {
+      const file = path.join(__dirname, "..", m[1], m[2]);
+      return Promise.resolve(fs.readFileSync(file));
+    }
+    return null; // block fonts/CDN and anything else external
+  }
+}
 
 // authoritative 2026 keepers (VL/L locked, U = watch/stays in pool)
 const EXPECT = {
@@ -33,6 +48,7 @@ const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; errors.push(msg
 // irrelevant to logic and would only add network flakiness in CI.
 const dom = new JSDOM(HTML, {
   runScripts: "dangerously",
+  resources: new LocalLoader(),
   pretendToBeVisual: true,
   url: "https://timely-souffle-28ce9e.netlify.app/"
 });
@@ -40,7 +56,7 @@ const { window } = dom;
 const uncaught = [];
 window.addEventListener("error", e => uncaught.push(String(e.error || e.message)));
 
-setTimeout(() => {
+function runChecks() {
   const d = window.document;
 
   // bridge: top-level const/let are not on window, so copy them across
@@ -150,4 +166,7 @@ setTimeout(() => {
   console.log("\nBar Crawl Scout tests: " + pass + " passed, " + fail + " failed");
   if (fail) { console.log("\nFailures:"); errors.forEach(e => console.log("  - " + e)); }
   process.exit(fail ? 1 : 0);
-}, 400);
+}
+// Wait for external css/js modules to load and execute before probing internals.
+if (window.document.readyState === "complete") setTimeout(runChecks, 100);
+else window.addEventListener("load", () => setTimeout(runChecks, 100));

@@ -18,11 +18,21 @@ The commissioner's own team is redacted throughout (it is a tool shared with lea
 
 ## Architecture
 
-This is a single self-contained `index.html`: markup, styles, logic, and the ranked player data all live in one file. That is deliberate. The target device cannot run build tools, so there is no bundler, no framework, and no build step. The file is the deployable artifact.
+The site is plain static files the browser loads directly — **no bundler, no framework, no build step**, because the target device cannot run build tools. Structure:
+
+- `index.html` — markup only.
+- `css/styles.css` — all styles.
+- `js/` — the logic, split into ordered scripts loaded by `index.html`:
+  - `data.js` — the ranked player pool, teams, keeper projections, capital, and the tuning constants.
+  - `render.js` — the board, keeper editor, manager dossiers, trade, FAAB, and intel views.
+  - `sync.js` — the Sleeper API pull and the JSON backup import/export.
+  - `app.js` — event wiring and initial render.
+
+They load in that order and share one global scope (classic scripts, not ES modules), so it stays zero-build: the files are the deployable artifact.
 
 - **State** is kept in the browser via `localStorage` (keeper edits, board views and tags, cached Sleeper data). Nothing is stored server-side by the site itself.
 - **Live data** comes from the public Sleeper API at sync time.
-- **Models** (value, points, FAAB, trade) are pure functions over the ranked pool and the keeper map. They are documented inline in `index.html`.
+- **Models** (value, points, FAAB, trade) are pure functions over the ranked pool and the keeper map, in `js/data.js` and `js/render.js`.
 
 ## Syncing live data
 
