@@ -186,3 +186,8 @@ body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;o
   background-size:140px 140px;mix-blend-mode:overlay}
 .neon-glow{text-shadow:0 0 8px rgba(130,201,252,.55),0 0 24px rgba(130,201,252,.25)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+/* ===== router nav links (svelte-spa-router) ===== */
+nav.tabs a{font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.02em;font-size:14px;background:var(--field-2);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer;text-decoration:none;display:inline-block}
+nav.tabs a.on{background:var(--accent);color:var(--on-neon);border-color:var(--accent)}
+nav.tabs a:hover{color:var(--chalk)}
