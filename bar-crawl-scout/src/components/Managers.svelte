@@ -1,4 +1,5 @@
 <script>
+  import { link } from 'svelte-spa-router';
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores } from '../lib/models.js';
@@ -91,6 +92,7 @@
           <div class="cap">2026 capital: <b>{c[0]}</b>·1st <b>{c[1]}</b>·2nd <b>{c[2]}</b>·3rd</div>
           <p class="blurb">{m.note}</p>
         {/if}
+        <a class="openfile" href={'/managers/' + m.h} use:link>Open full file ↗</a>
       </article>
     {/each}
   </div>
@@ -154,6 +156,7 @@
   .cap { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); margin: 10px 0 8px; }
   .cap b { color: var(--ink); }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.55; margin: 8px 0 0; color: #3a352a; background: none; border: none; padding: 0; }
+  .openfile { display: inline-block; margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #2f7fb8; text-decoration: none; border-bottom: 1.5px solid currentColor; }
 
   .redacted { padding: 6px 0 2px; }
   .redacted .bar { height: 13px; background: #1c1a16; border-radius: 2px; margin: 8px 0; }

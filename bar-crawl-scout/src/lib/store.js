@@ -53,3 +53,6 @@ rosters.subscribe((val) => { if (val) writeJSON('hq_rosters_v2', val); });
 export const rosterOwn = derived(rosters, ($r) => buildRosterOwn($r));
 
 export const lastSync = writable((() => { try { return localStorage.getItem('hq_last_sync') || ''; } catch { return ''; } })());
+
+// Local, per-manager scout notes (handle -> free text).
+export const managerNotes = persisted('bcs_mgr_notes', readJSON('bcs_mgr_notes') || {});

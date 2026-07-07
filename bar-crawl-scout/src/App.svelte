@@ -10,6 +10,7 @@
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
+  import ManagerDossier from './components/ManagerDossier.svelte';
   import Trade from './components/Trade.svelte';
   import Faab from './components/Faab.svelte';
   import Intel from './components/Intel.svelte';
@@ -24,6 +25,7 @@
     '/board': Board,
     '/keepers': Keepers,
     '/managers': Managers,
+    '/managers/:id': ManagerDossier,
     '/trade': Trade,
     '/waivers': Faab,
     '/intel': Intel,
