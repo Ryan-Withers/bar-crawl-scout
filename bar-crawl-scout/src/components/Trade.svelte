@@ -1,15 +1,17 @@
 <script>
   import { PLAYERS, PICKVAL, BYUNAME } from '../lib/data.js';
   import { windowVal, pickValue, isRyanPlayer } from '../lib/models.js';
-  import { esc } from '../lib/util.js';
-  import { keepers, mode } from '../lib/store.js';
+  import { keepers, mode, unlocked } from '../lib/store.js';
+  import Receipt from './Receipt.svelte';
+  import Stamp from './Stamp.svelte';
+  import PlayerChip from './PlayerChip.svelte';
 
   $: ks = $keepers;
   $: md = $mode;
 
   let give = [], recv = [];
   let gp = '', gk = '', tp = '', tk = '';
-  let tout = '';
+  let result = null;
 
   $: playerOpts = PLAYERS.slice().sort((a, b) => windowVal(b, ks, md) - windowVal(a, ks, md));
   $: pickOpts = (() => { const o = []; for (const yr of ['2026', '2027']) for (const rd in PICKVAL[yr]) o.push({ v: yr + ':' + rd, label: yr + ' R' + rd + ' (~' + pickValue(yr, +rd, ks, md) + ')' }); return o; })();
@@ -27,23 +29,30 @@
 
   function evaluate() {
     const ryanHit = [...give, ...recv].some((a) => a.kind === 'p' && isRyanPlayer(ks, a.key));
-    if (ryanHit) { tout = '<div class="out"><div class="big bd">Access denied</div>Cannot use Ryan\'s players for analysis. 🔒 The commissioner does not negotiate through your little calculator. Build a deal that does not touch his roster.</div>'; return; }
-    if (!give.length && !recv.length) { tout = '<div class="out">Add assets to each side.</div>'; return; }
-    const diff = T.eff - G.eff; let head, cls;
-    if (Math.abs(diff) <= 8) { head = 'Fair deal'; cls = ''; }
-    else if (diff > 0) { head = 'You win this by ' + diff; cls = 'gd'; }
-    else { head = 'You lose this by ' + Math.abs(diff); cls = 'bd'; }
-    const all = [...give.map((a) => ({ a, side: 'give' })), ...recv.map((a) => ({ a, side: 'get' }))];
-    let swing = all[0]; all.forEach((x) => { if (assetVal(x.a) > assetVal(swing.a)) swing = x; });
-    const lines = [];
-    lines.push('<b>Why:</b> this is not 50 + 50 = 100. Each side is scored as the best asset at full value plus a scarcity premium, with every extra piece worth only 45% (you start a fixed lineup, so depth is replaceable).');
-    if (swing) lines.push('The swing piece is <span class="wk">' + esc(assetLabel(swing.a)) + '</span> (value ' + assetVal(swing.a) + '), the most valuable single asset in the deal. Whoever ends with the best player usually wins the trade.');
+    if (ryanHit && !$unlocked) { result = { blocked: true }; return; }
+    if (!give.length && !recv.length) { result = { empty: true }; return; }
+    const diff = T.eff - G.eff;
+    let head, tone;
+    if (Math.abs(diff) <= 8) { head = 'FAIR POUR'; tone = 'ink'; }
+    else if (diff > 0) { head = `YOU WIN BY ${diff}`; tone = 'neon'; }
+    else { head = `FLEECED BY ${Math.abs(diff)}`; tone = 'red'; }
+    const all = [...give, ...recv];
+    let swing = all[0]; all.forEach((a) => { if (assetVal(a) > assetVal(swing)) swing = a; });
+    // Each rationale is an array of {t, b?, cls?} segments — rendered as markup, no {@html}.
+    const whys = [];
+    whys.push([{ t: 'Not 50 + 50 = 100. Best asset at full value + a scarcity premium; every extra piece worth 45% (you start a fixed lineup).' }]);
+    if (swing) whys.push([{ t: 'Swing piece: ' }, { t: assetLabel(swing), b: true }, { t: ` (${assetVal(swing)}). Whoever ends with the best player usually wins.` }]);
     if (recv.length && give.length) {
-      if (T.top > G.top && recv.length <= give.length) lines.push('<span class="gd">You consolidate up</span> into a bigger single asset (' + T.top + ' vs ' + G.top + '). Good player plus good pick for one great player is a win, because one stud beats two mediums in a starting lineup.');
-      else if (G.top > T.top && give.length < recv.length) lines.push('<span class="bd">You de-consolidate</span>, turning your best asset (' + G.top + ') into several smaller ones (' + T.top + ' top). Only do this if you are deep and desperate for bodies.');
+      if (T.top > G.top && recv.length <= give.length) whys.push([{ t: 'Consolidating up', cls: 'up' }, { t: ` into a bigger single asset (${T.top} vs ${G.top}).` }]);
+      else if (G.top > T.top && give.length < recv.length) whys.push([{ t: 'De-consolidating', cls: 'down' }, { t: ` your best asset (${G.top}) into smaller pieces (${T.top} top).` }]);
     }
-    lines.push('Window mode <b>' + md + '</b>: ' + (md === 'winnow' ? 'final-year studs are valued for 2026 only, so buying a one-year stud for a push is cheaper here than it looks.' : md === 'balanced' ? 'two-year control is rewarded equally across both seasons.' : 'future picks and young players are weighted up.'));
-    tout = '<div class="out"><div class="big ' + cls + '">' + head + '</div>You give effective <b>' + G.eff + '</b> (' + give.length + ' assets), you get effective <b>' + T.eff + '</b> (' + recv.length + ' assets).<br><br>' + lines.map((l) => '• ' + l).join('<br><br>') + '</div>';
+    whys.push([{ t: 'Window ' }, { t: md, b: true }, { t: ': ' + (md === 'winnow' ? 'final-year studs valued for 2026 only.' : md === 'balanced' ? 'both seasons rewarded equally.' : 'future picks and youth weighted up.') }]);
+    result = {
+      head, tone, diff,
+      give: give.map((a) => ({ label: assetLabel(a), val: assetVal(a) })),
+      recv: recv.map((a) => ({ label: assetLabel(a), val: assetVal(a) })),
+      Geff: G.eff, Teff: T.eff, whys,
+    };
   }
 </script>
 
@@ -54,17 +63,48 @@
       <div><div class="ksub">You give</div>
         <div class="siderow"><select bind:value={gp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'p', gp); gp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={gk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'k', gk); gk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {assetLabel(a)} <span on:click={() => rm('give', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <button type="button" class="rm" on:click={() => rm('give', i)} aria-label="Remove">×</button></span>{/each}</div>
         <div class="sidetot">{#if give.length}raw {G.raw} · effective <b>{G.eff}</b>{/if}</div>
       </div>
       <div><div class="ksub">You get</div>
         <div class="siderow"><select bind:value={tp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'p', tp); tp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={tk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'k', tk); tk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {assetLabel(a)} <span on:click={() => rm('get', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <button type="button" class="rm" on:click={() => rm('get', i)} aria-label="Remove">×</button></span>{/each}</div>
         <div class="sidetot">{#if recv.length}raw {T.raw} · effective <b>{T.eff}</b>{/if}</div>
       </div>
     </div>
     <button class="go" on:click={evaluate}>Evaluate</button>
-    {@html tout}
+
+    {#if result}
+      {#if result.blocked}
+        <div class="out"><div class="big bd">Access denied</div>Cannot use Ryan's players. 🔒 The commissioner does not negotiate through your little calculator.</div>
+      {:else if result.empty}
+        <div class="out">The table's empty. Deal someone in.</div>
+      {:else}
+        <Receipt heading="Trade Verdict" subhead="Bar Crawl Order · Trade Machine">
+          <div class="rsection">You give</div>
+          {#each result.give as g}<div class="line"><span>{g.label}</span><b>{g.val}</b></div>{/each}
+          <div class="tot"><span>Effective</span><span>{result.Geff}</span></div>
+          <div class="rgap"></div>
+          <div class="rsection">You get</div>
+          {#each result.recv as g}<div class="line"><span>{g.label}</span><b>{g.val}</b></div>{/each}
+          <div class="tot"><span>Effective</span><span>{result.Teff}</span></div>
+          <div class="rgap"></div>
+          {#each result.whys as w}<p class="why">• {#each w as s}{#if s.b}<b>{s.t}</b>{:else if s.cls}<span class={s.cls}>{s.t}</span>{:else}{s.t}{/if}{/each}</p>{/each}
+          <div class="verdict"><Stamp text={result.head} tone={result.tone} big seed={result.diff} /></div>
+          <span slot="foot">* * * {result.head} * * *</span>
+        </Receipt>
+      {/if}
+    {/if}
   </div>
 </section>
+
+<style>
+  .asset .rm { background: none; border: none; color: var(--muted); font-weight: 700; font-size: 15px; line-height: 1; cursor: pointer; padding: 2px 6px; margin: -4px -4px -4px 0; border-radius: 4px; }
+  .asset .rm:hover { color: var(--stamp-red); background: rgba(214,69,60,.12); }
+  .why .up { color: #2e7d46; font-weight: 700; }
+  .why .down { color: #b5442f; font-weight: 700; }
+  .rsection { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #5a5238; margin-bottom: 3px; }
+  .rgap { height: 12px; }
+  .verdict { display: flex; justify-content: center; margin: 16px 0 4px; }
+</style>

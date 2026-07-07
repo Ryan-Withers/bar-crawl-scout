@@ -53,3 +53,27 @@ rosters.subscribe((val) => { if (val) writeJSON('hq_rosters_v2', val); });
 export const rosterOwn = derived(rosters, ($r) => buildRosterOwn($r));
 
 export const lastSync = writable((() => { try { return localStorage.getItem('hq_last_sync') || ''; } catch { return ''; } })());
+
+// Local, per-manager scout notes (handle -> free text).
+export const managerNotes = persisted('bcs_mgr_notes', readJSON('bcs_mgr_notes') || {});
+
+// Local, per-player scout notes (player name -> free text).
+export const playerNotes = persisted('bcs_player_notes', readJSON('bcs_player_notes') || {});
+
+// A friendly profile name for your saved data (shown on the share code).
+export const profileName = persisted('bcs_profile_name', readJSON('bcs_profile_name') || '');
+
+// Commissioner unlock: when true, Ryan's (your own) files are no longer sealed,
+// so you can weigh up your own trades, keepers and player values like anyone
+// else's. Persisted locally per device. Toggled by the passcode below.
+export const unlocked = persisted('bcs_commish_unlock', readJSON('bcs_commish_unlock') === true);
+const PASSCODE = 'upupcronulla';
+export function tryUnlock(code) {
+  const ok = String(code || '').trim().toLowerCase() === PASSCODE;
+  if (ok) unlocked.set(true);
+  return ok;
+}
+export function relock() { unlocked.set(false); }
+
+// Singleton hover-card state: { name, x, y } | null. A single HoverCard reads it.
+export const hoverCard = writable(null);
