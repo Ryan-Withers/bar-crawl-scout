@@ -9,6 +9,8 @@ import { vsLeague } from '../lib/engine/vsleague';
 import { buildGameLog, logTotals, bestWeek } from '../lib/engine/gamelog';
 import type { GameRow, WeekStats } from '../lib/engine/gamelog';
 import { scoreStats } from '../lib/engine/scoring';
+import { projSummary } from '../lib/engine/projection';
+import type { ProjSummary, ProjRow } from '../lib/engine/projection';
 import * as S from './sleeper';
 import { userHandleMap } from './league';
 import type { PlayerLite } from './types';
@@ -106,6 +108,25 @@ export interface PlayerHistory {
   totals: { games: number; points: number; ppg: number | null };
   best: number | null;
   career: CareerRow[];
+  proj: ProjSummary;
+}
+
+// Zip the (already league-scored) game log against weekly projections.
+async function buildLiveProjection(
+  pid: string,
+  season: string,
+  gameLog: GameRow[],
+  scoring: Record<string, number>,
+): Promise<ProjSummary> {
+  if (!season || !gameLog.length) return { weeks: [], beatRate: null, avgDelta: null };
+  const projByWeek = await Promise.all(
+    gameLog.map((g) => settle(S.getWeekProjections(season, g.week), {} as Record<string, Record<string, number>>)),
+  );
+  const rows: ProjRow[] = gameLog.map((g, i) => {
+    const ps = projByWeek[i][pid];
+    return { week: g.week, proj: ps ? scoreStats(ps, scoring) : 0, actual: g.pts, dnp: g.dnp };
+  });
+  return projSummary(rows);
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -153,7 +174,8 @@ export async function assemblePlayerHistory(
   name: string,
   byId: Record<string, PlayerLite>,
 ): Promise<PlayerHistory> {
-  const empty: PlayerHistory = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [] };
+  const emptyProj: ProjSummary = { weeks: [], beatRate: null, avgDelta: null };
+  const empty: PlayerHistory = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [], proj: emptyProj };
   const pid = resolvePlayerId(name, byId);
   if (!pid) return empty;
   const position = byId[pid][1] || '';
@@ -196,7 +218,8 @@ export async function assemblePlayerHistory(
   }
 
   const [gameLog, career] = await Promise.all([gameLogP, careerP]);
-  // Chain/gamelog/career key off the Sleeper player_id resolved above.
+  const proj = await buildLiveProjection(pid, curSeason, gameLog, scoring);
+  // Chain/gamelog/career/proj key off the Sleeper player_id resolved above.
   return {
     chain: chainOfCustody(pid, seasonData),
     vs: vsLeague(vsLines),
@@ -204,5 +227,6 @@ export async function assemblePlayerHistory(
     totals: logTotals(gameLog),
     best: bestWeek(gameLog),
     career,
+    proj,
   };
 }
