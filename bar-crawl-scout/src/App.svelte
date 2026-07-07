@@ -1,9 +1,11 @@
 <script>
   import { onMount } from 'svelte';
-  import { mode, lastSync } from './lib/store.js';
-  import { MODEHINT, PLAYERS } from './lib/data.js';
+  import { QueryClientProvider } from '@tanstack/svelte-query';
+  import { queryClient } from './api/queries';
+  import { lastSync } from './lib/store.js';
+  import { PLAYERS } from './lib/data.js';
   import { autoLoad } from './lib/sync.js';
-  import NeonSign from './components/NeonSign.svelte';
+  import Masthead from './components/Masthead.svelte';
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
@@ -24,32 +26,12 @@
     { id: 'plan', label: 'Intel' },
     { id: 'sync', label: 'Sync' },
   ];
-  const MODES = [
-    { m: 'winnow', label: 'Win-now' },
-    { m: 'balanced', label: 'Balanced' },
-    { m: 'future', label: 'Future' },
-  ];
   let active = 'board';
 </script>
 
+<QueryClientProvider client={queryClient}>
 <div class="wrap">
-  <header class="mast">
-    <div>
-      <p class="eyebrow">File 00 / The Back Room</p>
-      <NeonSign />
-    </div>
-    <div>
-      <div class="modebar">
-        <span class="lbl">Window mode</span>
-        <div class="seg">
-          {#each MODES as m}
-            <button class:on={$mode === m.m} on:click={() => ($mode = m.m)}>{m.label}</button>
-          {/each}
-        </div>
-      </div>
-      <p class="modehint">{MODEHINT[$mode]}</p>
-    </div>
-  </header>
+  <Masthead />
 
   <nav class="tabs">
     {#each TABS as t}
@@ -75,6 +57,7 @@
 
   <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · {$lastSync ? 'Sleeper synced ' + $lastSync : 'Sleeper not yet synced'}</p>
 </div>
+</QueryClientProvider>
 
 <datalist id="plist">
   {#each PLAYERS as p}<option value={p[1]}></option>{/each}

@@ -1,0 +1,35 @@
+// TanStack Query setup: one client, typed query-option factories with per-endpoint
+// stale times (blueprint 2.3). Components call createQuery(leagueQuery()) etc.
+import { QueryClient } from '@tanstack/svelte-query';
+import * as S from './sleeper';
+import { loadPlayers } from './players';
+
+const MIN = 60_000;
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 5 * MIN, refetchOnWindowFocus: true, retry: 2, gcTime: 60 * MIN },
+  },
+});
+
+export const qk = {
+  league: ['league'] as const,
+  users: ['users'] as const,
+  rosters: ['rosters'] as const,
+  state: ['state'] as const,
+  players: ['players'] as const,
+  founding: ['founding'] as const,
+  matchups: (w: number) => ['matchups', w] as const,
+  transactions: (w: number) => ['transactions', w] as const,
+  trendingAdds: ['trending', 'add'] as const,
+};
+
+export const leagueQuery = () => ({ queryKey: qk.league, queryFn: () => S.getLeague() });
+export const usersQuery = () => ({ queryKey: qk.users, queryFn: () => S.getUsers() });
+export const rostersQuery = () => ({ queryKey: qk.rosters, queryFn: () => S.getRosters(), staleTime: 5 * MIN });
+export const stateQuery = () => ({ queryKey: qk.state, queryFn: () => S.getState(), staleTime: 30 * MIN });
+export const playersQuery = () => ({ queryKey: qk.players, queryFn: loadPlayers, staleTime: 24 * 60 * MIN });
+export const foundingQuery = () => ({ queryKey: qk.founding, queryFn: () => S.getFoundingSeason(), staleTime: Infinity, gcTime: Infinity });
+export const matchupsQuery = (week: number) => ({ queryKey: qk.matchups(week), queryFn: () => S.getMatchups(week), staleTime: 30_000 });
+export const transactionsQuery = (week: number) => ({ queryKey: qk.transactions(week), queryFn: () => S.getTransactions(week), staleTime: 2 * MIN });
+export const trendingAddsQuery = () => ({ queryKey: qk.trendingAdds, queryFn: () => S.getTrendingAdds(25), staleTime: 30 * MIN });

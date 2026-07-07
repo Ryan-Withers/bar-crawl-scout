@@ -29,11 +29,11 @@
   .neonsign,
   .neonsign .buzz {
     text-shadow:
-      0 0 4px #EAF6FF,
-      0 0 11px #B7E3FF,
-      0 0 22px #82C9FC,
-      0 0 42px rgba(130, 201, 252, 0.72),
-      0 0 78px rgba(130, 201, 252, 0.45);
+      0 0 1px #EAF6FF,
+      0 0 5px #B7E3FF,
+      0 0 13px rgba(130, 201, 252, 0.85),
+      0 0 28px rgba(130, 201, 252, 0.45),
+      0 0 50px rgba(130, 201, 252, 0.22);
   }
   .neonsign .buzz { animation: buzz 11s linear infinite 3.2s; }
   .est {
