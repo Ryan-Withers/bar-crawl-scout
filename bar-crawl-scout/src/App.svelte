@@ -24,6 +24,7 @@
   import Gameday from './components/Gameday.svelte';
   import Wall from './components/Wall.svelte';
   import Settings from './components/Settings.svelte';
+  import MyTeam from './components/MyTeam.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -32,7 +33,8 @@
   onMount(autoLoad);
 
   const routes = {
-    '/': Board,
+    '/': MyTeam,
+    '/myteam': MyTeam,
     '/board': Board,
     '/keepers': Keepers,
     '/managers': Managers,
@@ -51,6 +53,7 @@
     '*': Stub,
   };
   const NAV = [
+    { p: '/myteam', l: 'My Team' },
     { p: '/board', l: 'Board' },
     { p: '/keepers', l: 'Keepers' },
     { p: '/managers', l: 'Managers' },
@@ -65,7 +68,7 @@
   ];
 
   // The window-mode control only means something on valuation pages.
-  const MODE_ROUTES = ['/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/intel'];
+  const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/intel'];
   $: showMode = $location === '/' || MODE_ROUTES.some((r) => $location.startsWith(r));
 
   function openPalette() { window.dispatchEvent(new CustomEvent('palette:open')); }
