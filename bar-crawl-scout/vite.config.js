@@ -10,5 +10,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.js'],
+    setupFiles: ['./vitest.setup.js'], // frozen clock + no-network tripwire
   },
 });
