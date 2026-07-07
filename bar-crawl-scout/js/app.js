@@ -7,3 +7,4 @@ $("#plist").innerHTML=PLAYERS.map(p=>'<option value="'+esc(p[1])+'">').join("");
 document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));b.classList.add("on");$("#"+b.dataset.tab).classList.add("on");}));
 function renderAll(){renderBoard();renderEditor();renderMgrs();renderPlan();}
 renderSortOptions();updateViewBtns();fillTradeSelects();renderTrade();setFresh();renderAll();
+autoLoadLive();

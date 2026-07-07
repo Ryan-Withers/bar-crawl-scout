@@ -1,6 +1,24 @@
 "use strict";
 /* ===== SYNC + BACKUP ===== */
 async function jget(u){const r=await fetch(u);if(!r.ok)throw new Error(u+" -> "+r.status);return r.json();}
+
+/* ===== LIVE AUTO-LOAD (reads the Worker's cached rosters on page open) ===== */
+/* Pure adapter: the Worker returns {ts, rosters:{handle:{count,players}}}; the site's
+   roster store (hq_rosters_v2) is {t, byHandle}. Kept separate so it is unit-testable. */
+function liveToStore(data){return {t:(data&&data.ts)||"",byHandle:(data&&data.rosters)||{}};}
+async function autoLoadLive(){
+  if(!SYNC_URL||typeof fetch!=="function")return;
+  try{
+    const r=await fetch(SYNC_URL);
+    if(!r.ok)return;
+    const data=await r.json();
+    if(!data||!data.rosters)return;
+    try{localStorage.setItem("hq_rosters_v2",JSON.stringify(liveToStore(data)));}catch(e){}
+    buildRosterOwn();renderBoard();renderMgrs();
+    const f=$("#freshness");
+    if(f)f.textContent="Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · Live rosters "+(data.ts?new Date(data.ts).toLocaleString():"loaded");
+  }catch(e){/* offline / blocked: keep cached data, manual Sync still available */}
+}
 async function runSync(out){out.innerHTML='<div class="out">Syncing from Sleeper... pulling the league, drafts and 17 weeks of transactions, this takes a few seconds.</div>';
   try{const league=await jget("https://api.sleeper.app/v1/league/"+LG2026);const users=await jget("https://api.sleeper.app/v1/league/"+LG2026+"/users");const rosters=await jget("https://api.sleeper.app/v1/league/"+LG2026+"/rosters");const tp=await jget("https://api.sleeper.app/v1/league/"+LG2026+"/traded_picks");
     let rid2name=Object.assign({},ROSTER2025);

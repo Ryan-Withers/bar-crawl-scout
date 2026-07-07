@@ -63,7 +63,8 @@ function runChecks() {
   const bridge = d.createElement("script");
   bridge.textContent =
     'window.__d={TEAMS:TEAMS,KS:KS,CAPITAL:CAPITAL,MGRS:MGRS,LEAN:LEAN,' +
-    'REBUILD:[...REBUILD],CONTEND:[...CONTEND],PLAYERS:PLAYERS,RYAN:RYAN};';
+    'REBUILD:[...REBUILD],CONTEND:[...CONTEND],PLAYERS:PLAYERS,RYAN:RYAN,' +
+    'SYNC_URL:SYNC_URL,liveToStore:liveToStore};';
   d.body.appendChild(bridge);
   const D = window.__d;
 
@@ -133,6 +134,13 @@ function runChecks() {
   d.querySelector("#psearch").value = "nix"; d.querySelector("#psearch").dispatchEvent(new window.Event("input"));
   ok(!!rowOf("Bo Nix"), "non-keeper stays in the pool and is searchable");
   d.querySelector("#psearch").value = ""; d.querySelector("#psearch").dispatchEvent(new window.Event("input"));
+
+  // ---- live auto-load adapter: Worker {ts,rosters} -> roster store {t,byHandle} ----
+  ok(typeof D.SYNC_URL === "string", "SYNC_URL config constant is present");
+  const mapped = D.liveToStore({ ts: "2026-07-07T00:00:00Z",
+    rosters: { joshleota: { count: 1, players: [{ n: "Chris Olave", p: "WR", t: "NO", s: true }] } } });
+  ok(mapped.t === "2026-07-07T00:00:00Z", "liveToStore carries the Worker timestamp");
+  ok(mapped.byHandle.joshleota.players[0].n === "Chris Olave", "liveToStore maps rosters -> byHandle");
 
   // ---- live roster display: info only, does not gate the pool ----
   const inj = d.createElement("script");

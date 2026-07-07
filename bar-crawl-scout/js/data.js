@@ -2,6 +2,9 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LG2026="1311995695032467456",LG2025="1180128113145339904",LG2024="1115940789416312832";
+/* Live sync Worker (Cloudflare): serves cached rosters on an hourly cron so the site auto-loads
+   them on open, with no manual Sync tap and no 5MB player download. Empty string = disabled. */
+const SYNC_URL="https://bar-crawl-scout.ryan-96e.workers.dev";
 
 const PLAYERS=[
  [1,"Jahmyr Gibbs","RB","DET",6,1.3,"prime"],[2,"Bijan Robinson","RB","ATL",11,1.7,"prime"],
