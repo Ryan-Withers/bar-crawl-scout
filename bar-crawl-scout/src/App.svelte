@@ -16,6 +16,7 @@
   import Intel from './components/Intel.svelte';
   import SyncPage from './components/Sync.svelte';
   import PlayerFile from './components/PlayerFile.svelte';
+  import HoverCard from './components/HoverCard.svelte';
   import Stub from './components/Stub.svelte';
 
   // Pull live rosters from the Worker on open (silent if offline/blocked).
@@ -65,6 +66,8 @@
     <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · The Back Room build</p>
   </div>
 </QueryClientProvider>
+
+<HoverCard />
 
 <datalist id="plist">
   {#each PLAYERS as p}<option value={p[1]}></option>{/each}
