@@ -155,16 +155,16 @@
       {#if views.length}<optgroup label="My draft boards">{#each views as v}<option value={'view:' + v.id}>{v.name}</option>{/each}</optgroup>{/if}
       <optgroup label="———"><option value="__new">+ Build a new draft board</option></optgroup>
     </select>
-    {#if av && !canOrder}<span class="chip primary" on:click={backToRanking} role="button" tabindex="0">↕ Back to my ranking</span>{/if}
-    {#if av}<span class="chip" on:click={renameView} role="button" tabindex="0">Rename</span>{/if}
-    {#if av}<span class="chip" on:click={deleteView} role="button" tabindex="0">Delete</span>{/if}
-    {#if av}<span class="chip" on:click={resetView} role="button" tabindex="0">Reset to WIN order</span>{/if}
+    {#if av && !canOrder}<button type="button" class="chip primary" on:click={backToRanking}>↕ Back to my ranking</button>{/if}
+    {#if av}<button type="button" class="chip" on:click={renameView}>Rename</button>{/if}
+    {#if av}<button type="button" class="chip" on:click={deleteView}>Delete</button>{/if}
+    {#if av}<button type="button" class="chip" on:click={resetView}>Reset to WIN order</button>{/if}
     <div class="chips">
-      {#each POS as pos}<span class="chip" class:on={posFilter === pos} on:click={() => (posFilter = pos)} role="button" tabindex="0">{pos === 'ALL' ? 'All pos' : pos}</span>{/each}
+      {#each POS as pos}<button type="button" class="chip" class:on={posFilter === pos} on:click={() => (posFilter = pos)}>{pos === 'ALL' ? 'All pos' : pos}</button>{/each}
     </div>
     <div class="chips">
-      <span class="chip" class:on={poolOnly} on:click={() => (poolOnly = !poolOnly)} role="button" tabindex="0">In pool only</span>
-      <span class="chip" class:on={hideDrafted} on:click={() => (hideDrafted = !hideDrafted)} role="button" tabindex="0">Hide drafted</span>
+      <button type="button" class="chip" class:on={poolOnly} on:click={() => (poolOnly = !poolOnly)}>In pool only</button>
+      <button type="button" class="chip" class:on={hideDrafted} on:click={() => (hideDrafted = !hideDrafted)}>Hide drafted</button>
     </div>
     <select class="tagfiltersel" bind:value={tagFilter}>
       <option value="">Filter by tag</option>{#each TAGS as t}<option value={t.k}>{t.l}</option>{/each}
@@ -215,7 +215,7 @@
           </tr>
           {#if openTag === row.p[1]}
             <tr class="tagrow"><td></td><td colspan="9"><div class="tagpick"><span class="tglbl">Tags:</span>
-              {#each TAGS as t}{@const on = tagsOf(row.p[1]).includes(t.k)}<span class="tg" class:on on:click={() => toggleTag(row.p[1], t.k)} role="button" tabindex="0" style={on ? `background:${t.c}22;color:${t.c};border-color:${t.c}` : ''}>{t.l}</span>{/each}
+              {#each TAGS as t}{@const on = tagsOf(row.p[1]).includes(t.k)}<button type="button" class="tg" class:on on:click={() => toggleTag(row.p[1], t.k)} style={on ? `background:${t.c}22;color:${t.c};border-color:${t.c}` : ''}>{t.l}</button>{/each}
             </div></td></tr>
           {/if}
         {:else}
@@ -231,7 +231,7 @@
      .toolbar/.chip stay global). Colour-variant leaf classes applied via
      template literals (b-vl/b-l/t-*) are :global so Svelte won't prune them. */
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chip { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); border-radius: 20px; padding: 7px 13px; cursor: pointer; }
+  .chip { font-family: var(--mono); font-size: 11px; line-height: 1; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); border-radius: 20px; padding: 7px 13px; cursor: pointer; }
   .chip.on { background: var(--accent); color: var(--on-neon); border-color: var(--accent); }
   .chip.primary { background: var(--accent); color: var(--on-neon); border-color: var(--accent); font-weight: 700; }
   .chip.primary:hover { filter: brightness(1.08); }
@@ -286,7 +286,7 @@
   .tagrow td { background: rgba(244,178,62,.05); border-top: none; }
   .tagpick { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; padding: 7px 2px; }
   .tagpick .tglbl { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-right: 2px; }
-  .tagpick .tg { font-family: var(--mono); font-size: 11px; padding: 5px 11px; border-radius: 16px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); cursor: pointer; user-select: none; }
+  .tagpick .tg { font-family: var(--mono); font-size: 11px; line-height: 1; padding: 6px 11px; border-radius: 16px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); cursor: pointer; user-select: none; }
   .tagpick .tg:hover { color: var(--chalk); }
   select.tagfiltersel { font-family: var(--mono); font-size: 12px; background: var(--field-2); color: var(--chalk); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
 

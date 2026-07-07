@@ -55,8 +55,10 @@
 </script>
 
 {#if open}
-  <div class="scrim" on:click={hide} on:keydown={() => {}} role="presentation">
-    <div class="palette" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-label="Jump to">
+  <!-- Backdrop click (target === self) dismisses; Escape is handled globally. -->
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div class="scrim" on:click={(e) => e.target === e.currentTarget && hide()} role="presentation">
+    <div class="palette" role="dialog" aria-modal="true" aria-label="Jump to">
       <div class="bar">
         <span class="lens">⌕</span>
         <input bind:this={input} bind:value={q} placeholder="Jump to a player or page…" spellcheck="false" />

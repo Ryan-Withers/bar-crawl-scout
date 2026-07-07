@@ -63,13 +63,13 @@
       <div><div class="ksub">You give</div>
         <div class="siderow"><select bind:value={gp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'p', gp); gp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={gk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'k', gk); gk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <span on:click={() => rm('give', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <button type="button" class="rm" on:click={() => rm('give', i)} aria-label="Remove">×</button></span>{/each}</div>
         <div class="sidetot">{#if give.length}raw {G.raw} · effective <b>{G.eff}</b>{/if}</div>
       </div>
       <div><div class="ksub">You get</div>
         <div class="siderow"><select bind:value={tp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'p', tp); tp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={tk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'k', tk); tk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <span on:click={() => rm('get', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <button type="button" class="rm" on:click={() => rm('get', i)} aria-label="Remove">×</button></span>{/each}</div>
         <div class="sidetot">{#if recv.length}raw {T.raw} · effective <b>{T.eff}</b>{/if}</div>
       </div>
     </div>
@@ -100,6 +100,8 @@
 </section>
 
 <style>
+  .asset .rm { background: none; border: none; color: var(--muted); font-weight: 700; font-size: 15px; line-height: 1; cursor: pointer; padding: 2px 6px; margin: -4px -4px -4px 0; border-radius: 4px; }
+  .asset .rm:hover { color: var(--stamp-red); background: rgba(214,69,60,.12); }
   .why .up { color: #2e7d46; font-weight: 700; }
   .why .down { color: #b5442f; font-weight: 700; }
   .rsection { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #5a5238; margin-bottom: 3px; }

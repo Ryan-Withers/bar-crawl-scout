@@ -72,7 +72,7 @@
             {@const d = s[0] ? deltaOf(s[0]) : null}
             <div class="row">
               <input list="plist" value={s[0] || ''} placeholder="keeper {i + 1}" on:change={(e) => onInput(t[0], i, e)} />
-              <span class="cpill {s[1] || 'L'}" on:click={() => togglePill(t[0], i)} role="button" tabindex="0">{s[1] || 'L'}</span>
+              <button type="button" class="cpill {s[1] || 'L'}" on:click={() => togglePill(t[0], i)}>{s[1] || 'L'}</button>
               {#if s[0]}
                 <span class="clock">
                   {#each Array(yearsLeft(s[0])) as _, y}<i>{26 + y}</i>{/each}
@@ -121,7 +121,7 @@
     color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; padding: 4px 2px; border-radius: 0;
   }
   .row input:focus { outline: none; border-bottom-color: #2f7fb8; }
-  .cpill { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; cursor: pointer; border: 1.5px solid; flex: none; }
+  .cpill { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1.5px solid; background: transparent; flex: none; }
   .cpill.VL { color: #b5442f; border-color: #b5442f; }
   .cpill.L { color: #6a4fa0; border-color: #6a4fa0; }
   .cpill.U { color: var(--ink-soft); border-color: var(--ink-soft); cursor: default; }
