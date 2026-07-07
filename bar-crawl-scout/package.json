@@ -17,5 +17,11 @@
     "svelte": "^4.2.19",
     "vite": "^5.4.8",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "^5.2.8",
+    "@fontsource/archivo-black": "^5.2.8",
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7"
   }
 }

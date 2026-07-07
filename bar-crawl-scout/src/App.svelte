@@ -3,6 +3,7 @@
   import { mode, lastSync } from './lib/store.js';
   import { MODEHINT, PLAYERS } from './lib/data.js';
   import { autoLoad } from './lib/sync.js';
+  import NeonSign from './components/NeonSign.svelte';
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
@@ -34,9 +35,8 @@
 <div class="wrap">
   <header class="mast">
     <div>
-      <p class="eyebrow">Official Bar Crawl Order · Half-PPR · 10-team · Keeper</p>
-      <h1 class="title">Bar Crawl <span>Scout</span></h1>
-      <p class="sub">Rankings, manager dossiers, a trade calculator and FAAB reads for the whole league. One team's file is classified (you can probably guess whose). The WIN number is the master metric. Good luck, you will need it.</p>
+      <p class="eyebrow">File 00 / The Back Room</p>
+      <NeonSign />
     </div>
     <div>
       <div class="modebar">
