@@ -205,6 +205,8 @@
   .plate { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; padding: 5px 10px; border-radius: 4px; border: 1.5px solid; white-space: nowrap; }
   .plate.kept, .plate.owned { color: #b5442f; border-color: #b5442f; }
   .plate.free { color: #2f7fb8; border-color: #2f7fb8; }
+  /* Phones: the status plate can't sit beside the name — let the header wrap it below. */
+  @media (max-width: 560px) { .hbar { flex-wrap: wrap; gap: 10px; } .plate { white-space: normal; } }
   .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3a352a; padding: 16px 0 4px; line-height: 1.7; }
   .coasters { display: flex; gap: 14px; flex-wrap: wrap; margin: 18px 0; }
 
