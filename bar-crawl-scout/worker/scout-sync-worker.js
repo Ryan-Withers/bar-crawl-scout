@@ -24,6 +24,10 @@
 //   POST /book/bets   -> { code, bet } -> re-checks the code AND recomputes the bettor's
 //                        weekly spend from ALL stored bets before accepting, so a second
 //                        device can't slip a bet past the $150 cap. Returns { ok, bet, ledger }.
+//   POST /book/grade  -> { code, week } (COMMISSIONER only) -> pulls that week's real
+//                        Sleeper scores and auto-settles every open player-prop bet.
+//   POST /book/settle -> { code, id, status } (COMMISSIONER only) -> manually set one
+//                        bet won|lost|void|open (for futures and overrides).
 //
 //   Optional binding: set a Worker secret/var BET_CODES (JSON like {"BUCKLE":"joshleota"})
 //   to override the codes without editing this file. Falls back to the map below.
@@ -87,6 +91,7 @@ function codes(env) {
   return DEFAULT_CODES;
 }
 const resolveCode = (env, code) => codes(env)[String(code || "").trim().toUpperCase()] || null;
+const COMMISH = "Ryan"; // only the commissioner can settle/grade
 
 async function getBets(env) {
   const raw = await env.SCOUT_KV.get("bets");
@@ -111,9 +116,71 @@ function checkBet(all, handle, week, bet) {
   return { ok: true };
 }
 
+// ---- settlement (mirror of src/lib/engine/settle.ts) ----
+// Pull a week's real fantasy points keyed by player NAME (props are stored by name).
+async function weekPoints(env, week) {
+  const cached = await env.SCOUT_KV.get("players", { type: "json" });
+  const pmap = (cached && cached.map) || {};
+  const matchups = await j(`https://api.sleeper.app/v1/league/${LG2026}/matchups/${week}`);
+  const points = {};
+  (matchups || []).forEach(m => {
+    const pp = m.players_points || {};
+    for (const id in pp) { const e = pmap[id]; if (e) points[e[0]] = pp[id]; }
+  });
+  return points;
+}
+function gradeLeg(pick, ctx) {
+  if (!pick) return "pending";
+  if (pick.kind === "prop") {
+    const pts = ctx.points ? ctx.points[pick.player] : undefined;
+    if (pts == null) return "pending";
+    if (Math.abs(pts - pick.line) < 1e-9) return "push";
+    const over = pts > pick.line;
+    return (pick.side === "over" ? over : !over) ? "won" : "lost";
+  }
+  if (pick.kind === "champ") { if (ctx.champion === undefined) return "pending"; return ctx.champion === pick.handle ? "won" : "lost"; }
+  if (pick.kind === "finals") { if (!ctx.finalists) return "pending"; return ctx.finalists.indexOf(pick.handle) >= 0 ? "won" : "lost"; }
+  return "pending";
+}
+function gradeBet(bet, ctx) {
+  const legs = bet.legs || []; if (!legs.length) return null;
+  const st = legs.map(l => gradeLeg(l.pick, ctx));
+  if (st.indexOf("pending") >= 0) return null;
+  if (bet.kind === "multi") { if (st.indexOf("lost") >= 0) return "lost"; if (st.indexOf("push") >= 0) return "void"; return "won"; }
+  return st[0] === "push" ? "void" : st[0];
+}
+
 async function handleBook(req, env, path) {
   if (path === "/book/bets" && req.method === "GET") {
     return new Response(JSON.stringify({ bets: await getBets(env) }), { headers: CORS });
+  }
+  if (path === "/book/grade" && req.method === "POST") {
+    const body = await req.json().catch(() => ({}));
+    if (resolveCode(env, body.code) !== COMMISH) return new Response(JSON.stringify({ ok: false, reason: "commissioner only" }), { headers: CORS });
+    const week = +body.week; if (!(week > 0)) return new Response(JSON.stringify({ ok: false, reason: "bad week" }), { headers: CORS });
+    const points = await weekPoints(env, week);
+    const all = await getBets(env);
+    let graded = 0;
+    const ledger = all.map(b => {
+      if (b.status !== "open" || +b.week !== week) return b;
+      const next = gradeBet(b, { points });
+      if (next && next !== "open") { graded += 1; return { ...b, status: next, settled: Date.now() }; }
+      return b;
+    });
+    if (graded) await env.SCOUT_KV.put("bets", JSON.stringify(ledger));
+    return new Response(JSON.stringify({ ok: true, graded, ledger }), { headers: CORS });
+  }
+  if (path === "/book/settle" && req.method === "POST") {
+    const body = await req.json().catch(() => ({}));
+    if (resolveCode(env, body.code) !== COMMISH) return new Response(JSON.stringify({ ok: false, reason: "commissioner only" }), { headers: CORS });
+    const status = String(body.status || "");
+    if (["won", "lost", "void", "open"].indexOf(status) < 0) return new Response(JSON.stringify({ ok: false, reason: "bad status" }), { headers: CORS });
+    const all = await getBets(env);
+    let found = false;
+    const ledger = all.map(b => (b.id === body.id ? (found = true, { ...b, status, settled: Date.now() }) : b));
+    if (!found) return new Response(JSON.stringify({ ok: false, reason: "bet not found", ledger: all }), { headers: CORS });
+    await env.SCOUT_KV.put("bets", JSON.stringify(ledger));
+    return new Response(JSON.stringify({ ok: true, ledger }), { headers: CORS });
   }
   if (path === "/book/login" && req.method === "POST") {
     const body = await req.json().catch(() => ({}));

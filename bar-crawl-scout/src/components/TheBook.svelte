@@ -168,9 +168,9 @@
             {@const fKey = 'finals:' + p.handle}
             <div class="orow">
               <span class="nm"><a href={'/managers/' + p.handle} use:link>{TEAMSHORT[p.handle] || p.team}</a></span>
-              <button class="odd" class:on={inSlip(cKey)} on:click={() => add({ key: cKey, market: 'Championship', sel: TEAMSHORT[p.handle], odds: champByHandle[p.handle], label: `${TEAMSHORT[p.handle]} to win the chip` })}>
+              <button class="odd" class:on={inSlip(cKey)} on:click={() => add({ key: cKey, market: 'Championship', sel: TEAMSHORT[p.handle], odds: champByHandle[p.handle], label: `${TEAMSHORT[p.handle]} to win the chip`, pick: { kind: 'champ', handle: p.handle } })}>
                 <em>CHIP</em>{champByHandle[p.handle].toFixed(2)}</button>
-              <button class="odd" class:on={inSlip(fKey)} on:click={() => add({ key: fKey, market: 'Make Finals', sel: TEAMSHORT[p.handle], odds: finalsByHandle[p.handle], label: `${TEAMSHORT[p.handle]} to make finals` })}>
+              <button class="odd" class:on={inSlip(fKey)} on:click={() => add({ key: fKey, market: 'Make Finals', sel: TEAMSHORT[p.handle], odds: finalsByHandle[p.handle], label: `${TEAMSHORT[p.handle]} to make finals`, pick: { kind: 'finals', handle: p.handle } })}>
                 <em>FINALS</em>{finalsByHandle[p.handle].toFixed(2)}</button>
             </div>
           {/each}
@@ -183,8 +183,8 @@
             {@const oKey = 'o:' + pr.name}{@const uKey = 'u:' + pr.name}
             <div class="orow prop">
               <span class="nm"><a href={'/player/' + encodeURIComponent(pr.name)} use:link>{pr.name}</a><small>{pr.pos} · {pr.team}</small></span>
-              <button class="odd" class:on={inSlip(oKey)} on:click={() => add({ key: oKey, market: 'Player O/U', sel: `${pr.name} OVER ${pr.line}`, odds: PROP_ODDS, label: `${pr.name} OVER ${pr.line}` })}><em>O {pr.line}</em>{PROP_ODDS.toFixed(2)}</button>
-              <button class="odd" class:on={inSlip(uKey)} on:click={() => add({ key: uKey, market: 'Player O/U', sel: `${pr.name} UNDER ${pr.line}`, odds: PROP_ODDS, label: `${pr.name} UNDER ${pr.line}` })}><em>U {pr.line}</em>{PROP_ODDS.toFixed(2)}</button>
+              <button class="odd" class:on={inSlip(oKey)} on:click={() => add({ key: oKey, market: 'Player O/U', sel: `${pr.name} OVER ${pr.line}`, odds: PROP_ODDS, label: `${pr.name} OVER ${pr.line}`, pick: { kind: 'prop', player: pr.name, side: 'over', line: pr.line } })}><em>O {pr.line}</em>{PROP_ODDS.toFixed(2)}</button>
+              <button class="odd" class:on={inSlip(uKey)} on:click={() => add({ key: uKey, market: 'Player O/U', sel: `${pr.name} UNDER ${pr.line}`, odds: PROP_ODDS, label: `${pr.name} UNDER ${pr.line}`, pick: { kind: 'prop', player: pr.name, side: 'under', line: pr.line } })}><em>U {pr.line}</em>{PROP_ODDS.toFixed(2)}</button>
             </div>
           {/each}
         </div>

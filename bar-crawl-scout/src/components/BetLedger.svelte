@@ -1,19 +1,47 @@
 <script>
   import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
+  import { createQuery } from '@tanstack/svelte-query';
   import { TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
-  import { bettor, bets, leaderboard, betsFor } from '../lib/bet.js';
-  import { loadBets } from '../lib/betsync.js';
+  import { bettor, bets, leaderboard, betsFor, codeFor } from '../lib/bet.js';
+  import { loadBets, gradeWeek, settleBet } from '../lib/betsync.js';
+  import { stateQuery } from '../api/queries';
   import SportsbookLogo from './SportsbookLogo.svelte';
 
   onMount(loadBets); // pull the shared season ledger off the Worker
 
+  const stateQ = createQuery(stateQuery());
   $: me = $bettor;
+  $: isCommish = me === RYAN; // only Ryan can settle — the Worker enforces it too
   $: board = $leaderboard;
   $: myBets = me ? [...$bets].filter((b) => b.handle === me).sort((a, b) => b.placed - a.placed) : [];
   const nm = (h) => TEAMSHORT[h] || h;
   const fmt = (n) => (n >= 0 ? '+$' : '-$') + Math.abs(Math.round(n * 100) / 100).toFixed(2);
   const STAT = { open: ['OPEN', 'muted'], won: ['WON', 'good'], lost: ['LOST', 'bad'], void: ['VOID', 'muted'] };
+
+  // ---- commissioner settlement ----
+  let gradeWk = 1;
+  $: if ($stateQ.data?.week) gradeWk = gradeWk || $stateQ.data.week;
+  let busy = false;
+  let note = '';
+  $: openBets = isCommish ? [...$bets].filter((b) => b.status === 'open').sort((a, b) => a.week - b.week || a.placed - b.placed) : [];
+
+  async function doGrade() {
+    busy = true; note = '';
+    try {
+      const res = await gradeWeek(codeFor(me), gradeWk);
+      note = res?.ok ? `Graded Week ${gradeWk}: ${res.graded} prop bet${res.graded === 1 ? '' : 's'} settled off live scores.` : `Couldn't grade: ${res?.reason || 'error'}`;
+    } catch { note = 'Grading needs the Worker — it looks unreachable right now.'; }
+    busy = false;
+  }
+  async function doSettle(id, status) {
+    busy = true; note = '';
+    try {
+      const res = await settleBet(codeFor(me), id, status);
+      if (!res?.ok) note = `Couldn't settle: ${res?.reason || 'error'}`;
+    } catch { note = 'Settling needs the Worker — it looks unreachable right now.'; }
+    busy = false;
+  }
 </script>
 
 <section class="ledger">
@@ -35,6 +63,38 @@
       </div>
     {/each}
   </div>
+
+  {#if isCommish}
+    <div class="commish">
+      <div class="chd">🛎️ Commissioner — settle the book</div>
+      <div class="grade">
+        <span>Auto-grade player props for</span>
+        <label>Week <input type="number" min="1" max="18" bind:value={gradeWk} /></label>
+        <button on:click={doGrade} disabled={busy}>{busy ? 'Working…' : 'Grade off live scores'}</button>
+      </div>
+      <p class="ghint">Pulls that week's real Sleeper points and settles every open O/U. Futures and anything else you settle by hand below.</p>
+      {#if note}<div class="note">{note}</div>{/if}
+
+      {#if openBets.length}
+        <div class="opentbl">
+          {#each openBets as b (b.id)}
+            <div class="orow">
+              <span class="ow">{nm(b.handle)}</span>
+              <span class="odesc">{b.kind === 'multi' ? 'Multi ×' + b.legs.length + ': ' : ''}{b.legs.map((l) => l.label).join(' + ')}</span>
+              <span class="owk">Wk {b.week} · ${b.stake.toFixed(0)} @ {b.odds.toFixed(2)}</span>
+              <span class="oact">
+                <button class="w" on:click={() => doSettle(b.id, 'won')} disabled={busy} title="Mark won">W</button>
+                <button class="l" on:click={() => doSettle(b.id, 'lost')} disabled={busy} title="Mark lost">L</button>
+                <button class="v" on:click={() => doSettle(b.id, 'void')} disabled={busy} title="Void / refund">V</button>
+              </span>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="allsettled">No open bets — everything's settled. ✓</div>
+      {/if}
+    </div>
+  {/if}
 
   {#if me}
     <h2>Your slips</h2>
@@ -82,4 +142,22 @@
   .stat { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: .06em; } .stat.good { color: #12ff6e; } .stat.bad { color: var(--stamp-red); } .stat.muted { color: var(--muted); }
   .leg { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--chalk); padding: 2px 0; } .leg .lo { color: #12ff6e; }
   .bft { display: flex; justify-content: space-between; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); } .bft b { color: var(--chalk); }
+
+  .commish { background: linear-gradient(180deg,#12100a,#0d0f08); border: 1px solid rgba(224,166,66,.35); border-radius: 12px; padding: 14px 16px; margin: 24px 0 8px; }
+  .chd { font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase; color: #e0a642; margin-bottom: 10px; }
+  .grade { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .grade label { color: var(--chalk); } .grade input { width: 56px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 6px; padding: 5px 7px; margin-left: 4px; }
+  .grade button { background: #e0a642; color: #241a05; border: none; border-radius: 7px; padding: 8px 14px; font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; cursor: pointer; } .grade button:disabled { opacity: .5; cursor: not-allowed; }
+  .ghint { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); line-height: 1.6; margin: 8px 0 0; }
+  .note { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #e0a642; margin-top: 8px; }
+  .opentbl { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .commish .orow { display: grid; grid-template-columns: 90px 1fr auto auto; align-items: center; gap: 10px; padding: 7px 8px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; }
+  .ow { font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 12.5px; color: var(--chalk); }
+  .odesc { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .owk { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .oact { display: flex; gap: 4px; } .oact button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); font-family: 'Archivo Black', sans-serif; font-size: 11px; cursor: pointer; background: #0b0e15; }
+  .oact .w { color: #12ff6e; } .oact .l { color: var(--stamp-red); } .oact .v { color: var(--muted); }
+  .oact button:hover { border-color: currentColor; } .oact button:disabled { opacity: .5; cursor: not-allowed; }
+  .allsettled { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #7fd8a3; margin-top: 12px; }
+  @media (max-width: 620px) { .commish .orow { grid-template-columns: 1fr auto; } .odesc, .owk { grid-column: 1 / -1; white-space: normal; } }
 </style>

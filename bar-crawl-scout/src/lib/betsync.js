@@ -61,3 +61,29 @@ export async function placeBet(code, bet) {
   if (Array.isArray(data?.ledger)) bets.set(data.ledger);
   return data;
 }
+
+// ---- settlement (commissioner only; the Worker enforces that) ----------------
+
+// Auto-grade every open player-prop bet for a week off Sleeper's real scores.
+// The Worker fetches the scores itself and applies the same rules as settle.ts.
+// Returns { ok, graded, ledger } or { ok:false, reason }.
+export async function gradeWeek(code, week) {
+  const data = await jfetch('/book/grade', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: String(code || '').trim().toUpperCase(), week: +week }),
+  });
+  online.set(true);
+  if (Array.isArray(data?.ledger)) bets.set(data.ledger);
+  return data;
+}
+
+// Manually settle one bet (futures, or an override). status: won|lost|void|open.
+export async function settleBet(code, id, status) {
+  const data = await jfetch('/book/settle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: String(code || '').trim().toUpperCase(), id, status }),
+  });
+  online.set(true);
+  if (Array.isArray(data?.ledger)) bets.set(data.ledger);
+  return data;
+}
