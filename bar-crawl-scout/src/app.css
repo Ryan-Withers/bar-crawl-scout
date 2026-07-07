@@ -152,7 +152,7 @@
     .sub{font-size:12px;max-width:100%}
     .modebar{flex-wrap:wrap}.modebar .seg{flex:1}.modebar button{flex:1}
     nav.tabs{gap:6px;padding:10px 0 6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-    nav.tabs button{font-size:13px;padding:9px 13px;white-space:nowrap}
+    nav.tabs button,nav.tabs a{font-size:13px;padding:9px 13px;white-space:nowrap}
     thead th{top:0;font-size:9px;padding:8px 7px;position:static}
     .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
     tbody td{padding:8px 7px}
@@ -176,7 +176,7 @@
   @media (max-width:420px){
     h1.title{font-size:29px}
     #boardtable th:nth-child(8),#boardtable td:nth-child(8){font-size:13px}
-    nav.tabs button{padding:9px 11px;font-size:12px}
+    nav.tabs button,nav.tabs a{padding:9px 11px;font-size:12px}
   }
 
 /* ===== BACK ROOM: film grain + neon ===== */
@@ -185,7 +185,11 @@ body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;o
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size:140px 140px;mix-blend-mode:overlay}
 .neon-glow{text-shadow:0 0 8px rgba(130,201,252,.55),0 0 24px rgba(130,201,252,.25)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  /* no sliding transforms on hover (chips, peer rows, cards) */
+  *:hover{transform:none!important}
+}
 
 /* ===== router nav links (svelte-spa-router) ===== */
 nav.tabs a{font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.02em;font-size:14px;background:var(--field-2);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer;text-decoration:none;display:inline-block}
