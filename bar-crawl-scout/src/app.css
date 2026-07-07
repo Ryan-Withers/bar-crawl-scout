@@ -16,7 +16,7 @@
   /* Plain intro paragraph shared by Intel/FAAB; Managers overrides on paper. */
   .blurb{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 12px}
   .blurb b{color:var(--chalk)}
-  nav.tabs{display:flex;gap:7px;padding:9px 0 8px;flex-wrap:wrap}
+  nav.tabs{display:flex;gap:6px;padding:8px 0 8px;flex-wrap:wrap;border-top:1px solid var(--line)}
   .tab{display:none;padding-top:14px}.tab.on{display:block}
   .note{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--field-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.6}
   .note b{color:var(--chalk)}
@@ -73,6 +73,6 @@ body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;o
 }
 
 /* ===== router nav links (svelte-spa-router) ===== */
-nav.tabs a{font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.02em;font-size:14px;background:var(--field-2);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer;text-decoration:none;display:inline-block}
+nav.tabs a{font-family:var(--mono);font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;background:var(--field-2);color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:7px 13px;cursor:pointer;text-decoration:none;display:inline-block}
 nav.tabs a.on{background:var(--accent);color:var(--on-neon);border-color:var(--accent)}
 nav.tabs a:hover{color:var(--chalk)}

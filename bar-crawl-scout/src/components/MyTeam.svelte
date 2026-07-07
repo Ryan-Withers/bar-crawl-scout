@@ -1,9 +1,9 @@
 <script>
   import { link } from 'svelte-spa-router';
   import { createQuery } from '@tanstack/svelte-query';
-  import { PLAYERS, BYUNAME, RYAN, TEAMS } from '../lib/data.js';
-  import { windowVal } from '../lib/models.js';
+  import { RYAN, TEAMS } from '../lib/data.js';
   import { keepers, mode, rosters } from '../lib/store.js';
+  import { myRoster } from '../lib/roster.js';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { optimalLineup, byeHoles } from '../lib/engine/lineup.ts';
   import { leagueQuery, stateQuery } from '../api/queries';
@@ -16,29 +16,15 @@
   $: ks = $keepers;
   $: md = $mode;
 
-  // team -> bye, derived from the top-200 board (every teammate shares a bye).
-  const TEAM_BYE = (() => { const m = {}; for (const p of PLAYERS) if (p[3] && p[3] !== 'FA' && !m[p[3]]) m[p[3]] = p[4]; return m; })();
-
   // The league's real starting slots, else a sensible default.
   $: slots = ($leagueQ.data && $leagueQ.data.roster_positions)
     ? rosterShape($leagueQ.data.roster_positions).starters.flatMap((s) => Array(s.n).fill(s.pos))
     : ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
 
   // Your live roster from Sleeper (auto-loaded / synced). Ryan = you.
-  $: mine = $rosters && $rosters.byHandle ? $rosters.byHandle[RYAN] : null;
-
-  // Enrich each rostered player with a projection proxy (board value) + bye.
-  function enrich(pl) {
-    const row = BYUNAME[(pl.n || '').toLowerCase()];
-    const proj = row ? windowVal(row, ks, md) : posDefault(pl.p);
-    const bye = row ? row[4] : (TEAM_BYE[pl.t] || 0);
-    return { name: pl.n, pos: normPos(pl.p), team: pl.t, proj, bye, starter: pl.s };
-  }
-  const normPos = (p) => (p === 'DST' ? 'DEF' : p);
-  const posDefault = (p) => ({ QB: 8, RB: 6, WR: 6, TE: 5, K: 3, DEF: 3, DST: 3 }[p] || 4);
-
-  $: roster = mine ? mine.players.map(enrich) : [];
-  $: result = roster.length ? optimalLineup(roster, slots) : null;
+  $: roster = myRoster($rosters, ks, md);
+  $: mine = roster;
+  $: result = roster && roster.length ? optimalLineup(roster, slots) : null;
   $: holes = result ? byeHoles(result.seats, week) : [];
   $: teamName = (TEAMS.find((t) => t[0] === RYAN) || [RYAN, RYAN])[1].replace(' (YOU)', '');
 </script>

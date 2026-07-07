@@ -53,18 +53,24 @@ export function optimalLineup(players: RosterPlayer[], slots: string[]): LineupR
   const seats: Seat[] = slots.map((_, i) => filled[i]);
   const bench = pool.filter((p) => !used.has(p));
 
-  // Start/sit: a benched player who out-projects a startable seat's occupant.
+  // Start/sit vs your CURRENT Sleeper lineup (the `starter` flags): the optimal
+  // starters you're currently benching, matched against the current starters the
+  // optimizer would sit. If no `starter` flags are set, there's nothing to compare.
+  const inOptimal = new Set(seats.map((s) => s.player).filter((p): p is RosterPlayer => !!p));
+  const shouldStart = seats
+    .map((s) => ({ seat: s, p: s.player }))
+    .filter((x) => x.p && x.p.starter === false)
+    .sort((a, b) => (b.p!.proj) - (a.p!.proj));
+  const shouldSit = players
+    .filter((p) => p.starter === true && !inOptimal.has(p))
+    .sort((a, b) => a.proj - b.proj);
+
   const moves: LineupResult['moves'] = [];
-  for (const b of bench) {
-    let best: { seat: Seat; gain: number } | null = null;
-    for (const s of seats) {
-      if (!eligible(s.slot, b.pos)) continue;
-      const cur = s.player ? s.player.proj : 0;
-      const gain = Math.round((b.proj - cur) * 10) / 10;
-      if (gain > 0 && (!best || gain > best.gain)) best = { seat: s, gain };
-    }
-    if (best) moves.push({ in: b.name, out: best.seat.player ? best.seat.player.name : '(empty)', slot: best.seat.slot, gain: best.gain });
-  }
+  shouldStart.forEach((x, i) => {
+    const out = shouldSit[i];
+    if (!x.p) return;
+    moves.push({ in: x.p.name, out: out ? out.name : '(bench)', slot: x.seat.slot, gain: Math.round((x.p.proj - (out ? out.proj : 0)) * 10) / 10 });
+  });
   moves.sort((a, b) => b.gain - a.gain);
   return { seats, bench, moves };
 }

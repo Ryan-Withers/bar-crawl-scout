@@ -25,6 +25,9 @@
   import Wall from './components/Wall.svelte';
   import Settings from './components/Settings.svelte';
   import MyTeam from './components/MyTeam.svelte';
+  import ByeRadar from './components/ByeRadar.svelte';
+  import Matchup from './components/Matchup.svelte';
+  import Players from './components/Players.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -35,6 +38,8 @@
   const routes = {
     '/': MyTeam,
     '/myteam': MyTeam,
+    '/matchup': Matchup,
+    '/byes': ByeRadar,
     '/board': Board,
     '/keepers': Keepers,
     '/managers': Managers,
@@ -43,6 +48,7 @@
     '/player/:id': PlayerFile,
     '/compare/:a/:b': Compare,
     '/waivers': Faab,
+    '/players': Players,
     '/intel': Intel,
     '/sync': SyncPage,
     '/matchups': Gameday,
@@ -52,23 +58,27 @@
     '/settings': Settings,
     '*': Stub,
   };
-  const NAV = [
-    { p: '/myteam', l: 'My Team' },
-    { p: '/board', l: 'Board' },
-    { p: '/keepers', l: 'Keepers' },
-    { p: '/managers', l: 'Managers' },
-    { p: '/trade', l: 'Trade' },
-    { p: '/waivers', l: 'Waivers' },
-    { p: '/intel', l: 'Intel' },
-    { p: '/matchups', l: 'Gameday' },
-    { p: '/standings', l: 'Table' },
-    { p: '/history', l: 'History' },
-    { p: '/settings', l: 'Rules' },
-    { p: '/sync', l: 'Sync' },
+
+  // Grouped IA: 5 sections, each with its own sub-pages. Primary nav = groups,
+  // secondary nav = the active group's pages. `match` = extra route prefixes
+  // that belong to a group but aren't their own tab (detail/child pages).
+  const GROUPS = [
+    { id: 'team', label: 'My Team', pages: [['/myteam', 'Lineup'], ['/matchup', 'This Week'], ['/byes', 'Bye Radar']] },
+    { id: 'draft', label: 'Draft Room', pages: [['/board', 'Big Board'], ['/keepers', 'Keepers'], ['/trade', 'Trade'], ['/intel', 'Intel']], match: ['/player', '/compare'] },
+    { id: 'league', label: 'The League', pages: [['/standings', 'Table'], ['/matchups', 'Gameday'], ['/managers', 'Managers'], ['/history', 'History']] },
+    { id: 'wire', label: 'The Wire', pages: [['/players', 'Players'], ['/waivers', 'FAAB Desk']] },
+    { id: 'setup', label: 'Setup', pages: [['/settings', 'Rules'], ['/sync', 'Sync']] },
   ];
+  const groupOf = (loc) => {
+    const l = loc === '/' ? '/myteam' : loc;
+    const hit = (p) => l === p || l.startsWith(p + '/'); // segment-boundary match, so /player never matches /players
+    return GROUPS.find((g) =>
+      g.pages.some(([p]) => hit(p)) || (g.match || []).some(hit)) || GROUPS[0];
+  };
+  $: activeGroup = groupOf($location);
 
   // The window-mode control only means something on valuation pages.
-  const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/intel'];
+  const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/players', '/intel'];
   $: showMode = $location === '/' || MODE_ROUTES.some((r) => $location.startsWith(r));
 
   function openPalette() { window.dispatchEvent(new CustomEvent('palette:open')); }
@@ -87,9 +97,14 @@
           <button class="jump" on:click={openPalette}><span class="lens">⌕</span> Jump <kbd>⌘K</kbd></button>
         </div>
       </div>
+      <nav class="groups">
+        {#each GROUPS as g}
+          <a href={g.pages[0][0]} use:link class:on={activeGroup.id === g.id}>{g.label}</a>
+        {/each}
+      </nav>
       <nav class="tabs">
-        {#each NAV as n}
-          <a href={n.p} use:link use:active={{ path: n.p, className: 'on' }}>{n.l}</a>
+        {#each activeGroup.pages as [p, l]}
+          <a href={p} use:link use:active={{ path: p, className: 'on' }}>{l}</a>
         {/each}
       </nav>
     </div>
@@ -112,6 +127,12 @@
   .mark b { color: var(--neon); }
   .mark:hover { color: var(--chalk); }
   .util { display: flex; align-items: center; gap: 10px; }
+  /* Primary group nav — bolder, the section switcher. */
+  .groups { display: flex; gap: 2px; padding: 8px 0 0; flex-wrap: wrap; }
+  .groups a { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; font-size: 14px; color: var(--muted); text-decoration: none; padding: 7px 14px; border-radius: 8px 8px 0 0; border-bottom: 2px solid transparent; }
+  .groups a:hover { color: var(--chalk); }
+  .groups a.on { color: var(--neon); border-bottom-color: var(--neon); }
+  @media (max-width: 760px) { .groups { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; } .groups a { white-space: nowrap; padding: 7px 11px; font-size: 13px; } }
   .jump { display: inline-flex; align-items: center; gap: 6px; background: var(--field-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); font-family: var(--mono); font-size: 11px; }
   .jump:hover { border-color: rgba(130,201,252,.5); color: var(--chalk); }
   .jump .lens { color: var(--neon); font-size: 13px; }

@@ -20,12 +20,25 @@ describe('lineup optimizer', () => {
     expect(bench.map((b) => b.name).sort()).toEqual(['WR3']);
   });
 
-  it('suggests a start/sit when a benched player out-projects a starter', () => {
-    // Give WR3 a huge proj so it should be started over a weaker WR seat.
-    const r2 = roster.map((p) => (p.name === 'WR3' ? { ...p, proj: 30 } : p));
+  it('suggests a start/sit when your current lineup differs from optimal', () => {
+    // Current lineup wrongly benches RB1 (22) and starts WR3 (9) at FLEX.
+    const r2 = roster.map((p) => {
+      if (p.name === 'RB1') return { ...p, starter: false }; // benched but should start
+      if (p.name === 'WR3') return { ...p, starter: true };  // starting but should sit
+      return { ...p, starter: true };
+    });
     const { moves } = optimalLineup(r2, slots);
-    // With WR3=30 it just gets slotted; to force a move, bench a stud:
-    expect(Array.isArray(moves)).toBe(true);
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves[0].in).toBe('RB1');   // start your stud
+    expect(moves[0].out).toBe('WR3');  // over the scrub you're starting
+    expect(moves[0].gain).toBe(13);    // 22 - 9
+  });
+
+  it('reports no moves when the current lineup is already optimal', () => {
+    const opt = optimalLineup(roster, slots);
+    const optNames = new Set(opt.seats.map((s) => s.player && s.player.name));
+    const r = roster.map((p) => ({ ...p, starter: optNames.has(p.name) }));
+    expect(optimalLineup(r, slots).moves).toEqual([]);
   });
 
   it('flags bye-week holes among the starters', () => {
