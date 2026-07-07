@@ -4,6 +4,14 @@
 
 export const SYNC_URL = 'https://bar-crawl-scout.ryan-96e.workers.dev';
 
+// Sleeper league IDs for the manual full Sync (FAAB medians + draft history).
+export const LG2026 = '1311995695032467456';
+export const LG2025 = '1180128113145339904';
+export const LG2024 = '1115940789416312832';
+
+// Thin fetch->JSON helper, throwing on non-200 so callers can degrade gracefully.
+export async function jget(u) { const r = await fetch(u); if (!r.ok) throw new Error(u + ' -> ' + r.status); return r.json(); }
+
 // Pure adapter: the Worker returns {ts, rosters:{handle:{count,players}}}; the app's
 // roster store is {t, byHandle}. Kept separate so it stays trivially unit-testable.
 export function liveToStore(data) {

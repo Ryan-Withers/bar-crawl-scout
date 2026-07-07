@@ -1,10 +1,18 @@
 <script>
+  import { onMount } from 'svelte';
   import { mode, lastSync } from './lib/store.js';
   import { MODEHINT, PLAYERS } from './lib/data.js';
+  import { autoLoad } from './lib/sync.js';
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
   import Intel from './components/Intel.svelte';
+  import Trade from './components/Trade.svelte';
+  import Faab from './components/Faab.svelte';
+  import Sync from './components/Sync.svelte';
+
+  // Pull live rosters from the Worker on open (silent if offline/blocked).
+  onMount(autoLoad);
 
   const TABS = [
     { id: 'board', label: 'Board' },
@@ -55,12 +63,14 @@
     <Keepers />
   {:else if active === 'mgrs'}
     <Managers />
+  {:else if active === 'trade'}
+    <Trade />
+  {:else if active === 'faab'}
+    <Faab />
   {:else if active === 'plan'}
     <Intel />
-  {:else}
-    <section class="tab on">
-      <div class="note">The <b>{TABS.find((t) => t.id === active).label}</b> tab is being ported to the new app — coming shortly.</div>
-    </section>
+  {:else if active === 'sync'}
+    <Sync />
   {/if}
 
   <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · {$lastSync ? 'Sleeper synced ' + $lastSync : 'Sleeper not yet synced'}</p>
