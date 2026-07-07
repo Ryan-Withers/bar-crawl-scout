@@ -29,6 +29,7 @@
   import Matchup from './components/Matchup.svelte';
   import Players from './components/Players.svelte';
   import Playoffs from './components/Playoffs.svelte';
+  import PowerRankings from './components/PowerRankings.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -55,6 +56,7 @@
     '/matchups': Gameday,
     '/standings': Standings,
     '/playoffs': Playoffs,
+    '/power': PowerRankings,
     '/history': Wall,
     '/draft': Stub,
     '/settings': Settings,
@@ -67,7 +69,7 @@
   const GROUPS = [
     { id: 'team', label: 'My Team', pages: [['/myteam', 'Lineup'], ['/matchup', 'This Week'], ['/byes', 'Bye Radar']] },
     { id: 'draft', label: 'Draft Room', pages: [['/board', 'Big Board'], ['/keepers', 'Keepers'], ['/trade', 'Trade'], ['/intel', 'Intel']], match: ['/player', '/compare'] },
-    { id: 'league', label: 'The League', pages: [['/standings', 'Table'], ['/playoffs', 'Playoffs'], ['/matchups', 'Gameday'], ['/managers', 'Managers'], ['/history', 'History']] },
+    { id: 'league', label: 'The League', pages: [['/standings', 'Table'], ['/power', 'Power'], ['/playoffs', 'Playoffs'], ['/matchups', 'Gameday'], ['/managers', 'Managers'], ['/history', 'History']] },
     { id: 'wire', label: 'The Wire', pages: [['/players', 'Players'], ['/waivers', 'FAAB Desk']] },
     { id: 'setup', label: 'Setup', pages: [['/settings', 'Rules'], ['/sync', 'Sync']] },
   ];
