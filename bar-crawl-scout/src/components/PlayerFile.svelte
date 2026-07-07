@@ -2,7 +2,7 @@
   import { link, push } from 'svelte-spa-router';
   import { BYUNAME, MODES, RYAN, TAGTXT, PLAYERS } from '../lib/data.js';
   import { r26, r27, pts26, pts27, windowVal, ownerOf, isKept, isFinalYr, yearsLeft, rosterOwner, isRyanPlayer } from '../lib/models.js';
-  import { keepers, mode, rosterOwn, playerNotes } from '../lib/store.js';
+  import { keepers, mode, rosterOwn, playerNotes, unlocked } from '../lib/store.js';
   import Coaster from './Coaster.svelte';
   import Stamp from './Stamp.svelte';
   import ChainOfCustody from './ChainOfCustody.svelte';
@@ -23,7 +23,7 @@
   $: ks = $keepers;
   $: md = $mode;
   $: own = $rosterOwn;
-  $: classified = p && isRyanPlayer(ks, name);
+  $: classified = p && isRyanPlayer(ks, name) && !$unlocked;
 
   $: w = md === 'winnow' ? MODES.winnow : md === 'balanced' ? MODES.balanced : MODES.future;
   $: R26 = p ? r26(p) : 0;

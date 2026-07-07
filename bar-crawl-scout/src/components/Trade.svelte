@@ -1,7 +1,7 @@
 <script>
   import { PLAYERS, PICKVAL, BYUNAME } from '../lib/data.js';
   import { windowVal, pickValue, isRyanPlayer } from '../lib/models.js';
-  import { keepers, mode } from '../lib/store.js';
+  import { keepers, mode, unlocked } from '../lib/store.js';
   import Receipt from './Receipt.svelte';
   import Stamp from './Stamp.svelte';
   import PlayerChip from './PlayerChip.svelte';
@@ -29,7 +29,7 @@
 
   function evaluate() {
     const ryanHit = [...give, ...recv].some((a) => a.kind === 'p' && isRyanPlayer(ks, a.key));
-    if (ryanHit) { result = { blocked: true }; return; }
+    if (ryanHit && !$unlocked) { result = { blocked: true }; return; }
     if (!give.length && !recv.length) { result = { empty: true }; return; }
     const diff = T.eff - G.eff;
     let head, tone;

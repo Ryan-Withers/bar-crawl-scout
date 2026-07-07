@@ -1,7 +1,7 @@
 <script>
   import { TEAMS, TEAMSHORT, BYUNAME, LEAN, REBUILD, CONTEND } from '../lib/data.js';
   import { needScores, aggrOf, faabTalent, makeOdd, isRyanPlayer } from '../lib/models.js';
-  import { keepers, faab, draft } from '../lib/store.js';
+  import { keepers, faab, draft, unlocked } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
   import Stamp from './Stamp.svelte';
 
@@ -25,7 +25,7 @@
     const stage = p ? (p[6] || 'prime') : 'prime';
     const nm = p ? p[1] : raw;
 
-    if (isRyanPlayer(ks, nm)) { result = { blocked: true }; return; }
+    if (isRyanPlayer(ks, nm) && !$unlocked) { result = { blocked: true }; return; }
 
     const list = TEAMS.map((t) => t[0]).filter((h) => h !== 'Ryan').map((h) => {
       const need = (needScores(ks, h)[pos] || 0) / 10 * 2.5;

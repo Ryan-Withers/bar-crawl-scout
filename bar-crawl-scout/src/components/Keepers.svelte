@@ -1,7 +1,7 @@
 <script>
   import { TEAMS, PROJ, BYUNAME, PLAYERS, RYAN } from '../lib/data.js';
   import { yearsLeft, windowVal, isAvailable } from '../lib/models.js';
-  import { keepers, mode } from '../lib/store.js';
+  import { keepers, mode, unlocked } from '../lib/store.js';
   import Stamp from './Stamp.svelte';
 
   $: ks = $keepers;
@@ -64,7 +64,7 @@
     {#each TEAMS as t, ti}
       <div class="sheet">
         <div class="stitle">{teamName(t[0])} <span>@{t[0]}</span></div>
-        {#if t[0] === RYAN}
+        {#if t[0] === RYAN && !$unlocked}
           <div class="sealed">🔒 <b>CLASSIFIED.</b> The commissioner's ledger is sealed. Go beat someone you can read.</div>
         {:else}
           {#each [0, 1, 2] as i}

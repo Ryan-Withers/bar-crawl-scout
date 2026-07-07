@@ -5,7 +5,7 @@
   import { QueryClientProvider } from '@tanstack/svelte-query';
   import { queryClient } from './api/queries';
   import { PLAYERS, MODEHINT } from './lib/data.js';
-  import { mode } from './lib/store.js';
+  import { mode, unlocked } from './lib/store.js';
   import { autoLoad } from './lib/sync.js';
   import Masthead from './components/Masthead.svelte';
   import SyncCoaster from './components/SyncCoaster.svelte';
@@ -92,6 +92,7 @@
       <div class="topbar">
         <a class="mark" href="/board" use:link>Bar&nbsp;Crawl&nbsp;<b>Scout</b></a>
         <div class="util">
+          {#if $unlocked}<a class="commishchip" href="/settings" use:link title="Commissioner mode — your files are unsealed">🔓</a>{/if}
           <SyncCoaster />
           {#if showMode}<ToggleSwitch />{/if}
           <button class="jump" on:click={openPalette}><span class="lens">⌕</span> Jump <kbd>⌘K</kbd></button>
@@ -127,6 +128,7 @@
   .mark b { color: var(--neon); }
   .mark:hover { color: var(--chalk); }
   .util { display: flex; align-items: center; gap: 10px; }
+  .commishchip { font-size: 15px; text-decoration: none; line-height: 1; }
   /* Primary group nav — bolder, the section switcher. */
   .groups { display: flex; gap: 2px; padding: 8px 0 0; flex-wrap: wrap; }
   .groups a { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; font-size: 14px; color: var(--muted); text-decoration: none; padding: 7px 14px; border-radius: 8px 8px 0 0; border-bottom: 2px solid transparent; }

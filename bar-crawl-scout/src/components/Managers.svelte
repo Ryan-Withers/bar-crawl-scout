@@ -3,7 +3,7 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores } from '../lib/models.js';
-  import { keepers } from '../lib/store.js';
+  import { keepers, unlocked } from '../lib/store.js';
   import { usersQuery, rostersQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { avatarUrl } from '../api/sleeper';
@@ -37,7 +37,7 @@
 
   <div class="grid">
     {#each MGRS as m, i}
-      {@const classified = m.h === RYAN}
+      {@const classified = m.h === RYAN && !$unlocked}
       <article class="folder" style="--rot:{((i * 37 + 11) % 9) - 4}deg">
         <span class="tab">{teamName(m.h)}</span>
         <span class="clip"></span>

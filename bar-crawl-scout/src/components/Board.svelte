@@ -3,7 +3,7 @@
   import {
     windowVal, r26, r27, pts26, pts27, isAvailable, isFinalYr, ownerOf, rosterOwner,
   } from '../lib/models.js';
-  import { keepers, mode, board, rosterOwn } from '../lib/store.js';
+  import { keepers, mode, board, rosterOwn, unlocked } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
 
   const SORTS = [
@@ -45,10 +45,10 @@
     return ord;
   }
 
-  function status(name) {
+  function status(name, unlockedVal) {
     const k = ownerOf(ks, name);
     if (k) {
-      if (k.owner === RYAN) return { kind: 'classified' };
+      if (k.owner === RYAN && !unlockedVal) return { kind: 'classified' };
       if (k.conf === 'U') return { kind: 'watch', owner: k.owner };
       return { kind: 'keeper', cls: k.conf === 'VL' ? 'b-vl' : 'b-l', label: k.conf === 'VL' ? 'VERY LIKELY' : 'LIKELY', owner: k.owner, yr: isFinalYr(ks, name) ? 'final' : '2yr' };
     }
@@ -184,6 +184,7 @@
       </tr></thead>
       <tbody>
         {#each rows as row, i (row.p[1])}
+          {@const st = status(row.p[1], $unlocked)}
           <tr class:drafted={row.dr} class:tierrow={row.tier} class:editing={canOrder}>
             <td class="rk">
               {#if canOrder}<span class="ord"><button on:click={() => move(row.p[1], 'up')} title="Move up">▲</button><button on:click={() => move(row.p[1], 'top')} title="Send to top">⤒</button><button on:click={() => move(row.p[1], 'dn')} title="Move down">▼</button></span>{/if}
@@ -196,10 +197,10 @@
               {#each tagsOf(row.p[1]) as k}{@const t = TAGS.find((x) => x.k === k)}{#if t}<span class="ptag" style="background:{t.c}22;color:{t.c}">{t.l}</span>{/if}{/each}
             </td>
             <td>
-              {#if status(row.p[1]).kind === 'classified'}<span class="badge b-u">🔒 CLASSIFIED</span>
-              {:else if status(row.p[1]).kind === 'watch'}<span class="badge b-pool">POOL</span><span class="badge b-u">WATCH {status(row.p[1]).owner}</span>
-              {:else if status(row.p[1]).kind === 'keeper'}{@const s = status(row.p[1])}<span class="badge {s.cls}">{s.label}</span> <span class="pmeta">{s.owner} · {s.yr}</span>
-              {:else if status(row.p[1]).kind === 'on'}<span class="badge b-pool">POOL</span> <span class="pmeta">on {status(row.p[1]).owner}</span>
+              {#if st.kind === 'classified'}<span class="badge b-u">🔒 CLASSIFIED</span>
+              {:else if st.kind === 'watch'}<span class="badge b-pool">POOL</span><span class="badge b-u">WATCH {st.owner}</span>
+              {:else if st.kind === 'keeper'}<span class="badge {st.cls}">{st.label}</span> <span class="pmeta">{st.owner} · {st.yr}</span>
+              {:else if st.kind === 'on'}<span class="badge b-pool">POOL</span> <span class="pmeta">on {st.owner}</span>
               {:else}<span class="badge b-pool">POOL</span>{/if}
             </td>
             <td class="r26">{r26(row.p)}</td>

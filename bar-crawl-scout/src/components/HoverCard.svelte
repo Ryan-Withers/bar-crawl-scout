@@ -1,5 +1,5 @@
 <script>
-  import { hoverCard, keepers, mode, rosterOwn } from '../lib/store.js';
+  import { hoverCard, keepers, mode, rosterOwn, unlocked } from '../lib/store.js';
   import { BYUNAME, RYAN } from '../lib/data.js';
   import { windowVal, r26, r27, ownerOf, rosterOwner, isFinalYr, isRyanPlayer, yearsLeft } from '../lib/models.js';
 
@@ -13,7 +13,7 @@
   $: WIN = p ? windowVal(p, ks, md) : 0;
   $: k = p ? ownerOf(ks, hc.name) : null;
   $: ro = p ? rosterOwner(own, hc.name) : null;
-  $: classified = p && isRyanPlayer(ks, hc.name);
+  $: classified = p && isRyanPlayer(ks, hc.name) && !$unlocked;
 
   function oneLiner(p, name) {
     if (isFinalYr(ks, name)) return 'Final-year keeper — R27 is a free roster slot, not zero.';

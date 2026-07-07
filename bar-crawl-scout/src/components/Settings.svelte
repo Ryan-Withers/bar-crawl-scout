@@ -3,7 +3,15 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { leagueQuery } from '../api/queries';
+  import { unlocked, tryUnlock, relock } from '../lib/store.js';
   import Skeleton from './Skeleton.svelte';
+
+  let code = '';
+  let err = false;
+  function submit() {
+    if (tryUnlock(code)) { code = ''; err = false; }
+    else { err = true; }
+  }
 
   const leagueQ = createQuery(leagueQuery());
   $: league = $leagueQ.data;
@@ -27,6 +35,22 @@
 <section class="office">
   <div class="eyebrow">File 11 / The Back Office</div>
   <p class="blurb">The exact league config from Sleeper — the same scoring that drives every WIN, R26 and points number on this site. No hardcoding, no half-PPR guesses.</p>
+
+  <!-- Commissioner access — unseal your own files so you can weigh up your trades. -->
+  <div class="card commish" class:on={$unlocked}>
+    <h3>Commissioner Access {#if $unlocked}<span class="badge open">🔓 UNLOCKED</span>{:else}<span class="badge">🔒 SEALED</span>{/if}</h3>
+    {#if $unlocked}
+      <p class="cnote">Your own files are open — Ryan's keepers, dossier, player values and trade eligibility all show like everyone else's, on this device only. Your leaguemates still see them sealed.</p>
+      <button type="button" class="relock" on:click={relock}>Re-seal my files</button>
+    {:else}
+      <p class="cnote">Everyone's files are open to you except your own — the commissioner is sealed so the room can't scout you back. Enter the passcode to unlock your own team for trade math and keeper planning (this device only).</p>
+      <form class="crow" on:submit|preventDefault={submit}>
+        <input type="password" placeholder="passcode" bind:value={code} class:err spellcheck="false" autocomplete="off" />
+        <button type="submit">Unlock</button>
+      </form>
+      {#if err}<div class="cerr">Wrong passcode.</div>{/if}
+    {/if}
+  </div>
 
   {#if league}
     <div class="grid">
@@ -90,5 +114,19 @@
   .sv { font-weight: 700; color: var(--neon); }
   .sv.neg { color: var(--stamp-red); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 60ch; }
+
+  .commish { margin-bottom: 12px; border-color: rgba(214,69,60,.3); }
+  .commish.on { border-color: rgba(130,201,252,.4); }
+  .commish h3 { justify-content: flex-start; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 400; letter-spacing: .06em; color: var(--stamp-red); border: 1px solid rgba(214,69,60,.4); border-radius: 3px; padding: 2px 6px; }
+  .badge.open { color: var(--neon); border-color: rgba(130,201,252,.4); }
+  .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 0 0 10px; max-width: 72ch; }
+  .crow { display: flex; gap: 8px; }
+  .crow input { flex: 0 1 200px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px 11px; }
+  .crow input.err { border-color: var(--stamp-red); }
+  .crow button, .relock { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--neon); color: var(--on-neon); border: none; border-radius: 7px; padding: 8px 16px; cursor: pointer; }
+  .relock { background: var(--barroom); color: var(--muted); border: 1px solid var(--line); }
+  .relock:hover { color: var(--stamp-red); border-color: rgba(214,69,60,.4); }
+  .cerr { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--stamp-red); margin-top: 6px; }
   @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
 </style>

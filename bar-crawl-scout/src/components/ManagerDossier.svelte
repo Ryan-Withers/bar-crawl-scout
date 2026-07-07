@@ -3,7 +3,7 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores, warchest, yearsLeft } from '../lib/models.js';
-  import { keepers, draft, faab, managerNotes } from '../lib/store.js';
+  import { keepers, draft, faab, managerNotes, unlocked } from '../lib/store.js';
   import { usersQuery, rostersQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { avatarUrl } from '../api/sleeper';
@@ -18,7 +18,7 @@
   const rostersQ = createQuery(rostersQuery());
 
   $: m = MGRS.find((x) => x.h === handle);
-  $: classified = handle === RYAN;
+  $: classified = handle === RYAN && !$unlocked;
   $: teamName = (TEAMS.find((t) => t[0] === handle) || [handle, handle])[1];
   $: ks = $keepers;
   $: liveMgrs = $usersQ.data ? managersFromUsers($usersQ.data) : {};
