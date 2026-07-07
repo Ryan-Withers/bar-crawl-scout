@@ -1,6 +1,6 @@
 <script>
-  import { link } from 'svelte-spa-router';
-  import { BYUNAME, MODES, RYAN, TAGTXT } from '../lib/data.js';
+  import { link, push } from 'svelte-spa-router';
+  import { BYUNAME, MODES, RYAN, TAGTXT, PLAYERS } from '../lib/data.js';
   import { r26, r27, pts26, pts27, windowVal, ownerOf, isKept, isFinalYr, yearsLeft, rosterOwner, isRyanPlayer } from '../lib/models.js';
   import { keepers, mode, rosterOwn } from '../lib/store.js';
   import Coaster from './Coaster.svelte';
@@ -24,6 +24,12 @@
   $: ro = p ? rosterOwner(own, name) : null;
   $: tm = p ? (p[3] === 'FA' ? 'FA' : p[3] + ' · bye ' + p[4]) : '';
   $: stageLabel = p && TAGTXT[p[6]] ? TAGTXT[p[6]][1] : '';
+
+  let cmp = '';
+  function doCompare() {
+    const other = BYUNAME[cmp.trim().toLowerCase()];
+    if (other) push('/compare/' + encodeURIComponent(name) + '/' + encodeURIComponent(other[1]));
+  }
 </script>
 
 <section class="file" class:drawer={variant === 'drawer'}>
@@ -73,6 +79,12 @@
           </div>
         </div>
 
+        <div class="cmpbar">
+          <span>⚔ Tale of the tape vs</span>
+          <input list="plist" placeholder="another player…" bind:value={cmp} on:keydown={(e) => e.key === 'Enter' && doCompare()} />
+          <button on:click={doCompare}>Compare</button>
+        </div>
+
         <!-- Live sections stream in the browser; graceful here -->
         {#each [['Game Log', 'this season, receipt-style, per-week league-scored points'], ['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends'], ['Chain of Custody', 'his entire history in this league — drafted, dropped, FAAB, traded, kept'], ['Vs The League', 'what he averages against each manager']] as sec}
           <div class="sheet stub">
@@ -108,6 +120,9 @@
   .math b { color: var(--neon); }
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9fb0a5; margin-top: 8px; line-height: 1.6; }
 
+  .cmpbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
+  .cmpbar input { background: rgba(255,255,255,.45); border: 1px solid rgba(28,26,22,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
+  .cmpbar button { background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
   .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; }
   .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
   .stubbody { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }

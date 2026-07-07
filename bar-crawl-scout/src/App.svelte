@@ -16,6 +16,7 @@
   import Intel from './components/Intel.svelte';
   import SyncPage from './components/Sync.svelte';
   import PlayerFile from './components/PlayerFile.svelte';
+  import Compare from './components/Compare.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import Stub from './components/Stub.svelte';
 
@@ -30,6 +31,7 @@
     '/managers/:id': ManagerDossier,
     '/trade': Trade,
     '/player/:id': PlayerFile,
+    '/compare/:a/:b': Compare,
     '/waivers': Faab,
     '/intel': Intel,
     '/sync': SyncPage,
