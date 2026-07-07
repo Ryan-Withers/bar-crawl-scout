@@ -130,7 +130,7 @@
   .rhead { font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; }
   .lead { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--chalk); margin: 6px 0; }
   .lead .wk { color: var(--neon); font-weight: 700; }
-  .lead b, .foot .bd { color: var(--neon-hot); }
+  .lead b { color: var(--neon-hot); }
   .threats-hd { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--chalk); margin: 14px 0 8px; }
   .threats-hd .star, .star { color: var(--accent); }
   .threats { display: flex; flex-direction: column; gap: 6px; }

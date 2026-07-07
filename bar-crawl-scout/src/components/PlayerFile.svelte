@@ -213,7 +213,6 @@
   .stubhd small { text-transform: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; color: var(--muted); }
   .notes { width: 100%; min-height: 68px; margin-top: 6px; background: var(--barroom); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-family: 'Caveat', cursive; font-size: 17px; color: var(--chalk); resize: vertical; }
   .notes:focus { outline: 2px solid var(--neon); }
-  .stubbody { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
 
   .peers { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
   .peer { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--barroom); transition: border-color .15s, transform .1s; }

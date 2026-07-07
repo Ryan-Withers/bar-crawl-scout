@@ -225,3 +225,86 @@
     </table>
   </div>
 </section>
+
+<style>
+  /* The Big Board owns its table styling (shared primitives like .box/.note/
+     .toolbar/.chip stay global). Colour-variant leaf classes applied via
+     template literals (b-vl/b-l/t-*) are :global so Svelte won't prune them. */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); border-radius: 20px; padding: 7px 13px; cursor: pointer; }
+  .chip.on { background: var(--accent); color: var(--on-neon); border-color: var(--accent); }
+  .chip.primary { background: var(--accent); color: var(--on-neon); border-color: var(--accent); font-weight: 700; }
+  .chip.primary:hover { filter: brightness(1.08); }
+
+  .tablewrap { width: 100%; border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
+  thead th { position: sticky; top: 58px; background: var(--field-3); color: var(--muted); font-weight: 500; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; text-align: right; padding: 10px 9px; border-bottom: 1px solid var(--line); z-index: 5; white-space: nowrap; }
+  thead th:nth-child(2) { text-align: left; }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--chalk); }
+  thead th.activesort { color: var(--accent); }
+  tbody td { padding: 9px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: right; white-space: nowrap; }
+  tbody td:nth-child(2) { text-align: left; white-space: normal; }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.014); }
+  tbody tr.drafted { opacity: .34; }
+  tbody tr.drafted .pname { text-decoration: line-through; }
+  tbody tr.tierrow td { border-top: 2px solid rgba(244,178,62,.4); }
+
+  .rk { color: var(--muted); font-size: 11px; }
+  td.rk { white-space: nowrap; }
+  td.rk .rknum { vertical-align: middle; font-family: var(--mono); color: var(--muted); }
+  tr.editing td.rk { background: rgba(244,178,62,.05); }
+  .pname { font-family: var(--body); font-weight: 600; color: var(--chalk); font-size: 13.5px; }
+  .r26 { color: var(--good); font-weight: 700; }
+  .r27 { color: var(--cool); font-weight: 700; }
+  .pts { color: var(--chalk); }
+  .adp { color: var(--muted); }
+  .win { font-family: var(--display); font-weight: 800; font-size: 17px; color: var(--accent); }
+
+  .badge { display: inline-block; font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; border-radius: 4px; padding: 2px 5px; margin-left: 4px; }
+  .b-pool { background: rgba(79,178,134,.13); color: #7fcfa6; border: 1px solid rgba(79,178,134,.4); }
+  .b-u { background: rgba(244,178,62,.12); color: #e8c074; border: 1px solid rgba(244,178,62,.35); }
+  :global(.b-vl) { background: rgba(224,97,63,.16); color: #e89178; border: 1px solid rgba(224,97,63,.45); }
+  :global(.b-l) { background: rgba(169,143,214,.14); color: #c3aee6; border: 1px solid rgba(169,143,214,.4); }
+
+  .t-pill { display: inline-block; font-family: var(--mono); font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+  :global(.t-riser) { background: rgba(244,178,62,.14); color: var(--accent); }
+  :global(.t-winnow) { background: rgba(90,160,224,.14); color: var(--cool); }
+  :global(.t-prime) { background: rgba(79,178,134,.14); color: var(--good); }
+  :global(.t-rookie) { background: rgba(169,143,214,.14); color: var(--purp); }
+
+  .ord { display: inline-flex; flex-direction: column; gap: 2px; vertical-align: middle; margin-right: 8px; }
+  .ord button { font-family: var(--mono); background: rgba(244,178,62,.12); border: 1px solid var(--accent); color: var(--accent); border-radius: 5px; width: 30px; height: 22px; font-size: 11px; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .ord button:hover { background: var(--accent); color: var(--on-neon); }
+  .draftbtn { font-family: var(--mono); font-size: 10px; border-radius: 6px; padding: 5px 10px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); cursor: pointer; }
+  .draftbtn.on { background: rgba(224,97,63,.2); color: #e89178; border-color: rgba(224,97,63,.5); }
+  .actcell { white-space: nowrap; }
+  .ptag { display: inline-block; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
+  .tagbtn { font-size: 12px; line-height: 1; border-radius: 6px; padding: 4px 7px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); cursor: pointer; margin-left: 2px; }
+  .tagbtn.has { color: var(--accent); border-color: rgba(244,178,62,.45); }
+  .tagbtn.open { background: rgba(244,178,62,.16); color: var(--accent); border-color: var(--accent); }
+  .tagrow td { background: rgba(244,178,62,.05); border-top: none; }
+  .tagpick { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; padding: 7px 2px; }
+  .tagpick .tglbl { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-right: 2px; }
+  .tagpick .tg { font-family: var(--mono); font-size: 11px; padding: 5px 11px; border-radius: 16px; border: 1px solid var(--line); background: var(--field-2); color: var(--muted); cursor: pointer; user-select: none; }
+  .tagpick .tg:hover { color: var(--chalk); }
+  select.tagfiltersel { font-family: var(--mono); font-size: 12px; background: var(--field-2); color: var(--chalk); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+
+  @media (max-width: 760px) {
+    thead th { top: 0; font-size: 9px; padding: 8px 7px; position: static; }
+    .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    tbody td { padding: 8px 7px; }
+    table { font-size: 11.5px; }
+    .win { font-size: 15px; }
+    .pname { font-size: 12.5px; }
+    #boardtable th:nth-child(6), #boardtable td:nth-child(6),
+    #boardtable th:nth-child(7), #boardtable td:nth-child(7),
+    #boardtable th:nth-child(9), #boardtable td:nth-child(9) { display: none; }
+    .chips { width: 100%; }
+    .ord button { width: 30px; height: 30px; }
+    .draftbtn { padding: 6px 10px; }
+  }
+  @media (max-width: 420px) {
+    #boardtable th:nth-child(8), #boardtable td:nth-child(8) { font-size: 13px; }
+  }
+</style>
