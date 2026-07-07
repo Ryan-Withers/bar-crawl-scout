@@ -11,6 +11,8 @@ import type { GameRow, WeekStats } from '../lib/engine/gamelog';
 import { scoreStats } from '../lib/engine/scoring';
 import { projSummary } from '../lib/engine/projection';
 import type { ProjSummary, ProjRow } from '../lib/engine/projection';
+import { buildUsage } from '../lib/engine/usage';
+import type { UsageSummary, UsageInput } from '../lib/engine/usage';
 import * as S from './sleeper';
 import { userHandleMap } from './league';
 import type { PlayerLite } from './types';
@@ -109,6 +111,43 @@ export interface PlayerHistory {
   best: number | null;
   career: CareerRow[];
   proj: ProjSummary;
+  usage: UsageSummary;
+}
+
+type WeekBlob = Record<string, Record<string, number>>;
+const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
+
+// Per-week usage inputs: his own targets/carries/snaps + team denominators
+// summed from the same weekly blob (every teammate's pass_att / rush_att).
+export function usageInputs(
+  pid: string,
+  weeks: number[],
+  weekBlobs: WeekBlob[],
+  byId: Record<string, PlayerLite>,
+): UsageInput[] {
+  const team = byId[pid]?.[2] || '';
+  if (!team || team === 'FA') return [];
+  return weeks.map((week, i) => {
+    const blob = weekBlobs[i] || {};
+    const mine = blob[pid] || {};
+    let teamPassAtt = 0;
+    let teamRushAtt = 0;
+    for (const id in blob) {
+      if (byId[id]?.[2] !== team) continue;
+      teamPassAtt += blob[id].pass_att || 0;
+      teamRushAtt += blob[id].rush_att || 0;
+    }
+    const teamPlays = teamPassAtt + teamRushAtt;
+    return {
+      week,
+      recTgt: num(mine.rec_tgt),
+      rushAtt: num(mine.rush_att),
+      offSnp: num(mine.off_snp),
+      tmOffSnp: num(mine.tm_off_snp),
+      teamPassAtt: teamPassAtt || null,
+      teamPlays: teamPlays || null,
+    };
+  });
 }
 
 // Zip the (already league-scored) game log against weekly projections.
@@ -149,18 +188,15 @@ async function buildLiveCareer(
   return rows.sort((a, b) => Number(a.season) - Number(b.season));
 }
 
-// This season's per-week receipt: raw weekly stats -> league-scored points.
-async function buildLiveGameLog(
+// This season's per-week receipt from pre-fetched weekly blobs.
+function gameLogFromBlobs(
   pid: string,
   position: string,
-  season: string,
-  throughWeek: number,
+  weeks: number[],
+  weekBlobs: WeekBlob[],
   scoring: Record<string, number>,
-): Promise<GameRow[]> {
-  if (!season || throughWeek < 1) return [];
-  const weeks = Array.from({ length: throughWeek }, (_, i) => i + 1);
-  const perWeek = await Promise.all(weeks.map((w) => settle(S.getWeekStats(season, w), {} as Record<string, Record<string, number>>)));
-  const ws: WeekStats[] = weeks.map((w, i) => ({ week: w, opp: '', stats: perWeek[i][pid] || null }));
+): GameRow[] {
+  const ws: WeekStats[] = weeks.map((w, i) => ({ week: w, opp: '', stats: (weekBlobs[i] || {})[pid] || null }));
   return buildGameLog(ws, scoring, position);
 }
 
@@ -175,7 +211,8 @@ export async function assemblePlayerHistory(
   byId: Record<string, PlayerLite>,
 ): Promise<PlayerHistory> {
   const emptyProj: ProjSummary = { weeks: [], beatRate: null, avgDelta: null };
-  const empty: PlayerHistory = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [], proj: emptyProj };
+  const emptyUsage: UsageSummary = { weeks: [], avgTgtShare: null, avgTouch: null, avgSnap: null, snapTrend: null };
+  const empty: PlayerHistory = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [], proj: emptyProj, usage: emptyUsage };
   const pid = resolvePlayerId(name, byId);
   if (!pid) return empty;
   const position = byId[pid][1] || '';
@@ -189,8 +226,9 @@ export async function assemblePlayerHistory(
   const curSeason = st?.season || (league as { season?: string } | null)?.season || '';
   const throughWeek = Math.max(0, (st?.week ?? st?.display_week ?? 0));
 
-  // Current-season game log runs alongside the multi-season walk.
-  const gameLogP = buildLiveGameLog(pid, position, curSeason, throughWeek, scoring);
+  // Fetch each current-season weekly blob ONCE; game log + usage both read it.
+  const curWeeks = curSeason && throughWeek >= 1 ? Array.from({ length: throughWeek }, (_, i) => i + 1) : [];
+  const weekBlobsP = Promise.all(curWeeks.map((w) => settle(S.getWeekStats(curSeason, w), {} as WeekBlob)));
 
   const chainSeasons = await settle(S.getLeagueChain(), [] as Array<{ season: string; league_id: string }>);
   const careerP = buildLiveCareer(pid, chainSeasons.map((c) => c.season), scoring);
@@ -217,9 +255,11 @@ export async function assemblePlayerHistory(
     vsLines.push(...vsLinesForPlayer(pid, matchWeeks as Parameters<typeof vsLinesForPlayer>[1], rh));
   }
 
-  const [gameLog, career] = await Promise.all([gameLogP, careerP]);
+  const [weekBlobs, career] = await Promise.all([weekBlobsP, careerP]);
+  const gameLog = gameLogFromBlobs(pid, position, curWeeks, weekBlobs, scoring);
+  const usage = buildUsage(usageInputs(pid, curWeeks, weekBlobs, byId));
   const proj = await buildLiveProjection(pid, curSeason, gameLog, scoring);
-  // Chain/gamelog/career/proj key off the Sleeper player_id resolved above.
+  // Chain/gamelog/career/proj/usage key off the Sleeper player_id resolved above.
   return {
     chain: chainOfCustody(pid, seasonData),
     vs: vsLeague(vsLines),
@@ -228,5 +268,6 @@ export async function assemblePlayerHistory(
     best: bestWeek(gameLog),
     career,
     proj,
+    usage,
   };
 }

@@ -10,6 +10,7 @@
   import GameLog from './GameLog.svelte';
   import Career from './Career.svelte';
   import Projection from './Projection.svelte';
+  import Usage from './Usage.svelte';
   import { similarPlayers } from '../lib/engine/similar.ts';
   import { assemblePlayerHistory } from '../api/history.ts';
   import { loadPlayers } from '../api/players.ts';
@@ -39,7 +40,7 @@
 
   // Live custody chain + vs-league — walks every season in the browser. Blocked/
   // offline just leaves the empty states in place; guarded against re-fetch churn.
-  const EMPTY_HIST = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [], proj: { weeks: [], beatRate: null, avgDelta: null } };
+  const EMPTY_HIST = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null, career: [], proj: { weeks: [], beatRate: null, avgDelta: null }, usage: { weeks: [], avgTgtShare: null, avgTouch: null, avgSnap: null, snapTrend: null } };
   let hist = EMPTY_HIST;
   let histLoading = false;
   let histFor = '';
@@ -135,12 +136,10 @@
           <Projection summary={hist.proj} loading={histLoading} />
         </div>
 
-        {#each [['Usage', 'target / touch / snap share trends']] as sec}
-          <div class="sheet stub">
-            <div class="stubhd">{sec[0]}</div>
-            <div class="stubbody"><Stamp text="Pulling the file" tone="neon" seed={sec[0].length} /> <span>{sec[1]} — streams from Sleeper in your browser.</span></div>
-          </div>
-        {/each}
+        <!-- Target / touch / snap share off real box-score denominators (live) -->
+        <div class="sheet stub">
+          <Usage summary={hist.usage} loading={histLoading} />
+        </div>
 
         <!-- Head-to-head: what he averages against each manager -->
         <div class="sheet stub">

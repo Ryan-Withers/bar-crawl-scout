@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { rosterHandleMap, buildSeasonData, vsLinesForPlayer } from '../src/api/history';
+import { rosterHandleMap, buildSeasonData, vsLinesForPlayer, usageInputs } from '../src/api/history';
+import { buildUsage } from '../src/lib/engine/usage';
 import { chainOfCustody } from '../src/lib/engine/chain';
 import { vsLeague } from '../src/lib/engine/vsleague';
 
@@ -27,6 +28,32 @@ describe('history resolver', () => {
     const ev = chainOfCustody('X', [sd]);
     expect(ev.map((e) => e.kind)).toEqual(['draft', 'faab']);
     expect(ev[1]).toMatchObject({ handle: 'Trevor', detail: 'FAAB claim · $23' });
+  });
+
+  it('aggregates team denominators from the weekly blob into usage shares', () => {
+    // Our RB "P1" is a DET RB. byId: id -> [name, pos, team]. Team totals summed
+    // from teammates' pass_att / rush_att in the same blob.
+    const byId = {
+      P1: ['Gibbs', 'RB', 'DET'],
+      QB: ['Goff', 'QB', 'DET'],
+      WR: ['StBrown', 'WR', 'DET'],
+      OTHER: ['SomeGuy', 'WR', 'GB'], // different team -> excluded
+    };
+    const week1 = {
+      P1: { rec_tgt: 5, rush_att: 15, off_snp: 40, tm_off_snp: 60, pass_att: 0 },
+      QB: { pass_att: 30, rush_att: 2 },
+      WR: { rec_tgt: 10, rush_att: 0 },
+      OTHER: { pass_att: 99, rush_att: 99 }, // must not leak into DET totals
+    };
+    const inputs = usageInputs('P1', [1], [week1], byId);
+    expect(inputs[0]).toMatchObject({
+      week: 1, recTgt: 5, rushAtt: 15, offSnp: 40, tmOffSnp: 60,
+      teamPassAtt: 30,           // only DET QB
+      teamPlays: 30 + 17,        // DET pass_att(30) + rush_att(15+2+0)
+    });
+    const summary = buildUsage(inputs);
+    expect(summary.weeks[0].tgtShare).toBeCloseTo(16.7, 1); // 5/30
+    expect(summary.avgSnap).toBeCloseTo(66.7, 1);           // 40/60
   });
 
   it('derives vs-the-league lines from weekly matchups', () => {
