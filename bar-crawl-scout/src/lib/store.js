@@ -60,6 +60,9 @@ export const managerNotes = persisted('bcs_mgr_notes', readJSON('bcs_mgr_notes')
 // Local, per-player scout notes (player name -> free text).
 export const playerNotes = persisted('bcs_player_notes', readJSON('bcs_player_notes') || {});
 
+// A friendly profile name for your saved data (shown on the share code).
+export const profileName = persisted('bcs_profile_name', readJSON('bcs_profile_name') || '');
+
 // Commissioner unlock: when true, Ryan's (your own) files are no longer sealed,
 // so you can weigh up your own trades, keepers and player values like anyone
 // else's. Persisted locally per device. Toggled by the passcode below.

@@ -3,6 +3,7 @@
   import { yearsLeft, windowVal, isAvailable } from '../lib/models.js';
   import { keepers, mode, unlocked } from '../lib/store.js';
   import Stamp from './Stamp.svelte';
+  import SeasonNote from './SeasonNote.svelte';
 
   $: ks = $keepers;
   $: md = $mode;
@@ -57,7 +58,7 @@
 <section class="ledger">
   <div class="lednote">
     <span class="eyebrow">File 02 / The Ledger</span>
-    <p>Three keeper slots plus a watch slot per team. Tap the pill to flip L ↔ VL, × to clear. The clock shows contract years; the delta is the keeper's WIN over the best player you'd draft in that slot instead.</p>
+    <SeasonNote page="keepers" />
   </div>
 
   <div class="grid">
@@ -101,7 +102,7 @@
   .ledger { padding-top: 6px; }
   .lednote { margin-bottom: 16px; }
   .lednote .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--neon); }
-  .lednote p { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin: 6px 0 0; max-width: 70ch; }
+  .lednote :global(.note) { margin-top: 6px; margin-bottom: 0; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
   .sheet {

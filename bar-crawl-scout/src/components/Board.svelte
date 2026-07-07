@@ -5,6 +5,7 @@
   } from '../lib/models.js';
   import { keepers, mode, board, rosterOwn, unlocked } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
+  import SeasonNote from './SeasonNote.svelte';
 
   const SORTS = [
     { v: 'win', l: 'WIN (overall, mode)' }, { v: 'r26', l: '2026 value' }, { v: 'r27', l: '2027 value' },
@@ -147,7 +148,7 @@
 </script>
 
 <section class="tab on">
-  <div class="note"><b>WIN</b> ranks everyone for your window; click any header to re-sort. <b>Build a draft board</b> from the dropdown to rank your own way — the <b>draft</b> button crosses players off live.</div>
+  <SeasonNote page="board" />
 
   <div class="toolbar">
     <select value={sortKey} on:change={onSortChange}>

@@ -1,7 +1,7 @@
 <script>
   import { get } from 'svelte/store';
   import { runSync } from '../lib/sync.js';
-  import { keepers, board } from '../lib/store.js';
+  import { keepers, board, playerNotes, managerNotes, profileName } from '../lib/store.js';
   import { TEAMS } from '../lib/data.js';
 
   let status = null; // { kind: 'progress'|'done'|'error', ... }
@@ -9,6 +9,41 @@
   let syncing = false;
 
   async function doSync() { syncing = true; status = null; await runSync((s) => (status = s)); syncing = false; }
+
+  // ---- Cross-device: a shareable code (no server). Copy on one device, paste on another. ----
+  let myCode = '';
+  let pasteCode = '';
+  let codeMsg = '';
+
+  const padKeepers = (ks) => { for (const t of TEAMS) { if (!ks[t[0]]) ks[t[0]] = []; while (ks[t[0]].length < 4) ks[t[0]].push(['', '']); } return ks; };
+  // UTF-8-safe base64 so names/notes with any character survive.
+  const enc = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  const dec = (code) => JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+
+  function snapshot() {
+    return { v: 1, name: get(profileName) || '', ts: new Date().toISOString(),
+      keepers: get(keepers), board: get(board), playerNotes: get(playerNotes), managerNotes: get(managerNotes) };
+  }
+  async function makeCode() {
+    myCode = 'BCS1:' + enc(snapshot());
+    codeMsg = '';
+    try { await navigator.clipboard.writeText(myCode); codeMsg = 'Copied to clipboard — paste it on your other device.'; }
+    catch { codeMsg = 'Select the code below and copy it.'; }
+  }
+  function restoreCode() {
+    codeMsg = '';
+    try {
+      const raw = pasteCode.trim().replace(/^BCS1:/, '');
+      const d = dec(raw);
+      if (d.keepers) keepers.set(padKeepers(d.keepers));
+      if (d.board) board.set(d.board);
+      if (d.playerNotes) playerNotes.set(d.playerNotes);
+      if (d.managerNotes) managerNotes.set(d.managerNotes);
+      if (d.name) profileName.set(d.name);
+      codeMsg = `Restored${d.name ? ' ' + d.name + "'s" : ''} data${d.ts ? ' from ' + new Date(d.ts).toLocaleString() : ''}.`;
+      pasteCode = '';
+    } catch (e) { codeMsg = 'That code did not read — check you copied all of it.'; }
+  }
 
   function exportJSON() {
     const data = { keepers: get(keepers), board: get(board), exported: new Date().toISOString() };
@@ -87,15 +122,40 @@
         {/if}
       {/if}
     </div>
-    <div class="box"><h3>Backup</h3>
-      <div class="note" style="margin-bottom:10px">Export your keepers, board order and notes, or import a backup. So you never lose data and can send it to me.</div>
+    <div class="box"><h3>Backup file</h3>
+      <div class="note" style="margin-bottom:10px">Export your keepers, board order and notes to a file, or import one back. Belt and braces so you never lose your work.</div>
       <div class="toolbar"><button class="add" on:click={exportJSON}>Export JSON</button><button class="add" on:click={importJSON}>Import JSON</button></div>
       <div class="pmeta">{backOut}</div>
     </div>
   </div>
+
+  <!-- Cross-device: a copy-paste code carries your whole profile, no account needed. -->
+  <div class="box wide"><h3>Move to another device</h3>
+    <div class="note" style="margin-bottom:12px">No account, no server — your saved data (keepers, draft boards, notes) rides in one code. Name your profile, copy the code here, then paste it on your phone/other browser to bring everything across.</div>
+
+    <div class="prow">
+      <input class="pname" placeholder="Profile name (e.g. Ryan)" bind:value={$profileName} spellcheck="false" />
+      <button class="add" on:click={makeCode}>Copy my code</button>
+    </div>
+    {#if myCode}<textarea class="code" readonly rows="3" on:focus={(e) => e.target.select()}>{myCode}</textarea>{/if}
+
+    <div class="paste">
+      <div class="ksub">Bring data in from another device</div>
+      <textarea class="code" rows="3" placeholder="Paste a code that starts with BCS1:…" bind:value={pasteCode}></textarea>
+      <button class="add" on:click={restoreCode} disabled={!pasteCode.trim()}>Restore from code</button>
+    </div>
+    {#if codeMsg}<div class="pmeta codemsg">{codeMsg}</div>{/if}
+  </div>
 </section>
 
 <style>
+  .box.wide { margin-top: 4px; }
+  .prow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .pname { flex: 0 1 240px; }
+  .code { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; resize: vertical; word-break: break-all; }
+  .paste { margin-top: 12px; }
+  .paste .add { margin-top: 8px; }
+  .codemsg { color: #7fcfa6; margin-top: 8px; }
   .grid2 { align-items: stretch; }
   .box { display: flex; flex-direction: column; }
   .box .toolbar { margin-top: auto; }
