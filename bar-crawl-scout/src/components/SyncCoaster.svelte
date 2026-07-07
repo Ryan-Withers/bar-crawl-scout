@@ -1,10 +1,9 @@
 <script>
   import { onMount } from 'svelte';
-  import { createQuery, useIsFetching, useQueryClient } from '@tanstack/svelte-query';
+  import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { leagueQuery } from '../api/queries';
 
   const league = createQuery(leagueQuery());
-  const isFetching = useIsFetching();
   const qc = useQueryClient();
 
   let now = Date.now();
@@ -19,7 +18,10 @@
     return Math.round(m / 60) + 'H AGO';
   }
 
-  $: state = $league.isError ? 'offline' : ($isFetching > 0 ? 'syncing' : ($league.data ? 'synced' : 'idle'));
+  // Resolve honestly and stickily: once we've got league data it's SYNCED (even while
+  // a background refetch runs); a failure with no data is OFFLINE; anything before the
+  // first response is SYNCING. No dead-end "connecting forever" state.
+  $: state = $league.data ? 'synced' : ($league.isError ? 'offline' : 'syncing');
   const refresh = () => qc.invalidateQueries();
 </script>
 
