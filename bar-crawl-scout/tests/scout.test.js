@@ -7,9 +7,24 @@
 */
 const fs = require("fs");
 const path = require("path");
-const { JSDOM } = require("jsdom");
+const { JSDOM, ResourceLoader } = require("jsdom");
 
 const HTML = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+
+// The app is split into local css/ + js/ modules. Serve those from disk so the real
+// deployed files are what gets tested, but block http(s) (fonts/CDN) to avoid the
+// network flakiness the suite has always deliberately avoided. Keeping a real https
+// origin (below) also means jsdom localStorage works, which the app relies on.
+class LocalLoader extends ResourceLoader {
+  fetch(url, options) {
+    const m = url.match(/\/(css|js)\/([\w.-]+)$/);
+    if (m) {
+      const file = path.join(__dirname, "..", m[1], m[2]);
+      return Promise.resolve(fs.readFileSync(file));
+    }
+    return null; // block fonts/CDN and anything else external
+  }
+}
 
 // authoritative 2026 keepers (VL/L locked, U = watch/stays in pool)
 const EXPECT = {
@@ -33,6 +48,7 @@ const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; errors.push(msg
 // irrelevant to logic and would only add network flakiness in CI.
 const dom = new JSDOM(HTML, {
   runScripts: "dangerously",
+  resources: new LocalLoader(),
   pretendToBeVisual: true,
   url: "https://timely-souffle-28ce9e.netlify.app/"
 });
@@ -40,14 +56,15 @@ const { window } = dom;
 const uncaught = [];
 window.addEventListener("error", e => uncaught.push(String(e.error || e.message)));
 
-setTimeout(() => {
+function runChecks() {
   const d = window.document;
 
   // bridge: top-level const/let are not on window, so copy them across
   const bridge = d.createElement("script");
   bridge.textContent =
     'window.__d={TEAMS:TEAMS,KS:KS,CAPITAL:CAPITAL,MGRS:MGRS,LEAN:LEAN,' +
-    'REBUILD:[...REBUILD],CONTEND:[...CONTEND],PLAYERS:PLAYERS,RYAN:RYAN};';
+    'REBUILD:[...REBUILD],CONTEND:[...CONTEND],PLAYERS:PLAYERS,RYAN:RYAN,' +
+    'SYNC_URL:SYNC_URL,liveToStore:liveToStore};';
   d.body.appendChild(bridge);
   const D = window.__d;
 
@@ -118,6 +135,13 @@ setTimeout(() => {
   ok(!!rowOf("Bo Nix"), "non-keeper stays in the pool and is searchable");
   d.querySelector("#psearch").value = ""; d.querySelector("#psearch").dispatchEvent(new window.Event("input"));
 
+  // ---- live auto-load adapter: Worker {ts,rosters} -> roster store {t,byHandle} ----
+  ok(typeof D.SYNC_URL === "string", "SYNC_URL config constant is present");
+  const mapped = D.liveToStore({ ts: "2026-07-07T00:00:00Z",
+    rosters: { joshleota: { count: 1, players: [{ n: "Chris Olave", p: "WR", t: "NO", s: true }] } } });
+  ok(mapped.t === "2026-07-07T00:00:00Z", "liveToStore carries the Worker timestamp");
+  ok(mapped.byHandle.joshleota.players[0].n === "Chris Olave", "liveToStore maps rosters -> byHandle");
+
   // ---- live roster display: info only, does not gate the pool ----
   const inj = d.createElement("script");
   inj.textContent =
@@ -150,4 +174,7 @@ setTimeout(() => {
   console.log("\nBar Crawl Scout tests: " + pass + " passed, " + fail + " failed");
   if (fail) { console.log("\nFailures:"); errors.forEach(e => console.log("  - " + e)); }
   process.exit(fail ? 1 : 0);
-}, 400);
+}
+// Wait for external css/js modules to load and execute before probing internals.
+if (window.document.readyState === "complete") setTimeout(runChecks, 100);
+else window.addEventListener("load", () => setTimeout(runChecks, 100));
