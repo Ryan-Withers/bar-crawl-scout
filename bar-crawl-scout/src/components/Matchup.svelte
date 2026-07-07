@@ -9,18 +9,22 @@
   import { optimalLineup } from '../lib/engine/lineup.ts';
   import { pairMatchups } from '../lib/engine/gameday.ts';
   import { winProbability, matchupGrade } from '../lib/engine/matchup.ts';
+  import { projMapFromBlob } from '../api/projections.ts';
   import { userHandleMap } from '../api/league';
-  import { stateQuery, usersQuery, rostersQuery, leagueQuery, matchupsQuery } from '../api/queries';
+  import { stateQuery, usersQuery, rostersQuery, leagueQuery, matchupsQuery, playersQuery, weekProjectionsQuery } from '../api/queries';
   import PlayerChip from './PlayerChip.svelte';
 
   const stateQ = createQuery(stateQuery());
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
   const leagueQ = createQuery(leagueQuery());
+  const playersQ = createQuery(playersQuery());
 
   $: ks = $keepers;
   $: md = $mode;
   $: week = $stateQ.data?.week ?? $stateQ.data?.display_week ?? 0;
+  $: season = $stateQ.data?.season || $leagueQ.data?.season || '';
+  $: scoring = $leagueQ.data?.scoring_settings || {};
   $: slots = ($leagueQ.data && $leagueQ.data.roster_positions)
     ? rosterShape($leagueQ.data.roster_positions).starters.flatMap((s) => Array(s.n).fill(s.pos))
     : ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
@@ -34,6 +38,14 @@
   $: weekStore.set(week);
   const matchupsQ = createQuery(derived(weekStore, ($w) => ({ ...matchupsQuery($w), enabled: $w > 0 })));
 
+  // Live weekly projections, reactive on the NFL week.
+  const projKey = writable({ s: '', w: 0 });
+  $: projKey.set({ s: season, w: week });
+  const projQ = createQuery(derived(projKey, ($k) => ({ ...weekProjectionsQuery($k.s, $k.w), enabled: !!$k.s && $k.w > 0 })));
+  $: projByName = ($projQ.data && $playersQ.data && Object.keys(scoring).length)
+    ? projMapFromBlob($projQ.data, $playersQ.data, scoring) : null;
+  $: liveProj = !!projByName && Object.keys(projByName).length > 0;
+
   // Who do I play this week?
   $: games = ($matchupsQ.data && Object.keys(rosterHandle).length) ? pairMatchups($matchupsQ.data, rosterHandle, TEAMSHORT) : [];
   $: myGame = games.find((g) => g.a.handle === RYAN || (g.b && g.b.handle === RYAN));
@@ -42,15 +54,15 @@
   const teamOf = (h) => (TEAMS.find((t) => t[0] === h) || [h, h])[1].replace(' (YOU)', '');
   // Pass every reactive dep in as an arg so Svelte tracks the dependency and
   // never runs this before md/ks/slots are assigned.
-  function projTotal(rd, handle, ks, md, slots) {
-    const r = rosterFor(rd, handle, ks, md);
+  function projTotal(rd, handle, ks, md, slots, projByName) {
+    const r = rosterFor(rd, handle, ks, md, projByName);
     if (!r) return null;
     const { seats } = optimalLineup(r, slots);
     const total = seats.reduce((s, x) => s + (x.player ? x.player.proj : 0), 0);
     return { total: Math.round(total * 10) / 10, seats: seats.filter((x) => x.player) };
   }
-  $: me = projTotal($rosters, RYAN, ks, md, slots);
-  $: opp = oppHandle ? projTotal($rosters, oppHandle, ks, md, slots) : null;
+  $: me = projTotal($rosters, RYAN, ks, md, slots, projByName);
+  $: opp = oppHandle ? projTotal($rosters, oppHandle, ks, md, slots, projByName) : null;
   $: winPct = me && opp ? winProbability(me.total, opp.total) : null;
   $: grade = winPct != null ? matchupGrade(winPct) : null;
   const top = (side) => (side ? side.seats.slice().sort((a, b) => b.player.proj - a.player.proj).slice(0, 3) : []);
@@ -59,7 +71,9 @@
 <section class="matchup">
   <div class="eyebrow">My Team · This Week</div>
   <h1>The Matchup{#if week} · Week {week}{/if}</h1>
-  <p class="blurb">Your projected total (optimal lineup) vs your opponent's. Win% from the projected margin. Projections use board value now; live weekly numbers slot in during the season.</p>
+  <p class="blurb">Your projected total (optimal lineup) vs your opponent's. Win% from the projected margin.
+    {#if liveProj}<span class="live">● live Week {week} projections (Sleeper)</span>{:else}board-value proxy — real weekly projections load in-season{/if}
+  </p>
 
   {#if !me}
     <div class="empty">No roster loaded yet — it auto-pulls on open, or tap <a href="/sync" use:link>Sync</a> in a real browser.</div>
@@ -112,6 +126,7 @@
   .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
   h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(24px, 4vw, 38px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; max-width: 72ch; }
+  .blurb .live { color: #7fcfa6; }
   .empty a { color: var(--neon); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); padding: 20px 0; }
   .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 22px 18px; }

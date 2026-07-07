@@ -32,4 +32,5 @@ export const playersQuery = () => ({ queryKey: qk.players, queryFn: loadPlayers,
 export const foundingQuery = () => ({ queryKey: qk.founding, queryFn: () => S.getFoundingSeason(), staleTime: Infinity, gcTime: Infinity });
 export const matchupsQuery = (week: number) => ({ queryKey: qk.matchups(week), queryFn: () => S.getMatchups(week), staleTime: 30_000 });
 export const transactionsQuery = (week: number) => ({ queryKey: qk.transactions(week), queryFn: () => S.getTransactions(week), staleTime: 2 * MIN });
+export const weekProjectionsQuery = (season: string, week: number) => ({ queryKey: ['proj', season, week] as const, queryFn: () => S.getWeekProjections(season, week), staleTime: 30 * MIN });
 export const trendingAddsQuery = () => ({ queryKey: qk.trendingAdds, queryFn: () => S.getTrendingAdds(25), staleTime: 30 * MIN });

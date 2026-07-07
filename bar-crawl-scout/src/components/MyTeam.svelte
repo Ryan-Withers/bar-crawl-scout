@@ -1,17 +1,22 @@
 <script>
   import { link } from 'svelte-spa-router';
   import { createQuery } from '@tanstack/svelte-query';
+  import { derived, writable } from 'svelte/store';
   import { RYAN, TEAMS } from '../lib/data.js';
   import { keepers, mode, rosters } from '../lib/store.js';
   import { myRoster } from '../lib/roster.js';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { optimalLineup, byeHoles } from '../lib/engine/lineup.ts';
-  import { leagueQuery, stateQuery } from '../api/queries';
+  import { projMapFromBlob } from '../api/projections.ts';
+  import { leagueQuery, stateQuery, playersQuery, weekProjectionsQuery } from '../api/queries';
   import PlayerChip from './PlayerChip.svelte';
 
   const leagueQ = createQuery(leagueQuery());
   const stateQ = createQuery(stateQuery());
+  const playersQ = createQuery(playersQuery());
   $: week = $stateQ.data?.week ?? $stateQ.data?.display_week ?? 0;
+  $: season = $stateQ.data?.season || $leagueQ.data?.season || '';
+  $: scoring = $leagueQ.data?.scoring_settings || {};
 
   $: ks = $keepers;
   $: md = $mode;
@@ -21,8 +26,16 @@
     ? rosterShape($leagueQ.data.roster_positions).starters.flatMap((s) => Array(s.n).fill(s.pos))
     : ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
 
+  // Live weekly projections (real per-week points), reactive on the NFL week.
+  const projKey = writable({ s: '', w: 0 });
+  $: projKey.set({ s: season, w: week });
+  const projQ = createQuery(derived(projKey, ($k) => ({ ...weekProjectionsQuery($k.s, $k.w), enabled: !!$k.s && $k.w > 0 })));
+  $: projByName = ($projQ.data && $playersQ.data && Object.keys(scoring).length)
+    ? projMapFromBlob($projQ.data, $playersQ.data, scoring) : null;
+  $: liveProj = !!projByName && Object.keys(projByName).length > 0;
+
   // Your live roster from Sleeper (auto-loaded / synced). Ryan = you.
-  $: roster = myRoster($rosters, ks, md);
+  $: roster = myRoster($rosters, ks, md, projByName);
   $: mine = roster;
   $: result = roster && roster.length ? optimalLineup(roster, slots) : null;
   $: holes = result ? byeHoles(result.seats, week) : [];
@@ -32,7 +45,9 @@
 <section class="myteam">
   <div class="eyebrow">File 01 / Your Bench</div>
   <h1>{teamName}</h1>
-  <p class="blurb">Your live roster from Sleeper — auto-synced when you open the app. Change your team on Sleeper and it updates here. Projections use board value now; live weekly projections slot in during the season.</p>
+  <p class="blurb">Your live roster from Sleeper — auto-synced when you open the app. Change your team on Sleeper and it updates here.
+    {#if liveProj}<span class="projsrc live">● Projections: live Week {week} (Sleeper)</span>{:else}<span class="projsrc">Projections: board value (offseason proxy — real weekly numbers load in-season)</span>{/if}
+  </p>
 
   {#if !mine}
     <div class="empty">No roster loaded yet. It auto-pulls from the sync Worker on open — if it's empty, tap <a href="/sync" use:link>Sync</a> in a real browser (the in-app preview blocks the network).</div>
@@ -86,6 +101,8 @@
   .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
   h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 72ch; }
+  .projsrc { color: var(--muted); }
+  .projsrc.live { color: #7fcfa6; }
   .empty a, .alert a { color: var(--neon); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); line-height: 1.7; padding: 20px 0; }
   .alert { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #f0c98a; background: rgba(214,69,60,.1); border: 1px solid rgba(214,69,60,.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; line-height: 1.6; }
