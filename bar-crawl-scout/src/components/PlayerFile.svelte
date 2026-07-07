@@ -1,0 +1,114 @@
+<script>
+  import { link } from 'svelte-spa-router';
+  import { BYUNAME, MODES, RYAN, TAGTXT } from '../lib/data.js';
+  import { r26, r27, pts26, pts27, windowVal, ownerOf, isKept, isFinalYr, yearsLeft, rosterOwner, isRyanPlayer } from '../lib/models.js';
+  import { keepers, mode, rosterOwn } from '../lib/store.js';
+  import Coaster from './Coaster.svelte';
+  import Stamp from './Stamp.svelte';
+
+  export let params = {};
+  export let variant = 'page'; // 'page' | 'drawer'
+  $: name = params.id ? decodeURIComponent(params.id) : '';
+  $: p = BYUNAME[name.toLowerCase()];
+
+  $: ks = $keepers;
+  $: md = $mode;
+  $: own = $rosterOwn;
+  $: classified = p && isRyanPlayer(ks, name);
+
+  $: w = md === 'winnow' ? MODES.winnow : md === 'balanced' ? MODES.balanced : MODES.future;
+  $: R26 = p ? r26(p) : 0;
+  $: R27 = p ? r27(p, ks) : 0;
+  $: WIN = p ? windowVal(p, ks, md) : 0;
+  $: k = p ? ownerOf(ks, name) : null;
+  $: ro = p ? rosterOwner(own, name) : null;
+  $: tm = p ? (p[3] === 'FA' ? 'FA' : p[3] + ' · bye ' + p[4]) : '';
+  $: stageLabel = p && TAGTXT[p[6]] ? TAGTXT[p[6]][1] : '';
+</script>
+
+<section class="file" class:drawer={variant === 'drawer'}>
+  {#if variant === 'page'}<a class="back" href="/board" use:link>← The Big Board</a>{/if}
+
+  {#if !p}
+    <div class="miss">No file on record for "<b>{name}</b>". He's not in the top-200 board — live-only players open once the player blob loads.</div>
+  {:else}
+    <!-- A. HEADER SHEET -->
+    <div class="sheet header">
+      <div class="hbar">
+        <div class="hname">
+          <div class="pos">{p[2]} · {p[3]}{p[4] ? ' · bye ' + p[4] : ''}{stageLabel ? ' · ' + stageLabel : ''}</div>
+          <h1>{name}</h1>
+        </div>
+        {#if classified}
+          <Stamp text="CLASSIFIED" tone="red" big seed={3} />
+        {:else if k && k.conf !== 'U'}
+          <span class="plate kept">PROPERTY OF {k.owner}</span>
+        {:else if ro && ro !== RYAN}
+          <span class="plate owned">ON {ro}'S ROSTER</span>
+        {:else}
+          <span class="plate free">FREE AGENT · ON THE WIRE</span>
+        {/if}
+      </div>
+
+      {#if classified}
+        <div class="sealed">🔒 This file is sealed by the commissioner. His roster is public on Sleeper — this dossier is not.</div>
+      {:else}
+        <div class="coasters">
+          <Coaster value={WIN} label="WIN" tone="neon" />
+          <Coaster value={R26} label="R26" tone="brass" />
+          <Coaster value={R27} label="R27" tone="muted" />
+          <Coaster value={p[5]} label="ADP" tone="muted" />
+          {#if isKept(ks, name)}<Coaster value={yearsLeft(name) === 1 ? '1YR' : '2YR'} label="Contract" tone={isFinalYr(ks, name) ? 'red' : 'neon'} />{/if}
+        </div>
+
+        <!-- B. FORMULA SHEET (chalkboard) -->
+        <div class="chalk">
+          <div class="ceyebrow">The formula, owned · window: {md}</div>
+          <div class="math">
+            WIN = R26 × {w[0]} + R27 × {w[1]}
+          </div>
+          <div class="math sub">= {R26} × {w[0]} + {R27} × {w[1]} = <b>{WIN}</b></div>
+          <div class="cnote">
+            {#if isFinalYr(ks, name)}Final-year keeper: R27 is the replacement value ({R27}), not zero — keeping him frees a slot next year.{:else}P26 {pts26(p)} · P27 {pts27(p, ks) || '—'} projected half-PPR points, to sanity-check the value.{/if}
+          </div>
+        </div>
+
+        <!-- Live sections stream in the browser; graceful here -->
+        {#each [['Game Log', 'this season, receipt-style, per-week league-scored points'], ['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends'], ['Chain of Custody', 'his entire history in this league — drafted, dropped, FAAB, traded, kept'], ['Vs The League', 'what he averages against each manager']] as sec}
+          <div class="sheet stub">
+            <div class="stubhd">{sec[0]}</div>
+            <div class="stubbody"><Stamp text="Pulling the file" tone="neon" seed={sec[0].length} /> <span>{sec[1]} — streams from Sleeper in your browser.</span></div>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {/if}
+</section>
+
+<style>
+  .file { max-width: 760px; padding-top: 6px; }
+  .file.drawer { max-width: none; }
+  .back { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 12px; }
+  .miss { font-family: 'IBM Plex Mono', monospace; color: var(--muted); padding: 30px 0; }
+
+  .sheet.header { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 22px; box-shadow: 0 12px 26px rgba(0,0,0,.4); }
+  .hbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .hname .pos { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .hname h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(30px, 5vw, 52px); text-transform: uppercase; margin: 4px 0 0; line-height: 0.95; }
+  .plate { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; padding: 5px 10px; border-radius: 4px; border: 1.5px solid; white-space: nowrap; }
+  .plate.kept, .plate.owned { color: #b5442f; border-color: #b5442f; }
+  .plate.free { color: #2f7fb8; border-color: #2f7fb8; }
+  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3a352a; padding: 16px 0 4px; line-height: 1.7; }
+  .coasters { display: flex; gap: 14px; flex-wrap: wrap; margin: 18px 0; }
+
+  .chalk { background: #1a211d; border-radius: 6px; padding: 16px 18px; margin: 6px 0 4px; box-shadow: inset 0 0 0 2px rgba(216,222,230,.06); }
+  .ceyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #7f9285; margin-bottom: 8px; }
+  .math { font-family: 'Caveat', cursive; font-size: 26px; color: #eef4ee; }
+  .math.sub { font-size: 22px; color: #cfe8d8; }
+  .math b { color: var(--neon); }
+  .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9fb0a5; margin-top: 8px; line-height: 1.6; }
+
+  .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; }
+  .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
+  .stubbody { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
+</style>

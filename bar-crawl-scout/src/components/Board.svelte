@@ -4,6 +4,7 @@
     windowVal, r26, r27, pts26, pts27, isAvailable, isFinalYr, ownerOf, rosterOwner,
   } from '../lib/models.js';
   import { keepers, mode, board, rosterOwn } from '../lib/store.js';
+  import PlayerChip from './PlayerChip.svelte';
 
   const SORTS = [
     { v: 'win', l: 'WIN (overall, mode)' }, { v: 'r26', l: '2026 value' }, { v: 'r27', l: '2027 value' },
@@ -189,7 +190,7 @@
               <span class="rknum">{i + 1}</span>
             </td>
             <td>
-              <span class="pname">{row.p[1]}</span>
+              <span class="pname"><PlayerChip name={row.p[1]} /></span>
               <span class="pmeta">{row.p[2]} · {tm(row.p)}</span>
               {#if TAGTXT[row.p[6]]}<span class="t-pill {TAGTXT[row.p[6]][0]}">{TAGTXT[row.p[6]][1]}</span>{/if}
               {#each tagsOf(row.p[1]) as k}{@const t = TAGS.find((x) => x.k === k)}{#if t}<span class="ptag" style="background:{t.c}22;color:{t.c}">{t.l}</span>{/if}{/each}

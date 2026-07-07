@@ -15,6 +15,7 @@
   import Faab from './components/Faab.svelte';
   import Intel from './components/Intel.svelte';
   import SyncPage from './components/Sync.svelte';
+  import PlayerFile from './components/PlayerFile.svelte';
   import Stub from './components/Stub.svelte';
 
   // Pull live rosters from the Worker on open (silent if offline/blocked).
@@ -27,6 +28,7 @@
     '/managers': Managers,
     '/managers/:id': ManagerDossier,
     '/trade': Trade,
+    '/player/:id': PlayerFile,
     '/waivers': Faab,
     '/intel': Intel,
     '/sync': SyncPage,

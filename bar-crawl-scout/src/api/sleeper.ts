@@ -28,6 +28,17 @@ export const getTrendingDrops = (limit = 25) =>
   get<TrendingPlayer[]>(`/players/nfl/trending/drop?limit=${limit}`);
 export const getRawPlayers = () => get<Record<string, SleeperPlayer>>(`/players/nfl`);
 
+// Stats + projections (undocumented but stable). Shape: { player_id: { stat_key: value } }.
+export const getWeekStats = (season: string, week: number) =>
+  get<Record<string, Record<string, number>>>(`/stats/nfl/regular/${season}/${week}`);
+export const getSeasonStats = (season: string) =>
+  get<Record<string, Record<string, number>>>(`/stats/nfl/regular/${season}`);
+export const getWeekProjections = (season: string, week: number) =>
+  get<Record<string, Record<string, number>>>(`/projections/nfl/regular/${season}/${week}`);
+// Sleeper-wide ownership: { player_id: { owned, started } }.
+export const getResearch = (season: string, week: number) =>
+  get<Record<string, { owned: number; started: number }>>(`/players/nfl/research/regular/${season}/${week}`);
+
 // CDN helpers.
 export const avatarUrl = (id: string | null | undefined, thumb = true) =>
   id ? `https://sleepercdn.com/avatars/${thumb ? 'thumbs/' : ''}${id}` : '';
