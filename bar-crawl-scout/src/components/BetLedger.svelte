@@ -1,8 +1,12 @@
 <script>
+  import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
   import { TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
   import { bettor, bets, leaderboard, betsFor } from '../lib/bet.js';
+  import { loadBets } from '../lib/betsync.js';
   import SportsbookLogo from './SportsbookLogo.svelte';
+
+  onMount(loadBets); // pull the shared season ledger off the Worker
 
   $: me = $bettor;
   $: board = $leaderboard;

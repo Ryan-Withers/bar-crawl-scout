@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
   import { createQuery } from '@tanstack/svelte-query';
   import { TEAMS, TEAMSHORT, MGRS, PLAYERS, RYAN } from '../lib/data.js';
@@ -7,10 +8,15 @@
   import { rosterFor } from '../lib/roster.js';
   import { powerRankings } from '../lib/engine/power.ts';
   import { futuresOdds, decimalOdds, overUnder } from '../lib/engine/odds.ts';
-  import { bettor, bets, betId, available, balance, weeklyRemaining, multisThisWeek, WEEKLY_CREDIT, WEEKLY_SPEND_CAP, MULTI_CAP, MULTIS_PER_WEEK, login, logout } from '../lib/bet.js';
+  import { bettor, bets, betId, available, balance, weeklyRemaining, multisThisWeek, validateBet, codeFor, WEEKLY_CREDIT, WEEKLY_SPEND_CAP, MULTI_CAP, MULTIS_PER_WEEK, login, logout } from '../lib/bet.js';
+  import { loadBets, verifyCode, placeBet, online } from '../lib/betsync.js';
   import { usersQuery, rostersQuery, stateQuery } from '../api/queries';
   import { userHandleMap, recordsFromRosters } from '../api/league';
   import SportsbookLogo from './SportsbookLogo.svelte';
+
+  // Pull the shared ledger off the Worker on open so everyone's bets and caps are
+  // in sync across devices (silent fall back to local if the Worker's not there).
+  onMount(loadBets);
 
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
@@ -21,7 +27,15 @@
   // ---- identity ----
   let codeInput = '';
   let loginErr = false;
-  function doLogin() { if (login(codeInput)) { codeInput = ''; loginErr = false; } else loginErr = true; }
+  let busy = false;
+  async function doLogin() {
+    busy = true; loginErr = false;
+    const h = await verifyCode(codeInput); // handle | null (bad code) | undefined (Worker offline)
+    busy = false;
+    if (h) { bettor.set(h); codeInput = ''; return; }
+    if (h === undefined && login(codeInput)) { codeInput = ''; return; } // offline: trust the local code map
+    loginErr = true;
+  }
   $: me = $bettor;
   $: meName = me ? (TEAMS.find((t) => t[0] === me) || [me, me])[1].replace(' (YOU)', '') : '';
 
@@ -74,26 +88,45 @@
   $: avail = available($bets, me, week);
   $: multisUsed = multisThisWeek($bets, me, week);
 
-  function placeSingles() {
+  // Route every placement through the Worker — it re-checks the code and the
+  // weekly cap against everyone's stored bets (the thing that stops a second
+  // device double-betting). If the Worker's unreachable we validate locally with
+  // the SAME rules and append to the local store so the tool still works offline.
+  let placeErr = '';
+  async function submit(bet) {
+    try {
+      const res = await placeBet(codeFor(me), bet);
+      if (!res.ok) { placeErr = res.reason || 'bet rejected'; return false; }
+      return true;
+    } catch {
+      const check = validateBet($bets, me, week, bet);
+      if (!check.ok) { placeErr = check.reason; return false; }
+      bets.update((b) => [bet, ...b]);
+      return true;
+    }
+  }
+  async function placeSingles() {
     if (!me) return;
+    placeErr = '';
     const toPlace = slip.filter((s) => (stakes[s.key] || 0) > 0);
-    let bank = avail;
-    const out = [];
+    let bank = avail, placed = 0;
     for (const s of toPlace) {
       const stake = Math.min(stakes[s.key], bank);
       if (stake < 1) continue;
-      bank -= stake;
-      out.push({ id: betId(week), handle: me, week, kind: 'single', legs: [s], stake: Math.round(stake * 100) / 100, odds: s.odds, status: 'open', placed: Date.now() });
+      const bet = { id: betId(week), handle: me, week, kind: 'single', legs: [s], stake: Math.round(stake * 100) / 100, odds: s.odds, status: 'open', placed: Date.now() };
+      if (!(await submit(bet))) break;
+      bank -= stake; placed += 1;
     }
-    if (out.length) { bets.update((b) => [...out, ...b]); clearSlip(); }
+    if (placed) clearSlip();
   }
-  function placeMulti() {
+  async function placeMulti() {
     if (!me || slip.length < 2) return;
+    placeErr = '';
     if (multisUsed >= MULTIS_PER_WEEK) return;
     const stake = Math.min(multiStake, MULTI_CAP, avail);
     if (stake < 1) return;
-    bets.update((b) => [{ id: betId(week), handle: me, week, kind: 'multi', legs: slip.slice(), stake: Math.round(stake * 100) / 100, odds: multiOdds, status: 'open', placed: Date.now() }, ...b]);
-    clearSlip();
+    const bet = { id: betId(week), handle: me, week, kind: 'multi', legs: slip.slice(), stake: Math.round(stake * 100) / 100, odds: multiOdds, status: 'open', placed: Date.now() };
+    if (await submit(bet)) clearSlip();
   }
 
   const fmt = (n) => '$' + (Math.round(n * 100) / 100).toFixed(2);
@@ -111,14 +144,17 @@
       <div class="ghd">🔒 Enter your bettor code</div>
       <p>Everyone's got a private code so nobody drops a bet in your name. Ask the commissioner for yours.</p>
       <form on:submit|preventDefault={doLogin}>
-        <input placeholder="e.g. BUCKLE" bind:value={codeInput} class:err={loginErr} spellcheck="false" autocomplete="off" />
-        <button type="submit">Log in</button>
+        <input placeholder="e.g. BUCKLE" bind:value={codeInput} class:err={loginErr} spellcheck="false" autocomplete="off" disabled={busy} />
+        <button type="submit" disabled={busy}>{busy ? '…' : 'Log in'}</button>
       </form>
       {#if loginErr}<div class="gerr">That code didn't match. Try again.</div>{/if}
     </div>
   {:else}
     <div class="bankbar">
-      <div class="who">Betting as <b>{meName}</b> <button class="out" on:click={logout}>switch</button></div>
+      <div class="who">Betting as <b>{meName}</b>
+        {#if $online === true}<span class="synced" title="Bets settle on the shared book — capped across all your devices">● shared book</span>
+        {:else if $online === false}<span class="localonly" title="Worker unreachable — bets are saved on this device only">● this device only</span>{/if}
+        <button class="out" on:click={logout}>switch</button></div>
       <div class="bank"><span class="lbl">Balance</span><b class="amt">{fmt(bal)}</b><span class="of">· {fmt(wkRem)} of {fmt(WEEKLY_SPEND_CAP)} left to stake this week</span></div>
     </div>
 
@@ -179,6 +215,7 @@
               <button class="place" on:click={placeMulti} disabled={multisUsed >= MULTIS_PER_WEEK || avail < 1}>Place multi</button>
             </div>
           {/if}
+          {#if placeErr}<div class="perr">⚠ {placeErr}</div>{/if}
           <button class="clear" on:click={clearSlip}>Clear slip</button>
         {/if}
         <a class="tolead" href="/leaderboard" use:link>Ledger &amp; leaderboard →</a>
@@ -205,6 +242,9 @@
   .bankbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; flex-wrap: wrap; }
   .who { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); } .who b { color: var(--chalk); }
   .who .out { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; font-size: 9px; padding: 3px 7px; margin-left: 6px; cursor: pointer; text-transform: uppercase; }
+  .who .synced, .who .localonly { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; margin-left: 8px; }
+  .who .synced { color: #12ff6e; } .who .localonly { color: #e0a642; }
+  .perr { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--stamp-red); margin-top: 8px; line-height: 1.5; }
   .bank { display: flex; align-items: baseline; gap: 6px; }
   .bank .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .bank .amt { font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #12ff6e; } .bank .of { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }

@@ -73,6 +73,26 @@ export function multisThisWeek(all, handle, week) {
   return betsFor(all, handle, week).filter((b) => b.kind === 'multi').length;
 }
 
+// The single gatekeeper for whether a bet is allowed — run BOTH client-side (to
+// grey out the button) and server-side in the Worker (the authority that stops
+// two devices double-betting). Pure: give it the full ledger + the proposed bet,
+// get back {ok} or {ok:false, reason}. Same rules everywhere, one place to change.
+export function validateBet(all, handle, week, bet) {
+  if (!handle || !MANAGER_CODES[codeFor(handle) || '']) return { ok: false, reason: 'unknown bettor' };
+  if (!bet || !(bet.stake > 0)) return { ok: false, reason: 'stake must be positive' };
+  if (bet.week !== week) return { ok: false, reason: 'wrong week' };
+  const spent = weeklySpent(all, handle, week);
+  if (spent + bet.stake > WEEKLY_SPEND_CAP + 1e-6) {
+    return { ok: false, reason: `over the $${WEEKLY_SPEND_CAP} weekly cap (${r2(spent)} already down)` };
+  }
+  if (bet.kind === 'multi') {
+    if (bet.stake > MULTI_CAP + 1e-6) return { ok: false, reason: `multi stake over $${MULTI_CAP}` };
+    if (multisThisWeek(all, handle, week) >= MULTIS_PER_WEEK) return { ok: false, reason: 'multi already used this week' };
+    if (!Array.isArray(bet.legs) || bet.legs.length < 2) return { ok: false, reason: 'a multi needs 2+ legs' };
+  }
+  return { ok: true };
+}
+
 // Season tally: staked, returned, P/L, record — per manager.
 export function tally(all) {
   const t = {};
