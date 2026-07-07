@@ -30,6 +30,8 @@
   import Players from './components/Players.svelte';
   import Playoffs from './components/Playoffs.svelte';
   import PowerRankings from './components/PowerRankings.svelte';
+  import TheBook from './components/TheBook.svelte';
+  import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -57,6 +59,8 @@
     '/standings': Standings,
     '/playoffs': Playoffs,
     '/power': PowerRankings,
+    '/book': TheBook,
+    '/leaderboard': BetLedger,
     '/history': Wall,
     '/draft': Stub,
     '/settings': Settings,
@@ -71,6 +75,7 @@
     { id: 'draft', label: 'Draft Room', pages: [['/board', 'Big Board'], ['/keepers', 'Keepers'], ['/trade', 'Trade'], ['/intel', 'Intel']], match: ['/player', '/compare'] },
     { id: 'league', label: 'The League', pages: [['/standings', 'Table'], ['/power', 'Power'], ['/playoffs', 'Playoffs'], ['/matchups', 'Gameday'], ['/managers', 'Managers'], ['/history', 'History']] },
     { id: 'wire', label: 'The Wire', pages: [['/players', 'Players'], ['/waivers', 'FAAB Desk']] },
+    { id: 'book', label: 'The Book', pages: [['/book', 'Markets'], ['/leaderboard', 'Leaderboard']] },
     { id: 'setup', label: 'Setup', pages: [['/settings', 'Rules'], ['/sync', 'Sync']] },
   ];
   const groupOf = (loc) => {
