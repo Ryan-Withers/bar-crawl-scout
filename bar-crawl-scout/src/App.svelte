@@ -17,6 +17,7 @@
   import SyncPage from './components/Sync.svelte';
   import PlayerFile from './components/PlayerFile.svelte';
   import Compare from './components/Compare.svelte';
+  import Standings from './components/Standings.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -37,7 +38,7 @@
     '/intel': Intel,
     '/sync': SyncPage,
     '/matchups': Stub,
-    '/standings': Stub,
+    '/standings': Standings,
     '/history': Stub,
     '/draft': Stub,
     '/settings': Stub,
