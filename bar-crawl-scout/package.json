@@ -1,0 +1,12 @@
+{
+  "name": "bar-crawl-scout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sleeper keeper-league scouting board for the Official Bar Crawl Order league.",
+  "scripts": {
+    "test": "node tests/scout.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}

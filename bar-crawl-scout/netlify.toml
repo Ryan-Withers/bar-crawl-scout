@@ -1,0 +1,4 @@
+# Static single-file site. No build step.
+[build]
+  publish = "."
+  command = "echo 'No build step; Bar Crawl Scout is a static site.'"
