@@ -6,6 +6,7 @@
   import Coaster from './Coaster.svelte';
   import Stamp from './Stamp.svelte';
   import ChainOfCustody from './ChainOfCustody.svelte';
+  import { similarPlayers } from '../lib/engine/similar.ts';
 
   export let params = {};
   export let variant = 'page'; // 'page' | 'drawer'
@@ -25,6 +26,10 @@
   $: ro = p ? rosterOwner(own, name) : null;
   $: tm = p ? (p[3] === 'FA' ? 'FA' : p[3] + ' · bye ' + p[4]) : '';
   $: stageLabel = p && TAGTXT[p[6]] ? TAGTXT[p[6]][1] : '';
+
+  // Similar files — nearest peers on the board (runs offline; pure board math).
+  $: pool = PLAYERS.map((pp) => ({ name: pp[1], pos: pp[2], r26: r26(pp), adp: pp[5] }));
+  $: peers = p ? similarPlayers({ name, pos: p[2], r26: R26, adp: p[5] }, pool, 5) : [];
 
   let cmp = '';
   function doCompare() {
@@ -98,6 +103,22 @@
         <div class="sheet stub">
           <ChainOfCustody events={[]} />
         </div>
+
+        <!-- Similar Files — nearest peers by position + value (live, board-derived) -->
+        {#if peers.length}
+          <div class="sheet stub">
+            <div class="stubhd">Similar Files</div>
+            <div class="peers">
+              {#each peers as pr}
+                <a class="peer" href={'/player/' + encodeURIComponent(pr.name)} use:link>
+                  <span class="ppos">{pr.pos}</span>
+                  <span class="pname">{pr.name}</span>
+                  <span class="pval">R26 {pr.r26} · ADP {pr.adp}</span>
+                </a>
+              {/each}
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
   {/if}
@@ -132,4 +153,12 @@
   .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; }
   .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
   .stubbody { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
+
+  .peers { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .peer { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--barroom); transition: border-color .15s, transform .1s; }
+  .peer:hover { border-color: rgba(130,201,252,.5); transform: translateX(2px); }
+  .ppos { flex: none; width: 34px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+  .pname { flex: 1; font-family: 'Archivo', sans-serif; font-size: 14px; color: var(--chalk); }
+  .peer:hover .pname { color: var(--neon-hot); }
+  .pval { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); }
 </style>
