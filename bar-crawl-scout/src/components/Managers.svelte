@@ -104,7 +104,7 @@
   .filenote .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--neon); }
   .filenote p { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin: 6px 0 0; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 30px 22px; }
 
   .folder {
     position: relative;

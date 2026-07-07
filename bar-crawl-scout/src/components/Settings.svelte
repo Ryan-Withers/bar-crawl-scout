@@ -108,7 +108,7 @@
   .slots { display: flex; flex-wrap: wrap; gap: 7px; }
   .slot { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: var(--neon); background: rgba(130,201,252,.1); border: 1px solid rgba(130,201,252,.25); border-radius: 6px; padding: 5px 9px; }
   .slot.bn { color: var(--muted); background: rgba(255,255,255,.04); border-color: var(--line); }
-  .scoring { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
+  .scoring { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 4px 16px; }
   .srow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
   .sk { color: var(--muted); text-transform: capitalize; }
   .sv { font-weight: 700; color: var(--neon); }

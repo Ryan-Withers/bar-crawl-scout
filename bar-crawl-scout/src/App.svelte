@@ -103,7 +103,7 @@
         <div class="util">
           {#if $unlocked}<a class="commishchip" href="/settings" use:link title="Commissioner mode — your files are unsealed">🔓</a>{/if}
           <SyncCoaster />
-          {#if showMode}<ToggleSwitch />{/if}
+          {#if showMode}<div class="modewrap"><ToggleSwitch /></div>{/if}
           <button class="jump" on:click={openPalette}><span class="lens">⌕</span> Jump <kbd>⌘K</kbd></button>
         </div>
       </div>
@@ -137,6 +137,8 @@
   .mark b { color: var(--neon); }
   .mark:hover { color: var(--chalk); }
   .util { display: flex; align-items: center; gap: 10px; }
+  /* On desktop the mode toggle sits inline in the util row; the wrapper is transparent. */
+  .modewrap { display: contents; }
   .commishchip { font-size: 15px; text-decoration: none; line-height: 1; }
   /* Primary group nav — bolder, the section switcher. */
   .groups { display: flex; gap: 2px; padding: 8px 0 0; flex-wrap: wrap; }
@@ -151,7 +153,9 @@
   .modehint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
   @media (max-width: 760px) {
     .topbar { flex-wrap: wrap; gap: 8px; }
-    .util { width: 100%; justify-content: space-between; }
+    /* Coaster + Jump share row 1; the mode toggle drops to its own full-width row 2. */
+    .util { width: 100%; justify-content: space-between; flex-wrap: wrap; row-gap: 9px; }
+    .modewrap { display: flex; order: 5; flex-basis: 100%; }
     .jump kbd { display: none; }
   }
 </style>

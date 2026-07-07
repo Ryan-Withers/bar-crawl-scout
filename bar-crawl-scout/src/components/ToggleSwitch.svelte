@@ -40,5 +40,11 @@
     transition: color 0.2s;
   }
   .track button.on { color: var(--on-neon); }
+  /* On phones the toggle owns its own row — stretch the segmented control full-width. */
+  @media (max-width: 760px) {
+    .switch { width: 100%; }
+    .track { flex: 1; }
+    .track button { padding: 9px 8px; }
+  }
   @media (prefers-reduced-motion: reduce) { .knob { transition: none; } }
 </style>

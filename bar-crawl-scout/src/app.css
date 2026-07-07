@@ -10,6 +10,9 @@
     --body:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     --marker:"Caveat",cursive;}
   *{box-sizing:border-box}html,body{margin:0;padding:0}
+  /* Safety net: nothing may force horizontal scroll on mobile. Root causes are fixed
+     per-component; this stops any future stray-wide element from breaking the page. */
+  html{overflow-x:hidden}
   body{background:var(--field);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:50px}
   .wrap{max-width:1180px;margin:0 auto;padding:0 22px}
   header.mast{padding:18px 0 8px}

@@ -59,7 +59,7 @@
   .empty a { color: var(--neon); }
   .thintag { color: var(--stamp-red); font-size: 9px; border: 1px solid rgba(214,69,60,.4); border-radius: 3px; padding: 1px 5px; }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); padding: 20px 0; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; }
   .wk { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .wk.thin { border-color: rgba(214,69,60,.4); }
   .wk.now { border-color: rgba(130,201,252,.5); box-shadow: 0 0 0 1px rgba(130,201,252,.3); }
