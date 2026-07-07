@@ -20,6 +20,7 @@
   import Standings from './components/Standings.svelte';
   import Gameday from './components/Gameday.svelte';
   import Wall from './components/Wall.svelte';
+  import Settings from './components/Settings.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -43,7 +44,7 @@
     '/standings': Standings,
     '/history': Wall,
     '/draft': Stub,
-    '/settings': Stub,
+    '/settings': Settings,
     '*': Stub,
   };
   const NAV = [
@@ -56,6 +57,7 @@
     { p: '/matchups', l: 'Gameday' },
     { p: '/standings', l: 'Table' },
     { p: '/history', l: 'History' },
+    { p: '/settings', l: 'Rules' },
     { p: '/sync', l: 'Sync' },
   ];
 </script>
