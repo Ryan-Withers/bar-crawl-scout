@@ -5,6 +5,7 @@
   import { keepers, mode } from '../lib/store.js';
   import Receipt from './Receipt.svelte';
   import Stamp from './Stamp.svelte';
+  import PlayerChip from './PlayerChip.svelte';
 
   $: ks = $keepers;
   $: md = $mode;
@@ -62,13 +63,13 @@
       <div><div class="ksub">You give</div>
         <div class="siderow"><select bind:value={gp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'p', gp); gp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={gk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('give', 'k', gk); gk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {assetLabel(a)} <span on:click={() => rm('give', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each give as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <span on:click={() => rm('give', i)} role="button" tabindex="0">×</span></span>{/each}</div>
         <div class="sidetot">{#if give.length}raw {G.raw} · effective <b>{G.eff}</b>{/if}</div>
       </div>
       <div><div class="ksub">You get</div>
         <div class="siderow"><select bind:value={tp}><option value="">- player -</option>{#each playerOpts as p}<option value={p[1]}>{p[1]} ({p[2]}, {windowVal(p, ks, md)})</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'p', tp); tp = ''; }}>Add</button></div>
         <div class="siderow"><select bind:value={tk}><option value="">- pick -</option>{#each pickOpts as o}<option value={o.v}>{o.label}</option>{/each}</select><button class="add" on:click={() => { addAsset('get', 'k', tk); tk = ''; }}>Add</button></div>
-        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {assetLabel(a)} <span on:click={() => rm('get', i)} role="button" tabindex="0">×</span></span>{/each}</div>
+        <div class="chiplist">{#each recv as a, i}<span class="asset"><b>{assetVal(a)}</b> {#if a.kind === 'p'}<PlayerChip name={a.key} />{:else}{assetLabel(a)}{/if} <span on:click={() => rm('get', i)} role="button" tabindex="0">×</span></span>{/each}</div>
         <div class="sidetot">{#if recv.length}raw {T.raw} · effective <b>{T.eff}</b>{/if}</div>
       </div>
     </div>

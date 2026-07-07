@@ -9,6 +9,7 @@
   import { avatarUrl } from '../api/sleeper';
   import Stamp from './Stamp.svelte';
   import Coaster from './Coaster.svelte';
+  import PlayerChip from './PlayerChip.svelte';
 
   export let params = {};
   $: handle = params.id;
@@ -71,7 +72,7 @@
 
         <div class="sec"><h4>Projected keepers</h4>
           <ul class="keeps">
-            {#each keeps as s}<li><span>{s[0]}</span><span class="clk">{yearsLeft(s[0]) === 1 ? 'FINAL YR' : '2 YR'} · {s[1]}</span></li>{/each}
+            {#each keeps as s}<li><PlayerChip name={s[0]} /><span class="clk">{yearsLeft(s[0]) === 1 ? 'FINAL YR' : '2 YR'} · {s[1]}</span></li>{/each}
             {#if !keeps.length}<li class="muted">none set</li>{/if}
           </ul>
         </div>
