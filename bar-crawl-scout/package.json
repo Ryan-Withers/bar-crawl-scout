@@ -1,12 +1,21 @@
 {
   "name": "bar-crawl-scout",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
+  "type": "module",
   "description": "Sleeper keeper-league scouting board for the Official Bar Crawl Order league.",
   "scripts": {
-    "test": "node tests/scout.test.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "jsdom": "^24.1.0"
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@testing-library/svelte": "^5.2.4",
+    "jsdom": "^24.1.0",
+    "svelte": "^4.2.19",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.8"
   }
 }

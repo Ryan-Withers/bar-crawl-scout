@@ -1,4 +1,8 @@
-# Static single-file site. No build step.
+# Bar Crawl Scout - Vite + Svelte SPA. Netlify runs the build in CI; the target
+# device only ever loads the finished static bundle in dist/.
 [build]
-  publish = "."
-  command = "echo 'No build step; Bar Crawl Scout is a static site.'"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

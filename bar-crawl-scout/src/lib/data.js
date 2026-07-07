@@ -1,12 +1,8 @@
-"use strict";
-const $=s=>document.querySelector(s);
-const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const LG2026="1311995695032467456",LG2025="1180128113145339904",LG2024="1115940789416312832";
-/* Live sync Worker (Cloudflare): serves cached rosters on an hourly cron so the site auto-loads
-   them on open, with no manual Sync tap and no 5MB player download. Empty string = disabled. */
-const SYNC_URL="https://bar-crawl-scout.ryan-96e.workers.dev";
+// Static league data + tuning constants for the SPA.
+// Pure values and derived maps only — no DOM, no mutable state, no localStorage.
+// Data literals are ported verbatim from the pre-SPA app (js/data.js).
 
-const PLAYERS=[
+export const PLAYERS=[
  [1,"Jahmyr Gibbs","RB","DET",6,1.3,"prime"],[2,"Bijan Robinson","RB","ATL",11,1.7,"prime"],
  [3,"Ja'Marr Chase","WR","CIN",6,3.0,"prime"],[4,"Puka Nacua","WR","LAR",11,4.0,"asc"],
  [5,"Jaxon Smith-Njigba","WR","SEA",11,5.3,"asc"],[6,"Christian McCaffrey","RB","SF",8,6.0,"aging"],
@@ -108,11 +104,10 @@ const PLAYERS=[
  [197,"Germie Bernard","WR","PIT",9,199.0,"rookie"],[198,"Kayshon Boutte","WR","NE",11,200.3,"asc"],
  [199,"Tre' Harris","WR","LAC",7,202.0,"yr2"],[200,"Travis Hunter","WR","JAC",7,177.0,"yr2"]
 ];
-const BYUNAME={};PLAYERS.forEach(p=>BYUNAME[p[1].toLowerCase()]=p);
-const KEPT2025=new Set(["Jahmyr Gibbs","Saquon Barkley","Garrett Wilson","Rashee Rice","Chuba Hubbard","Breece Hall","Brian Thomas Jr.","Christian McCaffrey","Bijan Robinson","Ja'Marr Chase","Malik Nabers","Jaxon Smith-Njigba","Puka Nacua","De'Von Achane","Nico Collins","Josh Jacobs","James Cook","Justin Jefferson","Trey McBride","Xavier Worthy","Stefon Diggs","Marvin Harrison Jr.","Amon-Ra St. Brown","Tyreek Hill","Tee Higgins","Jonathan Taylor","Chase Brown","Drake London","Kyren Williams","CeeDee Lamb"]);
-const yearsLeft=n=>KEPT2025.has(n)?1:2;
-const TEAMS=[["Ryan","Big Tettys on Bo-nly fans (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
-const PROJ={
+export const BYUNAME={};PLAYERS.forEach(p=>BYUNAME[p[1].toLowerCase()]=p);
+export const KEPT2025=new Set(["Jahmyr Gibbs","Saquon Barkley","Garrett Wilson","Rashee Rice","Chuba Hubbard","Breece Hall","Brian Thomas Jr.","Christian McCaffrey","Bijan Robinson","Ja'Marr Chase","Malik Nabers","Jaxon Smith-Njigba","Puka Nacua","De'Von Achane","Nico Collins","Josh Jacobs","James Cook","Justin Jefferson","Trey McBride","Xavier Worthy","Stefon Diggs","Marvin Harrison Jr.","Amon-Ra St. Brown","Tyreek Hill","Tee Higgins","Jonathan Taylor","Chase Brown","Drake London","Kyren Williams","CeeDee Lamb"]);
+export const TEAMS=[["Ryan","Big Tettys on Bo-nly fans (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
+export const PROJ={
  Ryan:[["Tetairoa McMillan","VL"],["Ja'Marr Chase","VL"],["Brock Bowers","VL"],["",""]],
  joshleota:[["Jahmyr Gibbs","VL"],["Puka Nacua","VL"],["Drake London","VL"],["Justin Jefferson","U"]],
  WinzTheBrah:[["James Cook","VL"],["Breece Hall","VL"],["A.J. Brown","L"],["Garrett Wilson","U"]],
@@ -124,64 +119,24 @@ const PROJ={
  ShaydenB:[["Jonathan Taylor","VL"],["Nico Collins","VL"],["Quinshon Judkins","L"],["DeVonta Smith","U"]],
  ImyHunter:[["Bijan Robinson","VL"],["Malik Nabers","VL"],["Emeka Egbuka","L"],["Cam Skattebo","U"]]
 };
-let KS;
-try{const v=localStorage.getItem("hq_keepers_v6");KS=v?JSON.parse(v):null;}catch(e){KS=null;}
-if(!KS)KS=JSON.parse(JSON.stringify(PROJ));
-for(const t of TEAMS){if(!KS[t[0]])KS[t[0]]=[];while(KS[t[0]].length<4)KS[t[0]].push(["",""]);if(KS[t[0]][3][0])KS[t[0]][3]=[KS[t[0]][3][0],"U"];}
-function saveKS(){try{localStorage.setItem("hq_keepers_v6",JSON.stringify(KS));}catch(e){}}
-function ownerOf(name){const ln=name.toLowerCase();for(const t of TEAMS){for(const s of (KS[t[0]]||[])){if(s[0]&&s[0].toLowerCase()===ln)return{owner:t[0],conf:s[1]||"L"};}}return null;}
-const isKept=name=>{const o=ownerOf(name);return !!o&&o.conf!=="U";};
-
-const STAGE={rookie:[0.70,1.10],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,1.00],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,1.00]};
-const tierFromADP=a=>a<=12?100:a<=30?85:a<=60?68:a<=110?48:a<=160?32:20;
-const ELITE_BONUS=a=>a<=4?12:a<=8?7:a<=12?3:0;
-const REPLACEMENT=52;
-function r26(p){return Math.round(tierFromADP(p[5])*STAGE[p[6]||""][0]+ELITE_BONUS(p[5]));}
-function r27(p){const years=isKept(p[1])?yearsLeft(p[1]):2;if(years<2)return REPLACEMENT;return Math.round(tierFromADP(p[5])*STAGE[p[6]||""][1]+ELITE_BONUS(p[5]));}
-const isFinalYr=n=>isKept(n)&&yearsLeft(n)===1;
-/* Live ownership: once rosters are synced, the board reflects real ownership, not just keeper projections. */
-let ROSTEROWN=null;
-function buildRosterOwn(){const RD=rosterData();if(!RD||!RD.byHandle){ROSTEROWN=null;return;}const m={};for(const h in RD.byHandle){(RD.byHandle[h].players||[]).forEach(pl=>{if(pl&&pl.n&&!m[pl.n.toLowerCase()])m[pl.n.toLowerCase()]=h;});}ROSTEROWN=m;}
-function rosterOwner(name){return ROSTEROWN?(ROSTEROWN[name.toLowerCase()]||null):null;}
-function isAvailable(name){return !isKept(name);}  /* keeper-based: rostered non-keepers stay in the pool for mocks; ownership below is display-only */
-const MODES={winnow:[1.0,0.15],balanced:[1.0,1.0],future:[0.4,1.0]};
-const MODEHINT={winnow:"2026 is everything, 2027 only a tiebreak. The final-year studs (Chase, Gibbs, Bijan) rise to the top. A 100-and-gone beats a 55-that-stays here.",balanced:"Both seasons equal. Two-year risers (Jeanty, Bowers) win. A 55-that-stays can beat a 100-and-gone.",future:"2027 dominant, 2026 at 40%. Final-year players crater. This is how the rebuilders see the board."};
-let MODE="winnow";
-function windowVal(p){const w=MODES[MODE];return Math.round(r26(p)*w[0]+r27(p)*w[1]);}
-
-const PTS_BASE={QB:[395,0.974],RB:[322,0.957],WR:[300,0.962],TE:[232,0.93]};
-const POSRANK={};
+export const STAGE={rookie:[0.70,1.10],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,1.00],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,1.00]};
+export const REPLACEMENT=52;
+export const MODES={winnow:[1.0,0.15],balanced:[1.0,1.0],future:[0.4,1.0]};
+export const MODEHINT={winnow:"2026 is everything, 2027 only a tiebreak. The final-year studs (Chase, Gibbs, Bijan) rise to the top. A 100-and-gone beats a 55-that-stays here.",balanced:"Both seasons equal. Two-year risers (Jeanty, Bowers) win. A 55-that-stays can beat a 100-and-gone.",future:"2027 dominant, 2026 at 40%. Final-year players crater. This is how the rebuilders see the board."};
+export const PTS_BASE={QB:[395,0.974],RB:[322,0.957],WR:[300,0.962],TE:[232,0.93]};
+export const POSRANK={};
 (function(){const by={};PLAYERS.forEach(p=>{(by[p[2]]=by[p[2]]||[]).push(p);});for(const k in by){by[k].sort((a,b)=>a[5]-b[5]).forEach((p,i)=>POSRANK[p[1]]=i+1);}})();
-const GROWTH={rookie:1.12,yr2:1.16,asc:1.10,prime:0.97,aging:0.80,fading:0.58,"":0.95};
-function pts26(p){const b=PTS_BASE[p[2]];return Math.round(b[0]*Math.pow(b[1],(POSRANK[p[1]]||30)-1));}
-function pts27(p){const years=isKept(p[1])?yearsLeft(p[1]):2;if(years<2)return 0;return Math.round(pts26(p)*GROWTH[p[6]||""]);}
-
-const CAPITAL={Ryan:[2,0,3],joshleota:[0,0,1],WinzTheBrah:[1,1,1],JohnnyDuff:[0,0,0],jduddy9:[1,0,0],jpdonners:[0,0,0],ATorelli4:[2,3,1],JShrimp341:[0,1,0],ShaydenB:[2,2,2],ImyHunter:[2,3,2]};
-const warchest=h=>{const c=CAPITAL[h]||[0,0,0];return c[0]*3+c[1]*1.5+c[2];};
-const chestTag=h=>{const w=warchest(h);return w>=10?"LOADED":w>=5?"SOLID":w>=2?"LIGHT":"STRIPPED";};
-const FIRSTROUND=[["ImyHunter",""],["Ryan","JShrimp slot"],["ShaydenB",""],["Ryan","own"],["ATorelli4",""],["ImyHunter","jpdonners slot"],["WinzTheBrah",""],["ShaydenB","joshleota slot"],["ATorelli4","Duff slot"],["jduddy9",""]];
-const NEED_TGT={QB:1,RB:3,WR:3,TE:1};
-function needScores(h){const arr=KS[h]||[];const have={QB:0,RB:0,WR:0,TE:0};[0,1,2].forEach(i=>{const s=arr[i];if(s&&s[0]){const p=BYUNAME[s[0].toLowerCase()];if(p&&have[p[2]]!=null)have[p[2]]++;}});const o={};for(const k in NEED_TGT)o[k]=Math.max(0,Math.min(10,Math.round((NEED_TGT[k]-have[k])/NEED_TGT[k]*10)));return o;}
-
-/* Draft affinity is now built from REAL Sleeper draft picks via Sync (hq_draft_v1). No hand-entered picks. */
-function draftData(){try{const v=localStorage.getItem("hq_draft_v1");return v?JSON.parse(v):null;}catch(e){return null;}}
-function draftedByName(nm){const d=draftData();return (d&&d.draftedBy&&d.draftedBy[nm])||[];}
-/* Live rosters: who is on each team right now, refreshed on every Sync (hq_rosters_v2 + cached player map hq_players_v2). */
-let PLAYERMAP=null;try{const pm=localStorage.getItem("hq_players_v2");if(pm){const o=JSON.parse(pm);if(o&&o.map)PLAYERMAP=o.map;}}catch(e){}
-function rosterData(){try{const v=localStorage.getItem("hq_rosters_v2");return v?JSON.parse(v):null;}catch(e){return null;}}
-const FAAB_HIST={ImyHunter:50,jduddy9:36,Ryan:22,jpdonners:11,joshleota:5,JohnnyDuff:5,JShrimp341:2,ShaydenB:3,WinzTheBrah:0,ATorelli4:0};
-let FAAB_SYNCED=null,FAAB_WEEKS=0;try{const fv=localStorage.getItem("hq_faab_v1");if(fv){const o=JSON.parse(fv);FAAB_SYNCED=o.byManager;FAAB_WEEKS=o.weeks||0;}}catch(e){}
-const ROSTER2025={1:"Ryan",2:"joshleota",3:"ImyHunter",4:"JohnnyDuff",5:"JShrimp341",6:"jduddy9",7:"WinzTheBrah",8:"ATorelli4",9:"ShaydenB",10:"jpdonners"};
-function median(a){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2);}
-function computeFaab(weeks,rid2name){const by={};for(const txns of weeks){if(!Array.isArray(txns))continue;for(const t of txns){if(t&&t.type==="waiver"&&t.settings&&typeof t.settings.waiver_bid==="number"){const rid=t.roster_ids&&t.roster_ids[0];const nm=rid2name[rid]||("roster"+rid);if(!by[nm])by[nm]={bids:[],spent:0,count:0,max:0};const bid=t.settings.waiver_bid;by[nm].bids.push(bid);by[nm].count++;if(bid>by[nm].max)by[nm].max=bid;if(t.status==="complete")by[nm].spent+=bid;}}}for(const nm in by)by[nm].median=median(by[nm].bids);return by;}
-const aggrOf=h=>{let v;if(FAAB_SYNCED&&FAAB_SYNCED[h])v=FAAB_SYNCED[h].median||0;else v=FAAB_HIST[h]||0;return v>=40?3:v>=20?2.5:v>=10?2:v>=5?1:0.5;};
-const STAGE_FAAB={rookie:1.04,yr2:1.05,asc:1.05,prime:1.0,aging:0.92,fading:0.80,"":0.95};
-function faabTalent(p){if(!p)return 35;const adp=p[5]||120;const m=STAGE_FAAB[p[6]||""]||1;return Math.max(4,Math.min(100,Math.round(108*Math.pow(0.99,adp)*m)));}
-const makeOdd=n=>{n=Math.max(1,Math.round(n));return n%2===0?n+1:n;};
-const LEAN={Ryan:{RB:0,WR:1},joshleota:{RB:1,WR:1},WinzTheBrah:{WR:1,QB:1},JohnnyDuff:{RB:1,QB:1},jduddy9:{RB:2},jpdonners:{RB:1,QB:1},ATorelli4:{RB:1,WR:1},JShrimp341:{RB:1,WR:1},ShaydenB:{RB:1,WR:1,QB:1},ImyHunter:{RB:1,WR:1}};
-const REBUILD=new Set(["ImyHunter","ShaydenB","ATorelli4"]);
-const CONTEND=new Set(["joshleota","jduddy9","WinzTheBrah","JohnnyDuff"]);
-const MGRS=[
+export const GROWTH={rookie:1.12,yr2:1.16,asc:1.10,prime:0.97,aging:0.80,fading:0.58,"":0.95};
+export const CAPITAL={Ryan:[2,0,3],joshleota:[0,0,1],WinzTheBrah:[1,1,1],JohnnyDuff:[0,0,0],jduddy9:[1,0,0],jpdonners:[0,0,0],ATorelli4:[2,3,1],JShrimp341:[0,1,0],ShaydenB:[2,2,2],ImyHunter:[2,3,2]};
+export const FIRSTROUND=[["ImyHunter",""],["Ryan","JShrimp slot"],["ShaydenB",""],["Ryan","own"],["ATorelli4",""],["ImyHunter","jpdonners slot"],["WinzTheBrah",""],["ShaydenB","joshleota slot"],["ATorelli4","Duff slot"],["jduddy9",""]];
+export const NEED_TGT={QB:1,RB:3,WR:3,TE:1};
+export const FAAB_HIST={ImyHunter:50,jduddy9:36,Ryan:22,jpdonners:11,joshleota:5,JohnnyDuff:5,JShrimp341:2,ShaydenB:3,WinzTheBrah:0,ATorelli4:0};
+export const ROSTER2025={1:"Ryan",2:"joshleota",3:"ImyHunter",4:"JohnnyDuff",5:"JShrimp341",6:"jduddy9",7:"WinzTheBrah",8:"ATorelli4",9:"ShaydenB",10:"jpdonners"};
+export const STAGE_FAAB={rookie:1.04,yr2:1.05,asc:1.05,prime:1.0,aging:0.92,fading:0.80,"":0.95};
+export const LEAN={Ryan:{RB:0,WR:1},joshleota:{RB:1,WR:1},WinzTheBrah:{WR:1,QB:1},JohnnyDuff:{RB:1,QB:1},jduddy9:{RB:2},jpdonners:{RB:1,QB:1},ATorelli4:{RB:1,WR:1},JShrimp341:{RB:1,WR:1},ShaydenB:{RB:1,WR:1,QB:1},ImyHunter:{RB:1,WR:1}};
+export const REBUILD=new Set(["ImyHunter","ShaydenB","ATorelli4"]);
+export const CONTEND=new Set(["joshleota","jduddy9","WinzTheBrah","JohnnyDuff"]);
+export const MGRS=[
  {h:"joshleota",rec:"11-4",pf:"2,032 PF",tags:["Win-now All-In","FAAB Max"],tend:"Win-now contender who trades picks for proven studs and spends FAAB hard. Real pick-by-pick history loads on Sync.",note:"2025 points leader who moved his early 2026 capital out, so he is all-in on this year. Your prime buyer if you sell."},
  {h:"WinzTheBrah",rec:"11-4",pf:"1,856 PF",tags:["Efficient","Frugal FAAB"],tend:"Efficient contender who is hard to fleece and keeps his picks intact. Real draft history loads on Sync.",note:"Won 11 games without spending much FAAB. Disciplined, picks intact."},
  {h:"JohnnyDuff",rec:"10-5",pf:"1,879 PF",tags:["Pick Seller","QB Lean"],tend:"Best-available drafter who has dealt away his early 2026 capital. Real pick history loads on Sync.",note:"Now pick-light after selling 2026 capital. A friendly trade partner on picks."},
@@ -193,7 +148,12 @@ const MGRS=[
  {h:"ShaydenB",rec:"5-10",pf:"1,765 PF",tags:["Aggressive Rebuilder"],tend:"Aggressive rebuilder who drafts balanced and swings on youth. Real pick history loads on Sync.",note:"Bought up a big 2026 war chest (two firsts, two seconds, two thirds). Dark-horse riser."},
  {h:"ImyHunter",rec:"4-11",pf:"1,551 PF",tags:["Rebuilder via Picks","FAAB Max"],tend:"Targets elite running backs when he holds capital, otherwise hoards youth and picks. Real pick history loads on Sync.",note:"Biggest war chest in the league and an all-in rebuild. Top FAAB spender."}
 ];
-const NAMEOF={};TEAMS.forEach(t=>NAMEOF[t[0]]=t[1]);
-const TEAMSHORT={};TEAMS.forEach(t=>TEAMSHORT[t[0]]=t[1].replace(" (YOU)",""));
-const PICKVAL={2026:{1:150,2:95,3:70,4:50,5:38,6:28,7:20,8:14,9:10,10:8},2027:{1:120,2:76,3:56,4:40,5:30,6:22,7:16}};
-const MYPICKS=[["2026",1],["2026",1],["2026",3],["2026",3],["2026",3]];
+export const NAMEOF={};TEAMS.forEach(t=>NAMEOF[t[0]]=t[1]);
+export const TEAMSHORT={};TEAMS.forEach(t=>TEAMSHORT[t[0]]=t[1].replace(" (YOU)",""));
+export const PICKVAL={2026:{1:150,2:95,3:70,4:50,5:38,6:28,7:20,8:14,9:10,10:8},2027:{1:120,2:76,3:56,4:40,5:30,6:22,7:16}};
+export const MYPICKS=[["2026",1],["2026",1],["2026",3],["2026",3],["2026",3]];
+
+// UI config carried over from the render layer.
+export const RYAN = "Ryan";
+export const TAGS=[{k:"star",l:"Superstar",c:"#f4b23e"},{k:"target",l:"Target",c:"#4fb286"},{k:"sleeper",l:"Sleeper",c:"#5aa0e0"},{k:"value",l:"Value",c:"#a98fd6"},{k:"injury",l:"Injury Prone",c:"#e0613f"},{k:"avoid",l:"Avoid",c:"#9a3618"}];
+export const TAGTXT={yr2:["t-riser","Riser"],asc:["t-riser","Asc"],prime:["t-prime","Prime"],aging:["t-winnow","Win-now"],fading:["t-winnow","Fade 27"],rookie:["t-rookie","Rookie"]};

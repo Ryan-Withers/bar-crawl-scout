@@ -18,27 +18,25 @@ The commissioner's own team is redacted throughout (it is a tool shared with lea
 
 ## Architecture
 
-The site is plain static files the browser loads directly — **no bundler, no framework, no build step**, because the target device cannot run build tools. Structure:
+Bar Crawl Scout is a **Vite + Svelte single-page app**. The source lives in `src/`; Netlify runs the build in CI and serves the static bundle, so the target device only ever loads finished output — it never runs a build tool.
 
-- `index.html` — markup only.
-- `css/styles.css` — all styles.
-- `js/` — the logic, split into ordered scripts loaded by `index.html`:
-  - `data.js` — the ranked player pool, teams, keeper projections, capital, and the tuning constants.
-  - `render.js` — the board, keeper editor, manager dossiers, trade, FAAB, and intel views.
-  - `sync.js` — the Sleeper API pull and the JSON backup import/export.
-  - `app.js` — event wiring and initial render.
+- `index.html` — Vite entry that mounts the app.
+- `src/App.svelte` — the shell: masthead, window-mode bar, tab navigation, and the on-open live auto-load.
+- `src/components/` — one component per tab: `Board`, `Keepers`, `Managers`, `Trade`, `Faab`, `Intel`, `Sync`.
+- `src/lib/`
+  - `data.js` — the ranked player pool, teams, keeper projections, capital, and tuning constants (pure values).
+  - `models.js` — pure valuation and keeper functions (WIN/value, points, FAAB, trade), parameterized by the keeper map and window mode.
+  - `store.js` — reactive Svelte stores backed by `localStorage` (keeper edits, board views/tags, cached rosters, mode).
+  - `sleeper.js` / `sync.js` — the live-roster auto-load and the manual full Sleeper pull.
+  - `util.js` — small helpers.
+- `src/app.css` — all styles.
 
-They load in that order and share one global scope (classic scripts, not ES modules), so it stays zero-build: the files are the deployable artifact.
-
-- **State** is kept in the browser via `localStorage` (keeper edits, board views and tags, cached Sleeper data). Nothing is stored server-side by the site itself.
-- **Live data** comes from the public Sleeper API at sync time.
-- **Models** (value, points, FAAB, trade) are pure functions over the ranked pool and the keeper map, in `js/data.js` and `js/render.js`.
+- **State** lives in the browser via `localStorage`. Nothing is stored server-side by the site itself.
+- **Live data** comes from the sync Worker (auto-loaded on open) and the public Sleeper API (manual full Sync).
 
 ## Syncing live data
 
-The **Sync** tab pulls the league, users, rosters, last season's transactions (for FAAB medians), past draft picks, and the Sleeper player dictionary.
-
-Sync must run in a **real browser tab** (not an in-app preview), because the Sleeper API blocks cross-origin requests from sandboxed frames. Open the live URL directly, then hit Sync.
+Live rosters load **automatically on page open** from the sync Worker (see below), so most of the time nobody has to tap anything. The **Sync** tab runs a full manual pull — league, users, rosters, last season's transactions (FAAB medians), past draft picks, and the Sleeper player dictionary — and must run in a **real browser tab** (the Sleeper API blocks sandboxed frames).
 
 ## Known limitation: live-roster attribution
 
@@ -51,33 +49,32 @@ Either join can misattribute if a leaguemate's Sleeper display name differs from
 
 ## Deploying
 
-The site is a static file, so any static host works. Two clean options:
+**Netlify (current).** `netlify.toml` runs `npm run build` and publishes `dist/`. The build runs in Netlify's CI on every push to the default branch; the device never builds. (Netlify's base directory is set to `bar-crawl-scout/`.)
 
-**Netlify (current).** Connect this repo to a Netlify site. `netlify.toml` sets the publish directory to the repo root with no build step. Every push to the default branch redeploys automatically. No more drag-and-drop.
+**Cloudflare Pages.** Point a Pages project at this repo, build command `npm run build`, output directory `dist`. It sits next to the sync Worker (below).
 
-**Cloudflare Pages.** Point a Pages project at this repo, framework preset "None", build command empty, output directory `/`. Free, unlimited bandwidth, and it sits next to the sync Worker (below).
-
-To update the site: edit `index.html`, push, and the host redeploys. CI runs the test suite on the same push.
+To update the site: edit `src/`, push, and the host rebuilds and redeploys.
 
 ## Tests
 
-The suite loads `index.html` in jsdom and locks in the invariants that have regressed before: keeper accuracy per team, no player kept by two teams, the redaction of the commissioner's team, the pool model (non-keepers stay draftable), and the live-roster display.
+Unit tests (Vitest) cover the live-sync adapter and the valuation/keeper models — the invariants that have regressed before: exact keeper set and confidence per team, no player kept by two teams, the redaction of the commissioner's team, the pool model (non-keepers stay draftable), and final-year replacement value.
 
 ```
 npm install
-npm test
+npm test        # vitest
+npm run build   # production bundle -> dist/
 ```
 
-CI (`.github/workflows/ci.yml`) runs `npm test` on every push and pull request, so a change that breaks an invariant fails the check before it can ship.
+CI (`.github/workflows/ci.yml`) runs the tests and a production build on every push and pull request, so a change that breaks an invariant or the build fails the check before it can ship.
 
-## Optional backend: the sync Worker
+## Backend: the sync Worker
 
-`worker/scout-sync-worker.js` is a Cloudflare Worker that syncs Sleeper on a schedule and serves one small cached JSON, so nobody has to hit Sync and nobody downloads the large player dictionary. It is optional and not wired into the site yet. Deploy steps are in the file header. Once it is live, the site can read from it instead of each person syncing.
+`worker/scout-sync-worker.js` is a Cloudflare Worker that syncs Sleeper hourly and serves one small cached JSON, so nobody has to hit Sync and nobody downloads the large player dictionary. The site reads it on open — the URL is `SYNC_URL` in `src/lib/sleeper.js`. Deploy steps are in the file header.
 
 ## Roadmap
 
 - Pin the `roster_id -> manager` table to make live-roster attribution bulletproof.
-- Wire the site to the sync Worker so live data loads without a manual Sync.
+- Rebuild the UI around a new primary palette.
 - Extend live value into the season rather than a static preseason ranking.
 - A shared layer: power rankings, a trade block, and a moves feed.
 
