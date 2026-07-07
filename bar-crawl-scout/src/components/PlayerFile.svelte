@@ -5,6 +5,7 @@
   import { keepers, mode, rosterOwn } from '../lib/store.js';
   import Coaster from './Coaster.svelte';
   import Stamp from './Stamp.svelte';
+  import ChainOfCustody from './ChainOfCustody.svelte';
 
   export let params = {};
   export let variant = 'page'; // 'page' | 'drawer'
@@ -86,12 +87,17 @@
         </div>
 
         <!-- Live sections stream in the browser; graceful here -->
-        {#each [['Game Log', 'this season, receipt-style, per-week league-scored points'], ['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends'], ['Chain of Custody', 'his entire history in this league — drafted, dropped, FAAB, traded, kept'], ['Vs The League', 'what he averages against each manager']] as sec}
+        {#each [['Game Log', 'this season, receipt-style, per-week league-scored points'], ['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends'], ['Vs The League', 'what he averages against each manager']] as sec}
           <div class="sheet stub">
             <div class="stubhd">{sec[0]}</div>
             <div class="stubbody"><Stamp text="Pulling the file" tone="neon" seed={sec[0].length} /> <span>{sec[1]} — streams from Sleeper in your browser.</span></div>
           </div>
         {/each}
+
+        <!-- The showpiece: full league custody chain, reconstructed from draft + txns -->
+        <div class="sheet stub">
+          <ChainOfCustody events={[]} />
+        </div>
       {/if}
     </div>
   {/if}
