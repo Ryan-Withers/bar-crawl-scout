@@ -28,6 +28,8 @@
 </header>
 
 <style>
+  .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  .modehint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 6px 0 0; }
   .right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
   .jump { display: inline-flex; align-items: center; gap: 7px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; transition: border-color .15s, color .15s; }
   .jump:hover { border-color: rgba(130,201,252,.5); color: var(--chalk); }

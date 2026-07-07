@@ -63,8 +63,9 @@
   .pickrow .mgrlink:hover { color: var(--neon-hot); }
   .pickrow .via { color: var(--chalk); }
   .pickrow .muted { color: var(--muted); }
-  .chesttag { font-family: 'IBM Plex Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; }
+  .chesttag { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; }
   .ct-LOADED { background: rgba(201,164,92,.18); color: var(--brass); }
+  .ct-SOLID { background: rgba(130,201,252,.16); color: var(--neon); }
+  .ct-LIGHT { background: rgba(216,222,230,.1); color: var(--muted); }
   .ct-STRIPPED { background: rgba(214,69,60,.16); color: var(--stamp-red); }
-  .ct-STEADY, .ct-EVEN { background: rgba(216,222,230,.1); color: var(--muted); }
 </style>
