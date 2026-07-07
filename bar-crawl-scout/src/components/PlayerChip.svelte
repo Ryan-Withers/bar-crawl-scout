@@ -5,7 +5,13 @@
   import { hoverCard } from '../lib/store.js';
   export let name;
   let t;
+  // Only preview on devices that can actually hover. On touch there's no
+  // mouseleave, so the card would stick over the file the tap just opened —
+  // there, a tap should simply navigate.
+  const canHover = typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   function enter(e) {
+    if (!canHover) return;
     const r = e.currentTarget.getBoundingClientRect();
     clearTimeout(t);
     t = setTimeout(() => hoverCard.set({ name, x: r.left, y: r.bottom }), 300);

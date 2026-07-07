@@ -4,7 +4,10 @@
   import { windowVal, r26, r27, ownerOf, rosterOwner, isFinalYr, isRyanPlayer, yearsLeft } from '../lib/models.js';
 
   let innerWidth = 1200;
-  $: hc = $hoverCard;
+  // Never render the hover preview on touch devices (no mouseleave to dismiss it).
+  const canHover = typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  $: hc = canHover ? $hoverCard : null;
   $: p = hc ? BYUNAME[hc.name.toLowerCase()] : null;
   $: ks = $keepers;
   $: md = $mode;
