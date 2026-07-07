@@ -160,4 +160,10 @@
   .oact button:hover { border-color: currentColor; } .oact button:disabled { opacity: .5; cursor: not-allowed; }
   .allsettled { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #7fd8a3; margin-top: 12px; }
   @media (max-width: 620px) { .commish .orow { grid-template-columns: 1fr auto; } .odesc, .owk { grid-column: 1 / -1; white-space: normal; } }
+  /* Phones: the 6-col board clips P/L off the edge. Drop Bets + Staked, keep the numbers that matter. */
+  @media (max-width: 560px) {
+    .brow { grid-template-columns: 22px minmax(0, 1fr) 46px 74px; gap: 7px; font-size: 12px; }
+    .brow > :nth-child(3), .brow > :nth-child(5) { display: none; }
+    .tm a { font-size: 12.5px; }
+  }
 </style>

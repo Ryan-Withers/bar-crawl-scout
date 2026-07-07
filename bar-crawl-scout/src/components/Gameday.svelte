@@ -64,7 +64,7 @@
   .gameday { max-width: 820px; padding-top: 6px; }
   .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 8px 0 16px; }
-  .slate { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .slate { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; }
   .game { position: relative; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .side { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
   .side + .side { border-top: 1px dashed var(--line); }

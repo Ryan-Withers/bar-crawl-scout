@@ -104,7 +104,7 @@
   .lednote .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--neon); }
   .lednote :global(.note) { margin-top: 6px; margin-bottom: 0; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 20px; }
   .sheet {
     background: var(--paper); color: var(--ink); border-radius: 4px; padding: 16px 18px 18px;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(28, 26, 22, 0.1);
