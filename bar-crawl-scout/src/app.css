@@ -12,11 +12,11 @@
   *{box-sizing:border-box}html,body{margin:0;padding:0}
   body{background:var(--field);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:50px}
   .wrap{max-width:1180px;margin:0 auto;padding:0 22px}
-  header.mast{padding:22px 0 8px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  header.mast{padding:18px 0 8px}
   /* Plain intro paragraph shared by Intel/FAAB; Managers overrides on paper. */
   .blurb{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 12px}
   .blurb b{color:var(--chalk)}
-  nav.tabs{display:flex;gap:7px;padding:14px 0 6px;position:sticky;top:0;background:linear-gradient(180deg,var(--field) 82%,transparent);z-index:20;flex-wrap:wrap}
+  nav.tabs{display:flex;gap:7px;padding:9px 0 8px;flex-wrap:wrap}
   .tab{display:none;padding-top:14px}.tab.on{display:block}
   .note{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--field-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.6}
   .note b{color:var(--chalk)}
@@ -49,8 +49,8 @@
   .credit{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:24px}
   @media (max-width:760px){
     .wrap{padding:0 12px}
-    header.mast{flex-direction:column;align-items:stretch;gap:14px;padding:16px 0 6px}
-    nav.tabs{gap:6px;padding:10px 0 6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+    header.mast{padding:14px 0 6px}
+    nav.tabs{gap:6px;padding:8px 0 6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
     nav.tabs a{font-size:13px;padding:9px 13px;white-space:nowrap}
     .toolbar{gap:8px}.toolbar select,.toolbar input.search{flex:1 1 100%;min-width:0}
     .grid2{grid-template-columns:1fr}

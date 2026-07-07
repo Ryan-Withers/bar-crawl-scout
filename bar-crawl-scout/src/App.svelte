@@ -1,12 +1,15 @@
 <script>
   import { onMount } from 'svelte';
-  import Router, { link } from 'svelte-spa-router';
+  import Router, { link, location } from 'svelte-spa-router';
   import active from 'svelte-spa-router/active';
   import { QueryClientProvider } from '@tanstack/svelte-query';
   import { queryClient } from './api/queries';
-  import { PLAYERS } from './lib/data.js';
+  import { PLAYERS, MODEHINT } from './lib/data.js';
+  import { mode } from './lib/store.js';
   import { autoLoad } from './lib/sync.js';
   import Masthead from './components/Masthead.svelte';
+  import SyncCoaster from './components/SyncCoaster.svelte';
+  import ToggleSwitch from './components/ToggleSwitch.svelte';
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
@@ -60,16 +63,36 @@
     { p: '/settings', l: 'Rules' },
     { p: '/sync', l: 'Sync' },
   ];
+
+  // The window-mode control only means something on valuation pages.
+  const MODE_ROUTES = ['/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/intel'];
+  $: showMode = $location === '/' || MODE_ROUTES.some((r) => $location.startsWith(r));
+
+  function openPalette() { window.dispatchEvent(new CustomEvent('palette:open')); }
 </script>
 
 <QueryClientProvider client={queryClient}>
   <div class="wrap">
     <Masthead />
-    <nav class="tabs">
-      {#each NAV as n}
-        <a href={n.p} use:link use:active={{ path: n.p, className: 'on' }}>{n.l}</a>
-      {/each}
-    </nav>
+
+    <div class="stickytop">
+      <div class="topbar">
+        <a class="mark" href="/board" use:link>Bar&nbsp;Crawl&nbsp;<b>Scout</b></a>
+        <div class="util">
+          <SyncCoaster />
+          {#if showMode}<ToggleSwitch />{/if}
+          <button class="jump" on:click={openPalette}><span class="lens">⌕</span> Jump <kbd>⌘K</kbd></button>
+        </div>
+      </div>
+      <nav class="tabs">
+        {#each NAV as n}
+          <a href={n.p} use:link use:active={{ path: n.p, className: 'on' }}>{n.l}</a>
+        {/each}
+      </nav>
+    </div>
+
+    {#if showMode}<p class="modehint">{MODEHINT[$mode]}</p>{/if}
+
     <Router {routes} />
     <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · The Back Room build</p>
   </div>
@@ -77,6 +100,26 @@
 
 <HoverCard />
 <CommandPalette />
+
+<style>
+  /* Sticky identity + controls + nav: the hero above scrolls away, this stays. */
+  .stickytop { position: sticky; top: 0; z-index: 30; background: var(--field); box-shadow: 0 8px 18px -10px rgba(0,0,0,.7); }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 7px; border-bottom: 1px solid var(--line); }
+  .mark { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .mark b { color: var(--neon); }
+  .mark:hover { color: var(--chalk); }
+  .util { display: flex; align-items: center; gap: 10px; }
+  .jump { display: inline-flex; align-items: center; gap: 6px; background: var(--field-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .jump:hover { border-color: rgba(130,201,252,.5); color: var(--chalk); }
+  .jump .lens { color: var(--neon); font-size: 13px; }
+  .jump kbd { font-size: 9px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .modehint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+  @media (max-width: 760px) {
+    .topbar { flex-wrap: wrap; gap: 8px; }
+    .util { width: 100%; justify-content: space-between; }
+    .jump kbd { display: none; }
+  }
+</style>
 
 <datalist id="plist">
   {#each PLAYERS as p}<option value={p[1]}></option>{/each}
