@@ -7,6 +7,7 @@
   import Stamp from './Stamp.svelte';
   import ChainOfCustody from './ChainOfCustody.svelte';
   import VsLeague from './VsLeague.svelte';
+  import GameLog from './GameLog.svelte';
   import { similarPlayers } from '../lib/engine/similar.ts';
   import { assemblePlayerHistory } from '../api/history.ts';
   import { loadPlayers } from '../api/players.ts';
@@ -36,14 +37,15 @@
 
   // Live custody chain + vs-league — walks every season in the browser. Blocked/
   // offline just leaves the empty states in place; guarded against re-fetch churn.
-  let hist = { chain: [], vs: [] };
+  const EMPTY_HIST = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null };
+  let hist = EMPTY_HIST;
   let histLoading = false;
   let histFor = '';
   $: if (name && p && !classified && name !== histFor) loadHistory(name);
   async function loadHistory(n) {
     histFor = n;
     histLoading = true;
-    hist = { chain: [], vs: [] };
+    hist = EMPTY_HIST;
     try {
       const byId = await loadPlayers();
       const h = await assemblePlayerHistory(n, byId);
@@ -116,7 +118,12 @@
         </div>
 
         <!-- Live sections stream in the browser; graceful here -->
-        {#each [['Game Log', 'this season, receipt-style, per-week league-scored points'], ['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends']] as sec}
+        <!-- This season's receipt: league-scored per-week points (live) -->
+        <div class="sheet stub">
+          <GameLog rows={hist.gameLog} totals={hist.totals} best={hist.best} loading={histLoading} />
+        </div>
+
+        {#each [['Career', 'season-by-season totals + PPG trajectory'], ['Projection vs Reality', 'weekly projected vs actual, boom/bust dial'], ['Usage', 'target / touch / snap share trends']] as sec}
           <div class="sheet stub">
             <div class="stubhd">{sec[0]}</div>
             <div class="stubbody"><Stamp text="Pulling the file" tone="neon" seed={sec[0].length} /> <span>{sec[1]} — streams from Sleeper in your browser.</span></div>

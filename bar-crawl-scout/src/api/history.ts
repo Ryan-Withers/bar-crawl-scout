@@ -6,6 +6,8 @@ import type { SeasonData, DraftPick, Transaction, ChainEvent } from '../lib/engi
 import type { VsLine, VsRow } from '../lib/engine/vsleague';
 import { chainOfCustody } from '../lib/engine/chain';
 import { vsLeague } from '../lib/engine/vsleague';
+import { buildGameLog, logTotals, bestWeek } from '../lib/engine/gamelog';
+import type { GameRow, WeekStats } from '../lib/engine/gamelog';
 import * as S from './sleeper';
 import { userHandleMap } from './league';
 import type { PlayerLite } from './types';
@@ -92,6 +94,24 @@ export function resolvePlayerId(name: string, byId: Record<string, PlayerLite>):
 export interface PlayerHistory {
   chain: ChainEvent[];
   vs: VsRow[];
+  gameLog: GameRow[];
+  totals: { games: number; points: number; ppg: number | null };
+  best: number | null;
+}
+
+// This season's per-week receipt: raw weekly stats -> league-scored points.
+async function buildLiveGameLog(
+  pid: string,
+  position: string,
+  season: string,
+  throughWeek: number,
+  scoring: Record<string, number>,
+): Promise<GameRow[]> {
+  if (!season || throughWeek < 1) return [];
+  const weeks = Array.from({ length: throughWeek }, (_, i) => i + 1);
+  const perWeek = await Promise.all(weeks.map((w) => settle(S.getWeekStats(season, w), {} as Record<string, Record<string, number>>)));
+  const ws: WeekStats[] = weeks.map((w, i) => ({ week: w, opp: '', stats: perWeek[i][pid] || null }));
+  return buildGameLog(ws, scoring, position);
 }
 
 const WEEKS = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -104,8 +124,23 @@ export async function assemblePlayerHistory(
   name: string,
   byId: Record<string, PlayerLite>,
 ): Promise<PlayerHistory> {
+  const empty: PlayerHistory = { chain: [], vs: [], gameLog: [], totals: { games: 0, points: 0, ppg: null }, best: null };
   const pid = resolvePlayerId(name, byId);
-  if (!pid) return { chain: [], vs: [] };
+  if (!pid) return empty;
+  const position = byId[pid][1] || '';
+
+  // Current-season game log (league-scored) runs alongside the multi-season walk.
+  const gameLogP = (async () => {
+    const [league, state] = await Promise.all([
+      settle(S.getLeague(), null),
+      settle(S.getState(), null),
+    ]);
+    const scoring = (league && (league as { scoring_settings?: Record<string, number> }).scoring_settings) || {};
+    const st = state as { season?: string; week?: number; display_week?: number } | null;
+    const season = st?.season || (league as { season?: string } | null)?.season || '';
+    const throughWeek = Math.max(0, (st?.week ?? st?.display_week ?? 0));
+    return buildLiveGameLog(pid, position, season, throughWeek, scoring);
+  })();
 
   const chainSeasons = await settle(S.getLeagueChain(), [] as Array<{ season: string; league_id: string }>);
   const seasonData: SeasonData[] = [];
@@ -131,6 +166,13 @@ export async function assemblePlayerHistory(
     vsLines.push(...vsLinesForPlayer(pid, matchWeeks as Parameters<typeof vsLinesForPlayer>[1], rh));
   }
 
-  // Chain uses OUR player_id key; resolve draft/txn player_ids are Sleeper's -> use pid.
-  return { chain: chainOfCustody(pid, seasonData), vs: vsLeague(vsLines) };
+  const gameLog = await gameLogP;
+  // Chain/gamelog key off the Sleeper player_id resolved above.
+  return {
+    chain: chainOfCustody(pid, seasonData),
+    vs: vsLeague(vsLines),
+    gameLog,
+    totals: logTotals(gameLog),
+    best: bestWeek(gameLog),
+  };
 }
