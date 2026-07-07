@@ -147,7 +147,7 @@
 </script>
 
 <section class="tab on">
-  <div class="note"><b>One board, everything.</b> Database, rankings and live draft sheet in one. <b>WIN</b> is the master metric, sorted best to worst in the current window mode; click any column header to pivot. <b>Build your own draft board</b> from the dropdown, rank with the arrows, and the <b>draft</b> button crosses players off as they go.</div>
+  <div class="note"><b>WIN</b> ranks everyone for your window; click any header to re-sort. <b>Build a draft board</b> from the dropdown to rank your own way — the <b>draft</b> button crosses players off live.</div>
 
   <div class="toolbar">
     <select value={sortKey} on:change={onSortChange}>

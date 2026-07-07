@@ -60,6 +60,9 @@
     }
   }
 
+  const SECTIONS = [['pf-gl', 'Game Log'], ['pf-car', 'Career'], ['pf-proj', 'Proj vs Reality'], ['pf-usg', 'Usage'], ['pf-vs', 'Vs League'], ['pf-coc', 'Chain'], ['pf-sim', 'Similar'], ['pf-notes', 'Notes']];
+  function jumpTo(id) { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
   let cmp = '';
   function doCompare() {
     const other = BYUNAME[cmp.trim().toLowerCase()];
@@ -120,40 +123,47 @@
           <button on:click={doCompare}>Compare</button>
         </div>
 
+        <!-- Jump-to-section nav so the file doesn't become one long scroll -->
+        {#if variant === 'page'}
+          <div class="jumpnav">
+            {#each SECTIONS as [id, label]}<button type="button" on:click={() => jumpTo(id)}>{label}</button>{/each}
+          </div>
+        {/if}
+
         <!-- Live sections stream in the browser; graceful here -->
         <!-- This season's receipt: league-scored per-week points (live) -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-gl">
           <GameLog rows={hist.gameLog} totals={hist.totals} best={hist.best} loading={histLoading} />
         </div>
 
         <!-- Season-by-season league-scored totals (live) -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-car">
           <Career rows={hist.career} loading={histLoading} />
         </div>
 
         <!-- Weekly projected vs actual, both league-scored (live) -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-proj">
           <Projection summary={hist.proj} loading={histLoading} />
         </div>
 
         <!-- Target / touch / snap share off real box-score denominators (live) -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-usg">
           <Usage summary={hist.usage} loading={histLoading} />
         </div>
 
         <!-- Head-to-head: what he averages against each manager -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-vs">
           <VsLeague rows={hist.vs} loading={histLoading} />
         </div>
 
         <!-- The showpiece: full league custody chain, reconstructed from draft + txns -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-coc">
           <ChainOfCustody events={hist.chain} loading={histLoading} />
         </div>
 
         <!-- Similar Files — nearest peers by position + value (live, board-derived) -->
         {#if peers.length}
-          <div class="sheet stub">
+          <div class="sheet stub" id="pf-sim">
             <div class="stubhd">Similar Files</div>
             <div class="peers">
               {#each peers as pr}
@@ -168,7 +178,7 @@
         {/if}
 
         <!-- Your read on this guy — private, local-only scout notes -->
-        <div class="sheet stub">
+        <div class="sheet stub" id="pf-notes">
           <div class="stubhd">Scout Notes <small>(private, local)</small></div>
           <textarea
             class="notes"
@@ -208,7 +218,10 @@
   .cmpbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
   .cmpbar input { background: rgba(255,255,255,.45); border: 1px solid rgba(28,26,22,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
   .cmpbar button { background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
-  .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; }
+  .jumpnav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 114px; z-index: 3; padding: 10px 0; margin-top: 8px; background: linear-gradient(var(--barroom) 78%, transparent); }
+  .jumpnav button { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px; cursor: pointer; line-height: 1; }
+  .jumpnav button:hover { color: var(--neon); border-color: rgba(130,201,252,.5); }
+  .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; scroll-margin-top: 168px; }
   .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
   .stubhd small { text-transform: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; color: var(--muted); }
   .notes { width: 100%; min-height: 68px; margin-top: 6px; background: var(--barroom); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-family: 'Caveat', cursive; font-size: 17px; color: var(--chalk); resize: vertical; }

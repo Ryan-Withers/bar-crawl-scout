@@ -3,6 +3,7 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { leagueQuery } from '../api/queries';
+  import Skeleton from './Skeleton.svelte';
 
   const leagueQ = createQuery(leagueQuery());
   $: league = $leagueQ.data;
@@ -59,8 +60,11 @@
         {/each}
       </div>
     </div>
+  {:else if $leagueQ.isLoading}
+    <div class="grid"><Skeleton rows={5} height={30} /><Skeleton rows={3} height={30} /></div>
+    <div style="margin-top:12px"><Skeleton rows={4} height={26} /></div>
   {:else}
-    <div class="empty">{$leagueQ.isLoading ? 'Opening the file cabinet…' : 'League config loads from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.'}</div>
+    <div class="empty">League config loads from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.</div>
   {/if}
 </section>
 

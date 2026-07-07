@@ -6,6 +6,7 @@
   import { pairMatchups } from '../lib/engine/gameday.ts';
   import { stateQuery, usersQuery, rostersQuery, matchupsQuery } from '../api/queries';
   import { userHandleMap } from '../api/league';
+  import Skeleton from './Skeleton.svelte';
 
   const stateQ = createQuery(stateQuery());
   const usersQ = createQuery(usersQuery());
@@ -52,8 +53,10 @@
         </div>
       {/each}
     </div>
+  {:else if loading}
+    <div class="slate"><Skeleton rows={2} height={92} /><Skeleton rows={2} height={92} /></div>
   {:else}
-    <div class="empty">{loading ? 'Pulling the scoreboard…' : 'No live scoreboard yet — this week’s matchups load from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.'}</div>
+    <div class="empty">No live scoreboard yet — this week’s matchups load from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.</div>
   {/if}
 </section>
 

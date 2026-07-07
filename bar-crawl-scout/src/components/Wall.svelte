@@ -5,6 +5,7 @@
   import { TEAMSHORT, RYAN } from '../lib/data.js';
   import { foundingQuery } from '../api/queries';
   import { assembleWall } from '../api/wall.ts';
+  import Skeleton from './Skeleton.svelte';
 
   const founding = createQuery(foundingQuery());
   $: est = $founding.data;
@@ -47,8 +48,10 @@
         </div>
       {/each}
     </div>
+  {:else if loading}
+    <Skeleton rows={4} height={78} gap={12} />
   {:else}
-    <div class="empty">{loading ? 'Reading the wall — walking every season…' : 'No seasons on file yet — history loads from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.'}</div>
+    <div class="empty">No seasons on file yet — history loads from Sleeper in your browser. Open the site in a real tab; the in-app preview blocks the network.</div>
   {/if}
 </section>
 

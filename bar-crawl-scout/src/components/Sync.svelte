@@ -96,6 +96,10 @@
 </section>
 
 <style>
+  .grid2 { align-items: stretch; }
+  .box { display: flex; flex-direction: column; }
+  .box .toolbar { margin-top: auto; }
+  .box .toolbar .add { flex: 1; padding: 12px; font-size: 13px; }
   .sline { margin-top: 8px; }
   .maprows, .spenders { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.7; color: var(--muted); }
   .mrow { margin-top: 2px; }
