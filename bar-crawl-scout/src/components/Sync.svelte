@@ -4,11 +4,11 @@
   import { keepers, board } from '../lib/store.js';
   import { TEAMS } from '../lib/data.js';
 
-  let syncOut = '';
+  let status = null; // { kind: 'progress'|'done'|'error', ... }
   let backOut = '';
   let syncing = false;
 
-  async function doSync() { syncing = true; await runSync((html) => (syncOut = html)); syncing = false; }
+  async function doSync() { syncing = true; status = null; await runSync((s) => (status = s)); syncing = false; }
 
   function exportJSON() {
     const data = { keepers: get(keepers), board: get(board), exported: new Date().toISOString() };
@@ -41,7 +41,51 @@
     <div class="box"><h3>Sync Sleeper</h3>
       <div class="note" style="margin-bottom:10px">Live rosters load automatically when you open the site (from the sync Worker, refreshed hourly). Tapping Sync here also refreshes FAAB medians and 2024/2025 draft history. Runs in a real browser tab; inside an in-app preview the network is blocked.</div>
       <button class="go" on:click={doSync} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</button>
-      {@html syncOut}
+
+      {#if status}
+        {#if status.kind === 'progress'}
+          <div class="out">{status.msg}</div>
+        {:else if status.kind === 'error'}
+          <div class="out"><span class="bd">Could not reach Sleeper.</span><br>{status.msg}<br><br>If you are in the in-app preview the network is blocked. Open this site in Chrome or Safari and tap Sync. Everything else works offline.</div>
+        {:else}
+          <div class="out">
+            <div class="big">Synced</div>
+            League: {status.league}<br>
+            Users {status.users} · Rosters {status.rosters} · Traded picks {status.tradedPicks}<br>
+            FAAB: <span class="wk">{status.faabWeeks} weeks, {status.nbids} bids</span>
+
+            {#if status.roster}
+              {#if status.roster.error}
+                <div class="pmeta">Roster pull failed (rest still synced): {status.roster.error}</div>
+              {:else}
+                <div class="sline">Live rosters: <span class="wk">{status.roster.matched}/{status.roster.total} teams matched, {status.roster.totalPlayers} rostered players</span>{#if status.roster.unmatched.length} <span class="bd">— could not match: {status.roster.unmatched.join(', ')} (tell Ryan these Sleeper names)</span>{:else} — all teams matched.{/if}</div>
+                <div class="maprows">TEAM MAPPING (verify each Sleeper name maps to the right manager):
+                  {#each status.roster.mapRows as m}
+                    <div class="mrow">roster {m.roster_id}: Sleeper "{m.sleeper}" → {#if m.matched}<b>{m.handle}</b>{:else}<span class="bd">UNMATCHED ({m.handle})</span>{/if} · {m.count} players</div>
+                  {/each}
+                </div>
+              {/if}
+            {/if}
+
+            {#if status.draft}
+              {#if status.draft.error}
+                <div class="pmeta">Draft history pull failed (FAAB still synced): {status.draft.error}</div>
+              {:else}
+                <div class="sline">Drafts: <span class="wk">{status.draft.n24} picks 2024, {status.draft.n25} picks 2025, {status.draft.reps} repeat-pick affinities</span> — dossiers now show real history.</div>
+              {/if}
+            {/if}
+
+            <div class="sline">Last synced: <span class="wk">{status.ts}</span></div>
+            <div class="spenders"><b>Top FAAB spenders (real medians now live in the FAAB tab):</b>
+              {#if status.topSpenders.length}
+                {#each status.topSpenders as x}
+                  <div class="mrow">{x.short}: median ${x.median}, max ${x.max}, spent ${x.spent} over {x.count} bids</div>
+                {/each}
+              {:else}<div class="mrow">no waiver bids found</div>{/if}
+            </div>
+          </div>
+        {/if}
+      {/if}
     </div>
     <div class="box"><h3>Backup</h3>
       <div class="note" style="margin-bottom:10px">Export your keepers, board order and notes, or import a backup. So you never lose data and can send it to me.</div>
@@ -50,3 +94,11 @@
     </div>
   </div>
 </section>
+
+<style>
+  .sline { margin-top: 8px; }
+  .maprows, .spenders { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.7; color: var(--muted); }
+  .mrow { margin-top: 2px; }
+  .maprows b, .spenders b { color: var(--chalk); }
+  .maprows .bd { color: var(--stamp-red); }
+</style>

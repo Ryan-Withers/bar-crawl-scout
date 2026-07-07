@@ -1,7 +1,6 @@
 <script>
   import { PLAYERS, PICKVAL, BYUNAME } from '../lib/data.js';
   import { windowVal, pickValue, isRyanPlayer } from '../lib/models.js';
-  import { esc } from '../lib/util.js';
   import { keepers, mode } from '../lib/store.js';
   import Receipt from './Receipt.svelte';
   import Stamp from './Stamp.svelte';
@@ -39,14 +38,15 @@
     else { head = `FLEECED BY ${Math.abs(diff)}`; tone = 'red'; }
     const all = [...give, ...recv];
     let swing = all[0]; all.forEach((a) => { if (assetVal(a) > assetVal(swing)) swing = a; });
+    // Each rationale is an array of {t, b?, cls?} segments — rendered as markup, no {@html}.
     const whys = [];
-    whys.push('Not 50 + 50 = 100. Best asset at full value + a scarcity premium; every extra piece worth 45% (you start a fixed lineup).');
-    if (swing) whys.push(`Swing piece: <b>${esc(assetLabel(swing))}</b> (${assetVal(swing)}). Whoever ends with the best player usually wins.`);
+    whys.push([{ t: 'Not 50 + 50 = 100. Best asset at full value + a scarcity premium; every extra piece worth 45% (you start a fixed lineup).' }]);
+    if (swing) whys.push([{ t: 'Swing piece: ' }, { t: assetLabel(swing), b: true }, { t: ` (${assetVal(swing)}). Whoever ends with the best player usually wins.` }]);
     if (recv.length && give.length) {
-      if (T.top > G.top && recv.length <= give.length) whys.push(`<span class="up">Consolidating up</span> into a bigger single asset (${T.top} vs ${G.top}).`);
-      else if (G.top > T.top && give.length < recv.length) whys.push(`<span class="down">De-consolidating</span> your best asset (${G.top}) into smaller pieces (${T.top} top).`);
+      if (T.top > G.top && recv.length <= give.length) whys.push([{ t: 'Consolidating up', cls: 'up' }, { t: ` into a bigger single asset (${T.top} vs ${G.top}).` }]);
+      else if (G.top > T.top && give.length < recv.length) whys.push([{ t: 'De-consolidating', cls: 'down' }, { t: ` your best asset (${G.top}) into smaller pieces (${T.top} top).` }]);
     }
-    whys.push(`Window <b>${md}</b>: ` + (md === 'winnow' ? 'final-year studs valued for 2026 only.' : md === 'balanced' ? 'both seasons rewarded equally.' : 'future picks and youth weighted up.'));
+    whys.push([{ t: 'Window ' }, { t: md, b: true }, { t: ': ' + (md === 'winnow' ? 'final-year studs valued for 2026 only.' : md === 'balanced' ? 'both seasons rewarded equally.' : 'future picks and youth weighted up.') }]);
     result = {
       head, tone, diff,
       give: give.map((a) => ({ label: assetLabel(a), val: assetVal(a) })),
@@ -90,7 +90,7 @@
           {#each result.recv as g}<div class="line"><span>{g.label}</span><b>{g.val}</b></div>{/each}
           <div class="tot"><span>Effective</span><span>{result.Teff}</span></div>
           <div class="rgap"></div>
-          {#each result.whys as w}<p class="why">• {@html w}</p>{/each}
+          {#each result.whys as w}<p class="why">• {#each w as s}{#if s.b}<b>{s.t}</b>{:else if s.cls}<span class={s.cls}>{s.t}</span>{:else}{s.t}{/if}{/each}</p>{/each}
           <div class="verdict"><Stamp text={result.head} tone={result.tone} big seed={result.diff} /></div>
           <span slot="foot">* * * {result.head} * * *</span>
         </Receipt>
@@ -100,6 +100,8 @@
 </section>
 
 <style>
+  .why .up { color: #2e7d46; font-weight: 700; }
+  .why .down { color: #b5442f; font-weight: 700; }
   .rsection { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #5a5238; margin-bottom: 3px; }
   .rgap { height: 12px; }
   .verdict { display: flex; justify-content: center; margin: 16px 0 4px; }

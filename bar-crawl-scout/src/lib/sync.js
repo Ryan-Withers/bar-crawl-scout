@@ -3,7 +3,6 @@
 // so the rest of the UI updates automatically when a sync finishes.
 import { TEAMS, TEAMSHORT, ROSTER2025 } from './data.js';
 import { computeFaab } from './models.js';
-import { esc } from './util.js';
 import { SYNC_URL, LG2026, LG2025, LG2024, jget, fetchLiveRosters } from './sleeper.js';
 import { rosters, faab, draft, lastSync } from './store.js';
 
@@ -22,9 +21,10 @@ export async function autoLoad() {
 }
 
 // Full manual sync: league, FAAB medians (17 weeks), live rosters + player dict,
-// and 2024/2025 draft history. `status` is a callback that receives HTML strings.
+// and 2024/2025 draft history. `status` is a callback that receives structured
+// objects: { kind: 'progress'|'done'|'error', ... } — the UI renders them.
 export async function runSync(status) {
-  status('<div class="out">Syncing from Sleeper... pulling the league, drafts and 17 weeks of transactions, this takes a few seconds.</div>');
+  status({ kind: 'progress', msg: 'Syncing from Sleeper — pulling the league, drafts and 17 weeks of transactions. This takes a few seconds.' });
   try {
     const league = await jget('https://api.sleeper.app/v1/league/' + LG2026);
     const users = await jget('https://api.sleeper.app/v1/league/' + LG2026 + '/users');
@@ -52,9 +52,9 @@ export async function runSync(status) {
     const norm = (dn) => { const l = cleanh(dn); if (l.indexOf('wither') >= 0) return 'Ryan'; const hit = TEAMS.find((t) => cleanh(t[0]) === l); return hit ? hit[0] : dn; };
     const umap = {}; users.forEach((u) => (umap[u.user_id] = norm(u.display_name || u.user_id)));
 
-    let rosterSummary = '';
+    let rosterInfo = null;
     try {
-      status('<div class="out">Syncing... loading live rosters and the Sleeper player list (large first time, cached after).</div>');
+      status({ kind: 'progress', msg: 'Loading live rosters and the Sleeper player list (large first time, cached after).' });
       let PLAYERMAP = null, fresh = false;
       try { const pm = localStorage.getItem('hq_players_v2'); if (pm) { const o = JSON.parse(pm); if (o && o.map && (Date.now() - (o.t || 0) < 86400000)) { PLAYERMAP = o.map; fresh = true; } } } catch { /* no cache */ }
       if (!PLAYERMAP || !fresh) {
@@ -74,11 +74,16 @@ export async function runSync(status) {
       });
       rosters.set({ t: ts, byHandle });
       const u2name = {}; (users || []).forEach((u) => (u2name[u.user_id] = u.display_name || String(u.user_id)));
-      const mapRows = (Array.isArray(rs) ? rs : []).slice().sort((a, b) => a.roster_id - b.roster_id).map((r) => { const dn = u2name[r.owner_id] || ('owner ' + r.owner_id); const h = umap[r.owner_id]; const matched = h && TEAMS.some((t) => t[0] === h); const cnt = (r.players || []).length; return 'roster ' + r.roster_id + ': Sleeper "' + esc(dn) + '" &rarr; ' + (matched ? '<b>' + esc(h) + '</b>' : '<span class="bd">UNMATCHED (' + esc(h || '?') + ')</span>') + ' &middot; ' + cnt + ' players'; }).join('<br>');
-      rosterSummary = '<br>Live rosters: <span class="wk">' + Object.keys(byHandle).length + '/' + TEAMS.length + ' teams matched, ' + totalP + ' rostered players</span>' + (unmatched.length ? ' <span class="bd">- could not match: ' + unmatched.map(esc).join(', ') + ' (tell Ryan these Sleeper names)</span>' : ' - all teams matched.') + '<div class="pmeta" style="margin-top:8px;font-size:12px;line-height:1.7;border-top:1px solid var(--line);padding-top:6px">TEAM MAPPING (verify each Sleeper name maps to the right manager):<br>' + mapRows + '</div>';
-    } catch (e) { rosterSummary = '<br><span class="pmeta">Roster pull failed (rest still synced): ' + esc(String(e.message || e)) + '</span>'; }
+      const mapRows = (Array.isArray(rs) ? rs : []).slice().sort((a, b) => a.roster_id - b.roster_id).map((r) => {
+        const dn = u2name[r.owner_id] || ('owner ' + r.owner_id);
+        const h = umap[r.owner_id];
+        const matched = !!(h && TEAMS.some((t) => t[0] === h));
+        return { roster_id: r.roster_id, sleeper: dn, handle: h || '?', matched, count: (r.players || []).length };
+      });
+      rosterInfo = { matched: Object.keys(byHandle).length, total: TEAMS.length, totalPlayers: totalP, unmatched, mapRows };
+    } catch (e) { rosterInfo = { error: String(e.message || e) }; }
 
-    let draftSummary = '';
+    let draftInfo = null;
     try {
       const draftedBy = {}, byManager = {};
       async function pullDraft(lgid, season) {
@@ -100,13 +105,18 @@ export async function runSync(status) {
       for (const h in byManager) { const b = byManager[h]; const s = new Set(b.p24); b.repeat = b.p25.filter((x) => s.has(x)).filter((x, i, a) => a.indexOf(x) === i); }
       draft.set({ draftedBy, byManager, ts });
       const reps = Object.keys(byManager).reduce((s, h) => s + (byManager[h].repeat ? byManager[h].repeat.length : 0), 0);
-      draftSummary = '<br>Drafts: <span class="wk">' + n24 + ' picks 2024, ' + n25 + ' picks 2025, ' + reps + ' repeat-pick affinities</span> - dossiers now show real history.';
-    } catch (e) { draftSummary = '<br><span class="pmeta">Draft history pull failed (FAAB still synced): ' + esc(String(e.message || e)) + '</span>'; }
+      draftInfo = { n24, n25, reps };
+    } catch (e) { draftInfo = { error: String(e.message || e) }; }
 
     const top = Object.keys(fa).map((h) => ({ h, m: fa[h].median, mx: fa[h].max, sp: fa[h].spent, c: fa[h].count })).sort((a, b) => b.sp - a.sp).slice(0, 5);
-    const rows = top.map((x) => (TEAMSHORT[x.h] || x.h) + ': median $' + x.m + ', max $' + x.mx + ', spent $' + x.sp + ' over ' + x.c + ' bids').join('<br>');
-    status('<div class="out"><div class="big">Synced</div>League: ' + esc(league.name) + '<br>Users ' + users.length + ' · Rosters ' + rs.length + ' · Traded picks ' + tp.length + '<br>FAAB: <span class="wk">' + weeks.length + ' weeks, ' + nbids + ' bids</span>' + rosterSummary + draftSummary + '<br>Last synced: <span class="wk">' + esc(ts) + '</span><br><br><b>Top FAAB spenders (real medians now live in the FAAB tab):</b><br>' + (rows || 'no waiver bids found') + '</div>');
+    const topSpenders = top.map((x) => ({ short: TEAMSHORT[x.h] || x.h, median: x.m, max: x.mx, spent: x.sp, count: x.c }));
+    status({
+      kind: 'done',
+      league: league.name, users: users.length, rosters: rs.length, tradedPicks: tp.length,
+      faabWeeks: weeks.length, nbids, ts,
+      roster: rosterInfo, draft: draftInfo, topSpenders,
+    });
   } catch (err) {
-    status('<div class="out"><span class="bd">Could not reach Sleeper.</span><br>' + esc(String(err.message || err)) + '<br><br>If you are in the in-app preview the network is blocked. Open this site in Chrome or Safari and tap Sync. Everything else works offline.</div>');
+    status({ kind: 'error', msg: String(err.message || err) });
   }
 }
