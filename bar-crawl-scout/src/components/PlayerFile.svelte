@@ -2,7 +2,7 @@
   import { link, push } from 'svelte-spa-router';
   import { BYUNAME, MODES, RYAN, TAGTXT, PLAYERS } from '../lib/data.js';
   import { r26, r27, pts26, pts27, windowVal, ownerOf, isKept, isFinalYr, yearsLeft, rosterOwner, isRyanPlayer } from '../lib/models.js';
-  import { keepers, mode, rosterOwn } from '../lib/store.js';
+  import { keepers, mode, rosterOwn, playerNotes } from '../lib/store.js';
   import Coaster from './Coaster.svelte';
   import Stamp from './Stamp.svelte';
   import ChainOfCustody from './ChainOfCustody.svelte';
@@ -166,6 +166,17 @@
             </div>
           </div>
         {/if}
+
+        <!-- Your read on this guy — private, local-only scout notes -->
+        <div class="sheet stub">
+          <div class="stubhd">Scout Notes <small>(private, local)</small></div>
+          <textarea
+            class="notes"
+            placeholder="Your read on {name}…"
+            value={$playerNotes[name] || ''}
+            on:input={(e) => playerNotes.update((n) => ({ ...n, [name]: e.target.value }))}
+          ></textarea>
+        </div>
       {/if}
     </div>
   {/if}
@@ -199,6 +210,9 @@
   .cmpbar button { background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
   .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; }
   .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
+  .stubhd small { text-transform: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; color: var(--muted); }
+  .notes { width: 100%; min-height: 68px; margin-top: 6px; background: var(--barroom); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-family: 'Caveat', cursive; font-size: 17px; color: var(--chalk); resize: vertical; }
+  .notes:focus { outline: 2px solid var(--neon); }
   .stubbody { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
 
   .peers { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }

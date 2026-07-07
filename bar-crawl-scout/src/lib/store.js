@@ -57,5 +57,8 @@ export const lastSync = writable((() => { try { return localStorage.getItem('hq_
 // Local, per-manager scout notes (handle -> free text).
 export const managerNotes = persisted('bcs_mgr_notes', readJSON('bcs_mgr_notes') || {});
 
+// Local, per-player scout notes (player name -> free text).
+export const playerNotes = persisted('bcs_player_notes', readJSON('bcs_player_notes') || {});
+
 // Singleton hover-card state: { name, x, y } | null. A single HoverCard reads it.
 export const hoverCard = writable(null);
