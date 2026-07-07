@@ -1,0 +1,40 @@
+# Runs THE CAPTURE BOT on a GitHub Actions runner (which CAN reach api.sleeper.app,
+# unlike the dev sandbox) and opens a PR with the fixture diff — so fixture updates
+# are reviewed like code. Trigger it by hand: Actions -> Capture fixtures -> Run.
+name: Capture fixtures
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: Sleeper league ID
+        required: false
+        default: "1311995695032467456"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bar-crawl-scout
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run the capture bot (has real network)
+        run: node scripts/capture-fixtures.mjs --league "${{ github.event.inputs.league }}"
+      - name: Open a fixtures PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: fixtures/refresh
+          commit-message: "Refresh Sleeper fixtures (capture bot)"
+          title: "Refresh Sleeper fixtures"
+          body: |
+            Automated fixture capture from `api.sleeper.app`. Review the diff like code —
+            unexpected shape changes mean Sleeper moved something (see the Drift Bot notes).
+          add-paths: bar-crawl-scout/src/lib/api/fixtures/**
