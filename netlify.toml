@@ -1,0 +1,18 @@
+# The app lives in the bar-crawl-scout/ subdirectory, not the repo root. Point
+# Netlify at it: `base` is the dir Netlify cd's into (finds package.json, installs
+# deps, runs the build there), and `command`/`publish` are relative to that base.
+# Without this, Netlify builds from the root — where there's no package.json — and
+# serves a stale deploy, so none of the SPA ever goes live.
+[build]
+  base = "bar-crawl-scout"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback — any path serves the built index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
