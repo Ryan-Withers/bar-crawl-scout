@@ -1,10 +1,24 @@
 <script>
+  import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores } from '../lib/models.js';
   import { keepers } from '../lib/store.js';
+  import { usersQuery, rostersQuery } from '../api/queries';
+  import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
+  import { avatarUrl } from '../api/sleeper';
   import Stamp from './Stamp.svelte';
 
+  const usersQ = createQuery(usersQuery());
+  const rostersQ = createQuery(rostersQuery());
+
   $: ks = $keepers;
+  $: liveMgrs = $usersQ.data ? managersFromUsers($usersQ.data) : {};
+  $: uhMap = $usersQ.data ? userHandleMap($usersQ.data) : {};
+  $: records = ($rostersQ.data && $usersQ.data) ? recordsFromRosters($rostersQ.data, uhMap) : {};
+
+  // Live record/PF when synced, else the static fallback from the dossier data.
+  const recOf = (m) => { const r = records[m.h]; return r ? `${r.wins}-${r.losses}${r.ties ? '-' + r.ties : ''}` : m.rec; };
+  const pfOf = (m) => { const r = records[m.h]; return r ? Math.round(r.pf).toLocaleString() + ' PF' : m.pf; };
 
   const teamName = (h) => (TEAMS.find((t) => t[0] === h) || [h, h])[1];
   const initials = (name) => name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -28,10 +42,15 @@
         <span class="clip"></span>
 
         <div class="hd">
-          <span class="avatar">{initials(teamName(m.h))}</span>
+          <span class="avatar">
+            {initials(teamName(m.h))}
+            {#if !classified && liveMgrs[m.h]?.avatar}
+              <img src={avatarUrl(liveMgrs[m.h].avatar)} alt="" on:error={(e) => e.currentTarget.remove()} />
+            {/if}
+          </span>
           <div class="who">
             <div class="handle">@{m.h}</div>
-            <div class="rec">{m.rec} <small>{m.pf}</small></div>
+            <div class="rec">{recOf(m)} <small>{pfOf(m)}</small></div>
           </div>
           {#if classified}
             <span class="cornerstamp"><Stamp text="CLASSIFIED" tone="red" seed={i} /></span>
@@ -109,8 +128,9 @@
   .clip::after { content: ''; position: absolute; inset: 3px 3px 10px; border: 2px solid #b0b5ba; border-radius: 6px 6px 0 0; }
 
   .hd { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
-  .avatar { width: 40px; height: 40px; flex: none; border-radius: 50%; background: #22303f; color: var(--neon-hot);
+  .avatar { position: relative; overflow: hidden; width: 40px; height: 40px; flex: none; border-radius: 50%; background: #22303f; color: var(--neon-hot);
     display: grid; place-items: center; font-family: 'Archivo Black', sans-serif; font-size: 14px; box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px rgba(28,26,22,.25); }
+  .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .who .handle { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
   .who .rec { font-family: 'Archivo Black', sans-serif; font-size: 18px; }
   .who .rec small { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-soft); font-weight: 400; margin-left: 5px; }
