@@ -34,6 +34,10 @@ export const getLeagueDrafts = (id: string = LEAGUE_ID) =>
 export const getDraftPicks = (draftId: string) =>
   get<Array<Record<string, unknown>>>(`/draft/${draftId}/picks`);
 
+// Playoff bracket — the final match's winner is that season's champion.
+export const getWinnersBracket = (id: string = LEAGUE_ID) =>
+  get<Array<{ r: number; m: number; w?: number | null; l?: number | null; t1?: number | null; t2?: number | null }>>(`/league/${id}/winners_bracket`);
+
 // Walk previous_league_id -> [{season, league_id}] newest-first, so we can pull
 // draft/txn/matchup history across every season the dynasty has existed.
 export async function getLeagueChain(id: string = LEAGUE_ID): Promise<Array<{ season: string; league_id: string }>> {

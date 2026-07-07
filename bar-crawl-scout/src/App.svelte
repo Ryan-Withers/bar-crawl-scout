@@ -18,6 +18,8 @@
   import PlayerFile from './components/PlayerFile.svelte';
   import Compare from './components/Compare.svelte';
   import Standings from './components/Standings.svelte';
+  import Gameday from './components/Gameday.svelte';
+  import Wall from './components/Wall.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Stub from './components/Stub.svelte';
@@ -37,9 +39,9 @@
     '/waivers': Faab,
     '/intel': Intel,
     '/sync': SyncPage,
-    '/matchups': Stub,
+    '/matchups': Gameday,
     '/standings': Standings,
-    '/history': Stub,
+    '/history': Wall,
     '/draft': Stub,
     '/settings': Stub,
     '*': Stub,
