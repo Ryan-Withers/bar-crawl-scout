@@ -1,6 +1,7 @@
 # Runs THE CAPTURE BOT on a GitHub Actions runner (which CAN reach api.sleeper.app,
-# unlike the dev sandbox) and opens a PR with the fixture diff — so fixture updates
-# are reviewed like code. Trigger it by hand: Actions -> Capture fixtures -> Run.
+# unlike the dev sandbox) and pushes the fixtures to the fixtures/refresh branch,
+# so you can open a PR and review the diff like code. Trigger it by hand:
+# Actions -> Capture fixtures -> Run.
 name: Capture fixtures
 
 on:
@@ -13,28 +14,27 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   capture:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: bar-crawl-scout
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Run the capture bot (has real network)
+        working-directory: bar-crawl-scout
         run: node scripts/capture-fixtures.mjs --league "${{ github.event.inputs.league }}"
-      - name: Open a fixtures PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: fixtures/refresh
-          commit-message: "Refresh Sleeper fixtures (capture bot)"
-          title: "Refresh Sleeper fixtures"
-          body: |
-            Automated fixture capture from `api.sleeper.app`. Review the diff like code —
-            unexpected shape changes mean Sleeper moved something (see the Drift Bot notes).
-          add-paths: bar-crawl-scout/src/lib/api/fixtures/**
+      - name: Push fixtures to a branch (no PR-create permission needed)
+        run: |
+          if git diff --quiet -- bar-crawl-scout/src/lib/api/fixtures; then
+            echo "No fixture changes — nothing to push."; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B fixtures/refresh
+          git add bar-crawl-scout/src/lib/api/fixtures
+          git commit -m "Refresh Sleeper fixtures (capture bot)"
+          git push -f origin fixtures/refresh
+          echo "::notice::Fixtures pushed. Open a PR: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...fixtures/refresh"
