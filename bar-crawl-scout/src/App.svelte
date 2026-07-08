@@ -157,7 +157,8 @@
         radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.45), transparent) right / 12px 100% no-repeat scroll;
     }
     .groups::-webkit-scrollbar { display: none; }
-    .groups a { white-space: nowrap; padding: 7px 11px; font-size: 13px; }
+    /* 44px minimum thumb target on mobile (WCAG / Apple HIG). */
+    .groups a { white-space: nowrap; padding: 7px 12px; font-size: 13px; min-height: 44px; display: inline-flex; align-items: center; }
   }
   .jump { display: inline-flex; align-items: center; gap: 6px; background: var(--field-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); font-family: var(--mono); font-size: 11px; }
   .jump:hover { border-color: rgba(130,201,252,.5); color: var(--chalk); }
