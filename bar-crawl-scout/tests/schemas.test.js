@@ -1,0 +1,46 @@
+// CONTRACT TESTS (Fable File 03, Part 1.2). Two layers:
+//  1. Representative inline samples parse (schemas are correct today).
+//  2. Every CAPTURED fixture parses against its schema (auto-discovered; skips
+//     cleanly until the capture bot has run). When Sleeper renames a field, this
+//     goes red alongside the Drift Bot.
+import { describe, it, expect } from 'vitest';
+import {
+  SleeperLeagueSchema, SleeperUserSchema, SleeperRosterSchema, NflStateSchema,
+  SleeperMatchupSchema, TrendingPlayerSchema, ScoringSettingsSchema, SCHEMAS, parseOr,
+} from '../src/lib/api/schemas';
+import scoring from '../src/lib/api/fixtures/league-scoring.json';
+
+describe('schemas — representative samples', () => {
+  it('league', () => expect(SleeperLeagueSchema.parse({ league_id: '1', season: '2026', scoring_settings: { rec: 0.5 }, extra_new_key: true }).league_id).toBe('1'));
+  it('user', () => expect(SleeperUserSchema.parse({ user_id: 'u1', display_name: 'joshleota' }).user_id).toBe('u1'));
+  it('roster (nullable owner/players)', () => expect(SleeperRosterSchema.parse({ roster_id: 3, owner_id: null, players: null }).roster_id).toBe(3));
+  it('state', () => expect(NflStateSchema.parse({ week: 8, season: '2026', season_type: 'regular' }).week).toBe(8));
+  it('matchup with players_points', () => expect(SleeperMatchupSchema.parse({ roster_id: 1, players_points: { '4046': 21.2 } }).players_points['4046']).toBe(21.2));
+  it('trending player', () => expect(TrendingPlayerSchema.parse({ player_id: '4046', count: 900 }).count).toBe(900));
+  it('the real league-scoring fixture parses', () => expect(ScoringSettingsSchema.parse(scoring).rec).toBe(0.5));
+});
+
+describe('parseOr — the degradation seam', () => {
+  it('returns parsed data on a good shape', () => {
+    expect(parseOr(NflStateSchema, { week: 5, season: '2026' }, { week: 0, season: '' }).week).toBe(5);
+  });
+  it('returns the fallback on a bad shape instead of throwing', () => {
+    expect(parseOr(NflStateSchema, { nope: true }, { week: 0, season: '' }).week).toBe(0);
+  });
+});
+
+// Contract test over captured fixtures (skips until the capture bot has run).
+const files = import.meta.glob('../src/lib/api/fixtures/*.json', { eager: true, import: 'default' });
+const named = Object.entries(files)
+  .map(([p, data]) => [p.match(/([a-z-]+)(?:-\d.*)?\.json$/)?.[1], data])
+  .filter(([base]) => base && SCHEMAS[base]);
+
+describe.skipIf(named.filter(([b]) => b !== 'league-scoring').length === 0)('captured fixtures parse against their schema', () => {
+  for (const [base, data] of named) {
+    it(`${base} fixture matches schema`, () => {
+      const r = SCHEMAS[base].safeParse(data);
+      if (!r.success) throw new Error(`${base}: ${r.error.issues.slice(0, 3).map((i) => i.path.join('.') + ' ' + i.message).join('; ')}`);
+      expect(r.success).toBe(true);
+    });
+  }
+});

@@ -4,3 +4,4 @@ dist/
 # Local dev-only harnesses (hardcoded sandbox paths; not portable)
 shots.mjs
 ogcard.mjs
+coverage/
