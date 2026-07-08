@@ -4,6 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 // Chromium only; the mobile persona overrides the viewport per-spec via test.use.
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/smoke/**', // the live smoke has its own config (playwright.smoke.config.js)
   timeout: 30_000,
   expect: { timeout: 8_000 },
   fullyParallel: true,
