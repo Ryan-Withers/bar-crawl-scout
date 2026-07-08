@@ -11,6 +11,8 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "e2e": "playwright test",
+    "token-lint": "node scripts/token-lint.mjs",
+    "bundle-budget": "node scripts/bundle-budget.mjs",
     "capture": "node scripts/capture-fixtures.mjs"
   },
   "devDependencies": {

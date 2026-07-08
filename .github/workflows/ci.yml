@@ -16,8 +16,10 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm run coverage   # THE AUDITOR + THE BOUNCER + coverage gate
+      - run: npm run token-lint  # THE ART CRITIC — anti-AI floor
+      - run: npm run coverage    # THE AUDITOR + THE BOUNCER + coverage gate
       - run: npm run build
+      - run: npm run bundle-budget  # THE STOPWATCH — JS stays small, no 5MB blob
 
   e2e:
     runs-on: ubuntu-latest
