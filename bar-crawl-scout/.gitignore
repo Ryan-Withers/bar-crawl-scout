@@ -5,3 +5,8 @@ dist/
 shots.mjs
 ogcard.mjs
 coverage/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
