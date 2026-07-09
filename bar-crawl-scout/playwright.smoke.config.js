@@ -7,8 +7,9 @@ export default defineConfig({
   timeout: 30_000,
   retries: 2,
   reporter: 'line',
+  // No baseURL on purpose — the site sits on a subpath, and baseURL+goto('/')
+  // resolves to the origin root. Specs build absolute URLs from LIVE_URL.
   use: {
-    baseURL: process.env.LIVE_URL || 'https://ryan-withers.github.io/bar-crawl-scout',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
