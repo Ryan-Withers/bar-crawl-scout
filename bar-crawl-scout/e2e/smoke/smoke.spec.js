@@ -4,16 +4,20 @@
 // audit (offseason means sparse live data).
 import { test, expect } from '@playwright/test';
 
+// The site lives on a SUBPATH (github.io/bar-crawl-scout/), so never goto('/')
+// against baseURL — that resolves to the origin root. Build absolute URLs.
+const LIVE = (process.env.LIVE_URL || 'https://ryan-withers.github.io/bar-crawl-scout/').replace(/\/?$/, '/');
+
 test('the live hub loads with the sign lit and the nav present', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto(LIVE);
   await expect(page.getByLabel('Bar Crawl Scout')).toBeVisible();
   await expect(page.getByRole('link', { name: /the book/i }).first()).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
 test('The Book renders on the live site', async ({ page }) => {
-  await page.goto('/#/book');
+  await page.goto(LIVE + '#/book');
   await expect(page.getByText(/DINGER/i).first()).toBeVisible();
 });
