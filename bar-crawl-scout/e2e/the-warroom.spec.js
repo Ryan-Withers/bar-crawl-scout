@@ -96,6 +96,34 @@ test('real board mode: Sleeper slots + a traded pick put Ryan on the clock at 1.
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
+test('the pick clock counts down and auto-picks at zero', async ({ page }) => {
+  const errors = trackErrors(page);
+  // 3-second clock seeded directly so the test doesn't wait out a real 30s timer.
+  await page.addInitScript(() => localStorage.setItem('bcs_mock_clock', '3'));
+  await page.goto('./mock');
+  await page.getByRole('button', { name: /start the mock/i }).click();
+  await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.pickclock')).toBeVisible();
+  await expect(page.locator('.pickclock')).toHaveText(/0:0[0-3]/);
+
+  // Don't touch anything: the clock expires and the room picks for you.
+  // (Roster growth is the proof — the clockbar may never blink out when the
+  // seat has back-to-back picks at a snake turnaround.)
+  await expect
+    .poll(async () => page.evaluate(() => document.querySelectorAll('.sidepane .mine .lrow').length), { timeout: 10_000 })
+    .toBeGreaterThan(3); // 3 keepers + at least the auto-picked player
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('setup remembers the pick clock and disables it for spectate', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByRole('button', { name: '60s', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: '60s', exact: true })).toHaveClass(/on/);
+  await page.getByText(/Spectate — sim all 10/i).click();
+  await expect(page.getByRole('button', { name: '60s', exact: true })).toBeDisabled();
+});
+
 for (const width of [320, 390, 430]) {
   test(`phone ${width}px: setup and live both fit, and PICK is thumb-sized`, async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
