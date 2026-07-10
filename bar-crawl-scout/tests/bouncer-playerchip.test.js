@@ -15,8 +15,8 @@ describe('PlayerChip', () => {
     const { getByText } = render(PlayerChip, { props: { name: 'Joe Burrow' } });
     const a = getByText('Joe Burrow');
     expect(a.tagName).toBe('A');
-    // svelte-spa-router's use:link writes the hash-routed href.
-    expect(a.getAttribute('href')).toBe('#/player/Joe%20Burrow');
+    // Real-URL router: use:link prefixes the site base — an ACTUAL page URL.
+    expect(a.getAttribute('href')).toBe('/bar-crawl-scout/player/Joe%20Burrow');
   });
 
   it('does NOT open the hover card on a non-hover (touch) device', async () => {

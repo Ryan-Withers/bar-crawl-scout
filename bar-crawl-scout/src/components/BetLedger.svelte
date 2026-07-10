@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
   import { bettor, bets, leaderboard, betsFor, codeFor } from '../lib/bet.js';

@@ -1,5 +1,5 @@
 <script>
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { TEAMS, TEAMSHORT, MGRS, RYAN } from '../lib/data.js';
   import { rankStandings } from '../lib/engine/standings.ts';

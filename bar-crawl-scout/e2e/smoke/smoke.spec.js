@@ -18,6 +18,6 @@ test('the live hub loads with the sign lit and the nav present', async ({ page }
 });
 
 test('The Book renders on the live site', async ({ page }) => {
-  await page.goto(LIVE + '#/book');
+  await page.goto(LIVE + 'book');
   await expect(page.getByText(/DINGER/i).first()).toBeVisible();
 });

@@ -1,5 +1,5 @@
 <script>
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { BYUNAME } from '../lib/data.js';
   import { r26, r27, pts26, pts27, windowVal } from '../lib/models.js';
   import { keepers, mode } from '../lib/store.js';

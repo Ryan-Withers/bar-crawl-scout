@@ -1,5 +1,5 @@
 <script>
-  import { location } from 'svelte-spa-router';
+  import { location } from '../lib/router.js';
   const NAMES = {
     '/': ['FILE 01', 'THE FRONT BAR'],
     '/matchups': ['FILE 07', 'GAMEDAY'],

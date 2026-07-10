@@ -1,5 +1,5 @@
 <script>
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { keepers, mode, rosters } from '../lib/store.js';
   import { myRoster } from '../lib/roster.js';

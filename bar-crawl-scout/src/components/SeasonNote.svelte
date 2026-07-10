@@ -1,7 +1,7 @@
 <script>
   // Phase-aware guidance so draft-prep pages still make sense in-season.
   // Reads the live league status; defaults to draft-prep in the offseason.
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { leagueQuery, stateQuery } from '../api/queries';
 
