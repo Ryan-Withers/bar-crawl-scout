@@ -80,11 +80,25 @@ async function main() {
     await save(`winners_bracket-${season}.json`, await ok(() => j(`/league/${lg.league_id}/winners_bracket`)));
 
     for (let w = 1; w <= WEEKS; w++) {
-      await save(`matchups-${season}-${w}.json`, await ok(() => j(`/league/${lg.league_id}/matchups/${w}`)));
+      const matchups = await ok(() => j(`/league/${lg.league_id}/matchups/${w}`));
+      await save(`matchups-${season}-${w}.json`, matchups);
       await save(`transactions-${season}-${w}.json`, await ok(() => j(`/league/${lg.league_id}/transactions/${w}`)));
-      // Raw weekly stats + projections drive the reconciliation suite.
-      await save(`stats-${season}-${w}.json`, await ok(() => j(`/stats/nfl/regular/${season}/${w}`)));
-      await save(`projections-${season}-${w}.json`, await ok(() => j(`/projections/nfl/regular/${season}/${w}`)));
+      // Raw weekly stats + projections drive the reconciliation suite — TRIMMED
+      // to that week's matchup players + all rostered IDs, or the league-wide
+      // blobs are ~1MB/week and bloat the repo for players nobody reconciles.
+      const weekKeep = new Set(rosterPlayerIds);
+      (matchups || []).forEach((m) => {
+        Object.keys(m.players_points || {}).forEach((id) => weekKeep.add(id));
+        (m.players || []).forEach((id) => weekKeep.add(id));
+      });
+      const trim = (blob) => {
+        if (!blob) return blob;
+        const out = {};
+        for (const id of Object.keys(blob)) if (weekKeep.has(id)) out[id] = blob[id];
+        return out;
+      };
+      await save(`stats-${season}-${w}.json`, trim(await ok(() => j(`/stats/nfl/regular/${season}/${w}`))));
+      await save(`projections-${season}-${w}.json`, trim(await ok(() => j(`/projections/nfl/regular/${season}/${w}`))));
     }
   }
 
