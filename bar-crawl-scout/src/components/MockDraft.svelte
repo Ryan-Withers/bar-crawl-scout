@@ -71,6 +71,9 @@
 
   let seat = RYAN;        // which team you control
   let spectate = false;   // sim all 10, you just watch
+  let clockLen = readLS('bcs_mock_clock', 0); // seconds per YOUR pick; 0 = no clock
+  const setClock = (s) => { clockLen = s; writeLS('bcs_mock_clock', s); };
+  const CLOCKS = [[0, 'off'], [30, '30s'], [60, '60s'], [90, '90s']];
 
   // ---- draft state ----
   let phase = 'setup';    // setup | live | done
@@ -95,6 +98,7 @@
     if (useReal) cfg.sequence = sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type);
     st = createMock(cfg);
     grades = null;
+    clockArmedAt = -1;
     phase = 'live';
     if (spectate) play(); else toMyPick();
     checkDone();
@@ -143,7 +147,27 @@
       pause(); stopFF(); grades = gradeMock(st); phase = 'done'; saveHistory();
     }
   }
-  onDestroy(() => { pause(); stopFF(); });
+
+  // The pick clock: your picks are on a timer (like a real draft night).
+  // Arms once per turn (keyed by cursor), auto-picks at zero. Bots are exempt.
+  let clockLeft = 0;
+  let clockTimer = null;
+  let clockArmedAt = -1;
+  function disarmClock() { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } }
+  function armClock(cursor) {
+    disarmClock();
+    clockArmedAt = cursor;
+    clockLeft = clockLen;
+    clockTimer = setInterval(() => {
+      clockLeft -= 1;
+      if (clockLeft <= 0) { disarmClock(); if (userTurn) autoPick(); }
+    }, 1000);
+  }
+  $: if (phase === 'live' && userTurn && clockLen > 0 && st && clockArmedAt !== st.cursor) armClock(st.cursor);
+  $: if (clockTimer && (phase !== 'live' || !userTurn)) disarmClock();
+  const fmtClock = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+
+  onDestroy(() => { pause(); stopFF(); disarmClock(); });
 
   // ---- your live pick list ----
   $: myPersona = personas[seat] || { window: 50, chaos: 50 };
@@ -209,6 +233,13 @@
           {#each TEAMS as [h, t]}<option value={h}>{t.replace(' (YOU)', '')}</option>{/each}
         </select>
         <label class="chk"><input type="checkbox" bind:checked={spectate} /> Spectate — sim all 10, I'll watch</label>
+        <div class="clockrow" class:dim={spectate}>
+          <span class="clocklbl">⏱ Pick clock</span>
+          {#each CLOCKS as [s, label]}
+            <button class="mini" class:on={clockLen === s} disabled={spectate} on:click={() => setClock(s)}>{label}</button>
+          {/each}
+        </div>
+        {#if clockLen && !spectate}<div class="meta">Clock hits zero on your pick → best available, no mercy.</div>{/if}
         <div class="meta">{rosterSize} roster spots · keepers count · ~{mockRounds} rounds</div>
       </div>
 
@@ -291,6 +322,7 @@
     <div class="clockbar" class:yours={userTurn}>
       {#if userTurn}
         <b>YOU'RE ON THE CLOCK</b> — Rd {roundOf(st)}, pick {st.log.length + 1}
+        {#if clockLen > 0}<span class="pickclock" class:low={clockLeft <= 10}>⏱ {fmtClock(clockLeft)}</span>{/if}
       {:else if !st.done}
         <b>Rd {roundOf(st)} · Pick {st.log.length + 1}</b> — {nm(onClock())} thinking…
       {/if}
@@ -458,6 +490,12 @@
   .sethd.big { margin-top: 22px; } .sethd .sub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; text-transform: none; color: var(--muted); }
   .srcchips { display: flex; gap: 5px; }
   .chk { display: flex; gap: 8px; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--chalk); margin-top: 10px; cursor: pointer; }
+  .clockrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .clockrow.dim { opacity: .45; }
+  .clocklbl { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--chalk); }
+  .pickclock { font-family: 'Archivo Black', sans-serif; font-size: 15px; color: var(--blue-deep); background: #fff; border: 1px solid var(--blue); border-radius: 7px; padding: 3px 10px; }
+  .pickclock.low { color: #fff; background: var(--stamp-red); border-color: var(--stamp-red); animation: clockpulse .9s ease-in-out infinite; }
+  @keyframes clockpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
   .meta { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); margin-top: 10px; }
   .orderlist { list-style: none; margin: 0; padding: 0; }
   .orderlist li { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--chalk); padding: 3px 0; flex-wrap: wrap; }
