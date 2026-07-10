@@ -94,13 +94,24 @@ test('real board mode: Sleeper slots + a traded pick put Ryan on the clock at 1.
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
-test('phone: the war room fits a 390px screen', async ({ browser }) => {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const page = await ctx.newPage();
-  await mockSleeper(page);
-  await page.goto('./mock');
-  await page.waitForTimeout(400);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow, `war room overflows by ${overflow}px`).toBeLessThanOrEqual(2);
-  await ctx.close();
-});
+for (const width of [320, 390, 430]) {
+  test(`phone ${width}px: setup and live both fit, and PICK is thumb-sized`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    await mockSleeper(page);
+    await page.goto('./mock');
+    await page.waitForTimeout(400);
+    const over1 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(over1, `setup overflows by ${over1}px`).toBeLessThanOrEqual(2);
+
+    await page.getByRole('button', { name: /start the mock/i }).click();
+    await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
+    const over2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(over2, `live board overflows by ${over2}px`).toBeLessThanOrEqual(2);
+
+    // Tap targets: the PICK button must be comfortably thumbable on a phone.
+    const box = await page.getByRole('button', { name: 'PICK', exact: true }).first().boundingBox();
+    expect(box.height, `PICK is only ${box?.height}px tall`).toBeGreaterThanOrEqual(38);
+    await ctx.close();
+  });
+}

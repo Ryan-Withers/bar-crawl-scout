@@ -57,6 +57,16 @@ export function rngNext(state: number): [number, number] {
   return [((x ^ (x >>> 14)) >>> 0) / 4294967296, t];
 }
 
+// Board-cell display name: the surname, keeping generational suffixes attached
+// ("Patrick Mahomes II" -> "Mahomes II", never a bare "II"/"Jr.").
+const NAME_SUFFIX = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
+export function shortName(full: string): string {
+  const parts = String(full || '').trim().split(/\s+/);
+  let i = parts.length - 1;
+  while (i > 0 && NAME_SUFFIX.has(parts[i].toLowerCase())) i--;
+  return parts.slice(i).join(' ');
+}
+
 export function shuffle<T>(arr: T[], seed: number): T[] {
   const a = arr.slice();
   let s = seed;

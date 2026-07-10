@@ -9,7 +9,7 @@
   import { keepers, mode } from '../lib/store.js';
   import { leagueQuery, usersQuery, rostersQuery, realDraftQuery } from '../api/queries';
   import { draftSlotBoard } from '../api/league';
-  import { createMock, makePick, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters, sequenceFromSlots } from '../lib/engine/mockdraft.ts';
+  import { createMock, makePick, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters, sequenceFromSlots, shortName } from '../lib/engine/mockdraft.ts';
   import PlayerChip from './PlayerChip.svelte';
 
   const leagueQ = createQuery(leagueQuery());
@@ -170,7 +170,6 @@
 
   // ---- the wall board: slots across, rounds down, filling in live ----
   const nm = (h) => TEAMSHORT[h] || h;
-  const lastName = (n) => String(n).split(' ').slice(-1)[0];
   const POSC = { QB: '#B07818', RB: '#1D8A4E', WR: '#2F7FB8', TE: '#8A4FBF' };
   $: Ncols = st ? st.cfg.order.length : 0;
   $: gridOk = st && Ncols > 0 && st.seq.length % Ncols === 0;
@@ -319,7 +318,7 @@
                   {@const p = st.log[idx]}
                   <td class="dcell" class:cur={idx === st.cursor} class:mine={!spectate && st.seq[idx] === seat}>
                     {#if p}
-                      <span class="dpk" class:fresh={p.overall === st.log.length} style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{lastName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>
+                      <span class="dpk" class:fresh={p.overall === st.log.length} style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{shortName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>
                     {:else if idx === st.cursor}
                       <span class="onclk">⏱ {st.seq[idx]}</span>
                     {:else}
@@ -432,7 +431,7 @@
                   {@const idx = seqIdx(r, c, Ncols)}
                   {@const p = st.log[idx]}
                   <td class="dcell" class:mine={!spectate && st.seq[idx] === seat}>
-                    {#if p}<span class="dpk" style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{lastName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>{/if}
+                    {#if p}<span class="dpk" style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{shortName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>{/if}
                   </td>
                 {/each}
               </tr>
@@ -554,5 +553,22 @@
     .pool { max-height: 44vh; }
     .dboardwrap { max-height: 260px; }
     .dcell { min-width: 76px; }
+
+    /* Compact header: back link + New setup share row 1, the title takes row 2. */
+    .wrtop { padding: 4px 0 8px; margin-bottom: 10px; row-gap: 0; }
+    .wrtitle { order: 3; flex-basis: 100%; }
+    .back { min-height: 38px; }
+
+    /* Clock controls: full-width row, evenly stretched, thumb-sized. */
+    .clockbar { padding: 8px 10px; font-size: 12px; }
+    .controls { margin-left: 0; width: 100%; }
+    .controls > button { flex: 1 1 auto; min-height: 42px; }
+    .speed button { min-height: 42px; padding: 6px 12px; }
+
+    /* Thumb-sized actions: PICK, autopick/sort/preset chips, order arrows. */
+    .pickbtn { min-height: 40px; padding: 8px 14px; }
+    .prow { padding: 8px 2px; }
+    .mini { min-height: 34px; padding: 5px 10px; }
+    .go { width: 100%; }
   }
 </style>
