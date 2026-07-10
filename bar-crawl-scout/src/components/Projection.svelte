@@ -43,12 +43,12 @@
   .col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
   .stack { position: relative; flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
   .proj, .act { position: absolute; bottom: 0; border-radius: 2px 2px 0 0; }
-  .proj { width: 100%; background: rgba(216,222,230,.14); }
+  .proj { width: 100%; background: rgba(28,46,64,.12); }
   .act { width: 58%; background: linear-gradient(var(--neon), rgba(130,201,252,.5)); }
   .act.beat { background: linear-gradient(var(--neon-hot), var(--neon)); }
   .wl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 4px; }
   .key { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--muted); margin-top: 10px; }
   .key .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: middle; }
-  .key .sw.act { background: var(--neon); } .key .sw.proj { background: rgba(216,222,230,.2); }
+  .key .sw.act { background: var(--neon); } .key .sw.proj { background: rgba(28,46,64,.18); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
 </style>

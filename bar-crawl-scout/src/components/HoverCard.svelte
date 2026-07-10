@@ -54,7 +54,7 @@
   .hc {
     position: fixed; z-index: 9998; pointer-events: none; width: 234px;
     background: var(--paper); color: var(--ink); border-radius: 5px; padding: 12px 14px;
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5); transform: rotate(-1.2deg);
+    box-shadow: 0 14px 30px rgba(28,46,64,.16); transform: rotate(-1.2deg);
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
     background-image: repeating-linear-gradient(rgba(28, 26, 22, 0.04) 0 1px, transparent 1px 22px);
   }

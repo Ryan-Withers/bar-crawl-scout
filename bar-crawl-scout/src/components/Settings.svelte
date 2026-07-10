@@ -122,7 +122,7 @@
   .badge.open { color: var(--neon); border-color: rgba(130,201,252,.4); }
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 0 0 10px; max-width: 72ch; }
   .crow { display: flex; gap: 8px; }
-  .crow input { flex: 0 1 200px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px 11px; }
+  .crow input { flex: 0 1 200px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px 11px; }
   .crow input.err { border-color: var(--stamp-red); }
   .crow button, .relock { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--neon); color: var(--on-neon); border: none; border-radius: 7px; padding: 8px 16px; cursor: pointer; }
   .relock { background: var(--barroom); color: var(--muted); border: 1px solid var(--line); }

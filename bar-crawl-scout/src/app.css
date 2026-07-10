@@ -1,11 +1,17 @@
   :root{
-    /* Back Room palette (Bar Crawl Scout 2.0) */
-    --neon:#82C9FC;--neon-hot:#B7E3FF;--barroom:#0E1420;--barroom-lift:#161E2E;
-    --paper:#EDE6D6;--stamp-red:#D6453C;--brass:#C9A45C;--on-neon:#08131F;
-    /* legacy token names remapped to the new palette so existing components inherit it */
-    --field:#0E1420;--field-2:#161E2E;--field-3:#1E2A3E;--line:rgba(216,222,230,.08);
-    --dossier:#EDE6D6;--ink:#1C1A16;--ink-soft:#5A5238;--chalk:#D8DEE6;--muted:#7E8A9C;
-    --accent:#82C9FC;--good:#82C9FC;--warn:#D6453C;--cool:#82C9FC;--purp:#A9B6D6;
+    /* Day Room palette (Bar Crawl Scout 3.0) — Ryan's blue as the lead, on white,
+       near-black ink, black used as deliberate accents. Soft, not harsh. */
+    --blue:#2F7FB8;          /* the working blue: links, CTAs, active states */
+    --blue-sky:#82C9FC;      /* the signature sky blue: washes, glows, chips */
+    --blue-wash:#EAF4FC;     /* pale blue fill for hovers/selected rows */
+    --blue-deep:#1C4E74;     /* headings/darkest blue */
+    --neon:#2F7FB8;--neon-hot:#82C9FC;
+    --barroom:#F7FAFD;--barroom-lift:#FFFFFF;
+    --paper:#FFFFFF;--stamp-red:#D6453C;--brass:#B08428;--on-neon:#FFFFFF;
+    /* legacy token names remapped so every component inherits the light theme */
+    --field:#F7FAFD;--field-2:#FFFFFF;--field-3:#EAF2F9;--line:rgba(28,46,64,.12);
+    --dossier:#FFFFFF;--ink:#16202B;--ink-soft:#5C6B7A;--chalk:#16202B;--muted:#5C6B7A;
+    --accent:#2F7FB8;--good:#1D8A4E;--warn:#D6453C;--cool:#2F7FB8;--purp:#4A6B8A;
     --display:"Archivo","Archivo Black",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
     --body:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     --marker:"Caveat",cursive;}
@@ -13,7 +19,7 @@
   /* Safety net: nothing may force horizontal scroll on mobile. Root causes are fixed
      per-component; this stops any future stray-wide element from breaking the page. */
   html{overflow-x:hidden}
-  body{background:var(--field);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:50px}
+  body{background:var(--field);background-image:linear-gradient(rgba(47,127,184,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(47,127,184,.055) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:50px}
   .wrap{max-width:1180px;margin:0 auto;padding:0 22px}
   header.mast{padding:18px 0 8px}
   /* Plain intro paragraph shared by Intel/FAAB; Managers overrides on paper. */
@@ -24,7 +30,7 @@
   .note{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--field-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.6}
   .note b{color:var(--chalk)}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-  input,select{font-family:var(--mono);font-size:13px;background:#0b0e15;border:1px solid var(--line);color:var(--chalk);border-radius:8px;padding:9px 11px}
+  input,select{font-family:var(--mono);font-size:13px;background:#FFFFFF;border:1px solid var(--line);color:var(--chalk);border-radius:8px;padding:9px 11px}
   input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
   input.search{flex:1 1 220px;min-width:200px}
   .pmeta{color:var(--muted);font-size:10.5px}
@@ -42,7 +48,7 @@
   .asset b{color:var(--accent)}.asset span{cursor:pointer;color:var(--muted);font-weight:700}
   .sidetot{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px}
   .sidetot b{font-family:var(--display);font-size:16px;color:var(--good)}
-  .out{font-family:var(--mono);font-size:13px;background:#0b0e15;border:1px solid var(--line);border-radius:9px;padding:14px;margin-top:12px;line-height:1.7}
+  .out{font-family:var(--mono);font-size:13px;background:#FFFFFF;border:1px solid var(--line);border-radius:9px;padding:14px;margin-top:12px;line-height:1.7}
   .out .big{font-family:var(--display);font-weight:700;font-size:18px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
   .out .gd{color:var(--good)}.out .bd{color:var(--warn)}.out .wk{color:var(--accent);font-weight:700}
   h3.sec{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:19px;margin:18px 0 9px;border-bottom:1px solid var(--line);padding-bottom:6px}
@@ -55,10 +61,10 @@
     header.mast{padding:14px 0 6px}
     nav.tabs{gap:6px;padding:8px 0 6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;
       background:
-        linear-gradient(90deg,var(--field) 30%,rgba(14,20,32,0)) left/22px 100% no-repeat local,
-        linear-gradient(90deg,rgba(14,20,32,0),var(--field) 70%) right/22px 100% no-repeat local,
-        radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.4),transparent) left/10px 100% no-repeat scroll,
-        radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.4),transparent) right/10px 100% no-repeat scroll}
+        linear-gradient(90deg,var(--field) 30%,rgba(247,250,253,0)) left/22px 100% no-repeat local,
+        linear-gradient(90deg,rgba(247,250,253,0),var(--field) 70%) right/22px 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%,rgba(28,46,64,.10),transparent) left/10px 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%,rgba(28,46,64,.10),transparent) right/10px 100% no-repeat scroll}
     nav.tabs::-webkit-scrollbar{display:none}
     nav.tabs a{font-size:13px;padding:9px 13px;white-space:nowrap}
     .toolbar{gap:8px}.toolbar select,.toolbar input.search{flex:1 1 100%;min-width:0}
@@ -71,10 +77,10 @@
 
 /* ===== BACK ROOM: film grain + neon ===== */
 /* Faint tiled noise over everything kills the 'AI-generated' flatness. pointer-events off. */
-body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.035;
+body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.02;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:140px 140px;mix-blend-mode:overlay}
-.neon-glow{text-shadow:0 0 8px rgba(130,201,252,.55),0 0 24px rgba(130,201,252,.25)}
+  background-size:140px 140px;mix-blend-mode:multiply}
+.neon-glow{text-shadow:0 1px 0 #fff,0 0 14px rgba(130,201,252,.65)}
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   /* no sliding transforms on hover (chips, peer rows, cards) */

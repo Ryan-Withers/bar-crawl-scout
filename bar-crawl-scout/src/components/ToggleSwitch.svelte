@@ -23,13 +23,13 @@
   .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
   .track {
     position: relative; display: grid; grid-template-columns: repeat(3, 1fr);
-    background: #090e16; border: 1px solid var(--line); border-radius: 11px; padding: 4px;
-    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.6);
+    background: #FFFFFF; border: 1px solid var(--line); border-radius: 11px; padding: 4px;
+    box-shadow: inset 0 2px 7px rgba(28,46,64,.14);
   }
   .knob {
     position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3);
     border-radius: 8px; background: linear-gradient(180deg, var(--neon-hot), var(--neon));
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), 0 0 14px rgba(130, 201, 252, 0.45);
+    box-shadow: 0 2px 5px rgba(28,46,64,.18), 0 0 14px rgba(130, 201, 252, 0.45);
     transform: translateX(calc(var(--i) * 100%));
     transition: transform 0.24s cubic-bezier(0.5, 1.6, 0.5, 1);
   }

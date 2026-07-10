@@ -18,29 +18,27 @@
     display: inline-block;
     font-family: 'Archivo Black', 'Archivo', sans-serif;
     text-transform: uppercase;
-    color: #EAF6FF;
+    color: var(--blue, #2F7FB8);
     line-height: 0.82;
     letter-spacing: 0.005em;
     animation: flickerOn 1.7s ease-out both;
-    filter: saturate(1.05);
   }
-  .neonsign .l1 { display: block; font-size: clamp(30px, 6.5vw, 60px); margin-left: 0.12em; }
+  .neonsign .l1 { display: block; font-size: clamp(30px, 6.5vw, 60px); margin-left: 0.12em; color: var(--blue-deep, #1C4E74); }
   .neonsign .l2 { display: block; font-size: clamp(56px, 13.5vw, 128px); }
+  /* Daylight sign: deep-blue lettering with a soft sky halo — glows, not harsh. */
   .neonsign,
   .neonsign .buzz {
     text-shadow:
-      0 0 1px #EAF6FF,
-      0 0 5px #B7E3FF,
-      0 0 13px rgba(130, 201, 252, 0.85),
-      0 0 28px rgba(130, 201, 252, 0.45),
-      0 0 50px rgba(130, 201, 252, 0.22);
+      0 1px 0 #FFFFFF,
+      0 0 12px rgba(130, 201, 252, 0.55),
+      0 0 30px rgba(130, 201, 252, 0.30);
   }
   .neonsign .buzz { animation: buzz 11s linear infinite 3.2s; }
   .est {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: clamp(9px, 1.1vw, 11px);
     letter-spacing: 0.22em;
-    color: #7E8A9C;
+    color: var(--muted, #5C6B7A);
     margin: 14px 0 0 0.3em;
     text-transform: uppercase;
   }

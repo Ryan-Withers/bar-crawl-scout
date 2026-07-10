@@ -41,7 +41,7 @@
     background: var(--barroom-lift); color: var(--chalk);
     border: 1px solid var(--line); border-radius: 999px;
     padding: 7px 14px 7px 11px; cursor: pointer;
-    box-shadow: inset 0 0 0 3px rgba(216, 222, 230, 0.03);
+    box-shadow: inset 0 0 0 3px rgba(28,46,64,.06);
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
   .coaster:hover { border-color: rgba(130, 201, 252, 0.4); }
