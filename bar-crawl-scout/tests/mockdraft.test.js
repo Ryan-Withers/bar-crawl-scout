@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createMock, makePick, simToUser, simToEnd, gradeMock, blendValue,
-  needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle,
+  needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle, shortName,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -197,6 +197,18 @@ describe('mock draft — the real board (explicit sequence)', () => {
     expect(unfilledStarters(done.rosters.B, SLOTS)).toEqual([]);
     expect(done.rosters.A.length).toBe(5);
     expect(done.rosters.B.length).toBe(9);
+  });
+});
+
+describe('mock draft — board cell names', () => {
+  it('keeps generational suffixes attached to the surname', () => {
+    expect(shortName('Patrick Mahomes II')).toBe('Mahomes II');
+    expect(shortName('Aaron Jones Sr.')).toBe('Jones Sr.');
+    expect(shortName('Michael Penix Jr.')).toBe('Penix Jr.');
+    expect(shortName('Ja\'Marr Chase')).toBe('Chase');
+    expect(shortName('Bo Nix')).toBe('Nix');
+    expect(shortName('II')).toBe('II'); // degenerate one-word name stays itself
+    expect(shortName('')).toBe('');
   });
 });
 
