@@ -1,26 +1,12 @@
 <script>
-  import { TEAMS, PROJ, BYUNAME, PLAYERS, RYAN } from '../lib/data.js';
-  import { yearsLeft, windowVal, isAvailable } from '../lib/models.js';
+  import { TEAMS, PROJ, BYUNAME, RYAN } from '../lib/data.js';
+  import { yearsLeft } from '../lib/models.js';
   import { keepers, mode, unlocked } from '../lib/store.js';
   import Stamp from './Stamp.svelte';
   import SeasonNote from './SeasonNote.svelte';
 
   $: ks = $keepers;
   $: md = $mode;
-
-  // Best available (draftable) WIN per position — the "replacement" you'd draft instead.
-  $: repl = (() => {
-    const m = {};
-    for (const p of PLAYERS) {
-      if (isAvailable(ks, p[1])) { const w = windowVal(p, ks, md); if (w > (m[p[2]] || 0)) m[p[2]] = w; }
-    }
-    return m;
-  })();
-  function deltaOf(name) {
-    const p = BYUNAME[name.toLowerCase()];
-    if (!p) return null;
-    return windowVal(p, ks, md) - (repl[p[2]] || 0);
-  }
 
   function setSlot(team, slot, name) {
     keepers.update((k) => {
@@ -70,7 +56,6 @@
         {:else}
           {#each [0, 1, 2] as i}
             {@const s = (ks[t[0]] || [])[i] || ['', '']}
-            {@const d = s[0] ? deltaOf(s[0]) : null}
             <div class="row">
               <input list="plist" value={s[0] || ''} placeholder="keeper {i + 1}" on:change={(e) => onInput(t[0], i, e)} />
               <button type="button" class="cpill {s[1] || 'L'}" on:click={() => togglePill(t[0], i)}>{s[1] || 'L'}</button>
@@ -79,7 +64,6 @@
                   {#each Array(yearsLeft(s[0])) as _, y}<i>{26 + y}</i>{/each}
                   {#if yearsLeft(s[0]) === 1}<Stamp text="Last Call" tone="red" seed={ti * 4 + i} />{/if}
                 </span>
-                {#if d != null}<span class="delta" class:pos={d >= 0} class:neg={d < 0} title={d >= 0 ? `Keeping ${s[0]} beats the best draftable ${(BYUNAME[s[0].toLowerCase()] || [])[2] || ''} by ${d} WIN` : `The best unkept ${(BYUNAME[s[0].toLowerCase()] || [])[2] || ''} outscores ${s[0]} by ${-d} WIN — drafting beats keeping`}>{d >= 0 ? '+' : ''}{d}</span>{/if}
               {/if}
               <button class="clr" on:click={() => clearSlot(t[0], i)} title="Clear">×</button>
             </div>
@@ -128,9 +112,6 @@
   .cpill.U { color: var(--ink-soft); border-color: var(--ink-soft); cursor: default; }
   .clock { display: inline-flex; align-items: center; gap: 4px; flex: none; }
   .clock i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(28, 26, 22, 0.5); font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-style: normal; color: #3a352a; }
-  .delta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; flex: none; min-width: 34px; text-align: right; }
-  .delta.pos { color: #2f7fb8; }
-  .delta.neg { color: var(--stamp-red); }
   .clr { flex: none; background: none; border: none; color: var(--ink-soft); font-size: 17px; cursor: pointer; line-height: 1; padding: 0 2px; }
   .clr:hover { color: var(--stamp-red); }
 

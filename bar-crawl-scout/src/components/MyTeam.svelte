@@ -42,6 +42,21 @@
   $: holes = result ? byeHoles(result.seats, week) : [];
   $: teamName = (TEAMS.find((t) => t[0] === RYAN) || [RYAN, RYAN])[1].replace(' (YOU)', '');
 
+  // ---- current vs optimal ----
+  // Left card = your lineup AS SET ON SLEEPER (starter flags), arranged into the
+  // league's slots for display. Right card = what the optimizer would set.
+  $: curStarters = roster ? roster.filter((p) => p.starter) : [];
+  $: hasFlags = curStarters.length > 0;
+  $: curSeats = hasFlags ? optimalLineup(curStarters, slots).seats : [];
+  $: curBench = roster ? roster.filter((p) => !p.starter) : [];
+  $: optNames = result ? new Set(result.seats.map((s) => s.player && s.player.name).filter(Boolean)) : new Set();
+  $: curNames = new Set(curStarters.map((p) => p.name));
+  const r1 = (n) => Math.round(n * 10) / 10;
+  $: curTotal = r1(curStarters.reduce((s, p) => s + (p.proj || 0), 0));
+  $: optTotal = result ? r1(result.seats.reduce((s, x) => s + (x.player ? x.player.proj || 0 : 0), 0)) : 0;
+  $: gain = r1(optTotal - curTotal);
+  $: isOptimal = result ? result.moves.length === 0 : true;
+
   // "Already did it" escape hatch: the Worker snapshot refreshes hourly, so a
   // move you just made on Sleeper can linger as a suggestion. This forces the
   // Worker to rebuild from Sleeper right now and re-pulls your lineup.
@@ -79,31 +94,73 @@
       <div class="advice ok">✓ Your optimal lineup is set — no start/sit upgrades on the bench.</div>
     {/if}
 
-    <div class="cols">
-      <div class="col">
-        <div class="chd">Optimal Starters</div>
-        {#each result.seats as s}
-          <div class="prow" class:bye={s.player && s.player.bye === week && week > 0}>
-            <span class="slot">{s.slot}</span>
-            {#if s.player}
-              <span class="pn"><PlayerChip name={s.player.name} /></span>
-              <span class="meta">{s.player.pos} · {s.player.team}{s.player.bye ? ' · bye ' + s.player.bye : ''}</span>
-              <span class="val">{s.player.proj}</span>
-            {:else}<span class="pn empty">— empty —</span><span class="meta"></span><span class="val"></span>{/if}
+    {#if hasFlags && !isOptimal}
+      <!-- The comparison: what you HAVE vs what the maths would set. -->
+      <div class="cols">
+        <div class="lineupcard now">
+          <div class="lhd"><span class="step">NOW</span> Your lineup on Sleeper
+            <span class="total">{curTotal} <small>proj pts</small></span>
           </div>
-        {/each}
-      </div>
-      <div class="col">
-        <div class="chd">Bench <span class="cnt">{result.bench.length}</span></div>
-        {#each result.bench as p}
-          <div class="prow bench" class:bye={p.bye === week && week > 0}>
-            <span class="slot">{p.pos}</span>
-            <span class="pn"><PlayerChip name={p.name} /></span>
-            <span class="meta">{p.team}{p.bye ? ' · bye ' + p.bye : ''}</span>
-            <span class="val">{p.proj}</span>
+          {#each curSeats as s}
+            <div class="prow" class:sitrow={s.player && !optNames.has(s.player.name)} class:bye={s.player && s.player.bye === week && week > 0}>
+              <span class="slot">{s.slot}</span>
+              {#if s.player}
+                <span class="pn"><PlayerChip name={s.player.name} /></span>
+                {#if !optNames.has(s.player.name)}<span class="tag sit">SIT</span>{/if}
+                <span class="val">{s.player.proj}</span>
+              {:else}<span class="pn empty">— empty —</span><span class="val"></span>{/if}
+            </div>
+          {/each}
+        </div>
+
+        <div class="lineupcard best">
+          <div class="lhd"><span class="step blue">OPTIMAL</span> What the maths would set
+            <span class="total">{optTotal} <small>proj pts</small>{#if gain > 0}<b class="gainchip">+{gain}</b>{/if}</span>
           </div>
-        {:else}<div class="prow"><span class="pn empty">Deep bench empty</span></div>{/each}
+          {#each result.seats as s}
+            <div class="prow" class:inrow={s.player && !curNames.has(s.player.name)} class:bye={s.player && s.player.bye === week && week > 0}>
+              <span class="slot">{s.slot}</span>
+              {#if s.player}
+                <span class="pn"><PlayerChip name={s.player.name} /></span>
+                {#if !curNames.has(s.player.name)}<span class="tag in">IN</span>{/if}
+                <span class="val">{s.player.proj}</span>
+              {:else}<span class="pn empty">— empty —</span><span class="val"></span>{/if}
+            </div>
+          {/each}
+        </div>
       </div>
+    {:else}
+      <!-- Already optimal (or no starter data): one clear lineup, no confusion. -->
+      <div class="cols">
+        <div class="lineupcard now solo">
+          <div class="lhd"><span class="step">{hasFlags ? 'NOW' : 'BEST'}</span> {hasFlags ? 'Your lineup on Sleeper — already optimal ✓' : 'The optimal lineup from your roster'}
+            <span class="total">{hasFlags ? curTotal : optTotal} <small>proj pts</small></span>
+          </div>
+          {#each (hasFlags ? curSeats : result.seats) as s}
+            <div class="prow" class:bye={s.player && s.player.bye === week && week > 0}>
+              <span class="slot">{s.slot}</span>
+              {#if s.player}
+                <span class="pn"><PlayerChip name={s.player.name} /></span>
+                <span class="meta">{s.player.pos} · {s.player.team}{s.player.bye ? ' · bye ' + s.player.bye : ''}</span>
+                <span class="val">{s.player.proj}</span>
+              {:else}<span class="pn empty">— empty —</span><span class="meta"></span><span class="val"></span>{/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    <div class="benchcard">
+      <div class="chd">Your bench <span class="cnt">{(hasFlags ? curBench : result.bench).length}</span></div>
+      {#each (hasFlags ? curBench : result.bench) as p}
+        <div class="prow bench" class:inrow={hasFlags && optNames.has(p.name)} class:bye={p.bye === week && week > 0}>
+          <span class="slot">{p.pos}</span>
+          <span class="pn"><PlayerChip name={p.name} /></span>
+          {#if hasFlags && optNames.has(p.name)}<span class="tag in">START HIM</span>{/if}
+          <span class="meta">{p.team}{p.bye ? ' · bye ' + p.bye : ''}</span>
+          <span class="val">{p.proj}</span>
+        </div>
+      {:else}<div class="prow"><span class="pn empty">Deep bench empty</span></div>{/each}
     </div>
   {/if}
 </section>
@@ -130,15 +187,32 @@
   .move .over { color: var(--muted); }
   .move .slot { color: var(--muted); font-size: 10px; }
   .move .gain { margin-left: auto; color: #7fcfa6; font-weight: 700; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .lineupcard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; }
+  .lineupcard.best { border-color: rgba(47,127,184,.45); box-shadow: 0 4px 16px -8px rgba(47,127,184,.35); }
+  .lineupcard.solo { grid-column: 1 / -1; max-width: 560px; }
+  .lhd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; color: var(--chalk); padding: 4px 0 8px; border-bottom: 1.5px solid var(--line); margin-bottom: 4px; }
+  .step { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; color: var(--muted); border: 1.5px solid var(--line); border-radius: 4px; padding: 2px 7px; }
+  .step.blue { color: #FFFFFF; background: var(--blue); border-color: var(--blue); }
+  .total { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; color: var(--chalk); display: flex; align-items: baseline; gap: 5px; }
+  .total small { font-size: 9px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .gainchip { font-size: 11px; color: #FFFFFF; background: var(--good); border-radius: 4px; padding: 1px 6px; }
+  .benchcard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; }
   .chd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; }
   .cnt { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
   .prow { display: grid; grid-template-columns: 46px 1fr auto auto; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px dashed var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  .prow:last-child { border-bottom: none; }
+  .benchcard .prow { grid-template-columns: 46px 1fr auto auto auto; }
   .prow.bye { background: rgba(214,69,60,.08); border-radius: 5px; }
+  .prow.sitrow { background: rgba(214,69,60,.07); border-radius: 5px; }
+  .prow.inrow { background: var(--blue-wash); border-radius: 5px; }
   .slot { font-weight: 700; color: var(--neon); font-size: 10px; letter-spacing: .04em; }
   .prow.bench .slot { color: var(--muted); }
   .pn { color: var(--chalk); min-width: 0; }
   .pn.empty { color: var(--muted); font-style: italic; }
+  .tag { font-size: 8.5px; font-weight: 700; letter-spacing: .08em; border-radius: 3px; padding: 2px 6px; white-space: nowrap; }
+  .tag.sit { color: #FFFFFF; background: var(--stamp-red); }
+  .tag.in { color: #FFFFFF; background: var(--blue); }
   .meta { color: var(--muted); font-size: 10.5px; text-align: right; white-space: nowrap; }
   .val { font-weight: 700; color: var(--chalk); min-width: 34px; text-align: right; }
   @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } .meta { display: none; } }

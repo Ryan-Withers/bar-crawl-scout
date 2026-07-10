@@ -25,9 +25,9 @@
     {/if}
   {:else if page === 'keepers'}
     {#if phase === 'season'}
-      <b>Keeper planning for next season.</b> Lock in who you'd protect and see the cost — the clock shows contract years, the delta is each keeper's WIN over the best player you'd draft in that slot instead. Revisit as the season reshapes your roster.
+      <b>Keeper planning for next season.</b> Lock in who you'd protect — the clock shows contract years. Revisit as the season reshapes your roster.
     {:else}
-      Three keeper slots plus a watch slot per team. Tap the pill to flip L ↔ VL, × to clear. The clock shows contract years; the delta is the keeper's WIN over the best player you'd draft in that slot instead.
+      Three keeper slots plus a watch slot per team. Tap the pill to flip L ↔ VL, × to clear. The clock shows contract years.
     {/if}
   {/if}
 </div>
