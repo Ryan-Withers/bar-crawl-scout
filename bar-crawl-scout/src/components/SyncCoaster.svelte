@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { leagueQuery } from '../api/queries';
+  import { refreshRosters } from '../lib/sync.js';
 
   const league = createQuery(leagueQuery());
   const qc = useQueryClient();
@@ -22,7 +23,9 @@
   // a background refetch runs); a failure with no data is OFFLINE; anything before the
   // first response is SYNCING. No dead-end "connecting forever" state.
   $: state = $league.data ? 'synced' : ($league.isError ? 'offline' : 'syncing');
-  const refresh = () => qc.invalidateQueries();
+  // Tap = truly fresh: refetch every live query AND force the Worker to rebuild
+  // its roster snapshot from Sleeper (so just-made lineup changes land).
+  const refresh = () => { qc.invalidateQueries(); refreshRosters(); };
 </script>
 
 <button class="coaster {state}" on:click={refresh} title="Force refresh all live data">

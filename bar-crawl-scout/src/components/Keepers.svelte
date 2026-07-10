@@ -79,7 +79,7 @@
                   {#each Array(yearsLeft(s[0])) as _, y}<i>{26 + y}</i>{/each}
                   {#if yearsLeft(s[0]) === 1}<Stamp text="Last Call" tone="red" seed={ti * 4 + i} />{/if}
                 </span>
-                {#if d != null}<span class="delta" class:pos={d >= 0} class:neg={d < 0}>{d >= 0 ? '+' : ''}{d}</span>{/if}
+                {#if d != null}<span class="delta" class:pos={d >= 0} class:neg={d < 0} title={d >= 0 ? `Keeping ${s[0]} beats the best draftable ${(BYUNAME[s[0].toLowerCase()] || [])[2] || ''} by ${d} WIN` : `The best unkept ${(BYUNAME[s[0].toLowerCase()] || [])[2] || ''} outscores ${s[0]} by ${-d} WIN — drafting beats keeping`}>{d >= 0 ? '+' : ''}{d}</span>{/if}
               {/if}
               <button class="clr" on:click={() => clearSlot(t[0], i)} title="Clear">×</button>
             </div>

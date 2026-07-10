@@ -18,10 +18,18 @@ export function liveToStore(data) {
   return { t: (data && data.ts) || '', byHandle: (data && data.rosters) || {} };
 }
 
-// Fetch the Worker's cached rosters and return them in roster-store shape.
+// Build the URL for a FORCED-fresh pull: ?refresh=1 makes the Worker rebuild
+// from Sleeper right now, and the timestamp busts the 5-minute CDN cache.
+// Pure so it's unit-testable.
+export function refreshUrl(base = SYNC_URL, now = 0) {
+  return base.replace(/\/$/, '') + '/?refresh=1&t=' + now;
+}
+
+// Fetch the Worker's rosters in roster-store shape. `fresh` forces a rebuild —
+// use it when a stale starting lineup matters (start/sit suggestions).
 // Throws on network/HTTP failure so callers can fall back to cached data.
-export async function fetchLiveRosters(url = SYNC_URL) {
-  const res = await fetch(url);
+export async function fetchLiveRosters(url = SYNC_URL, fresh = false) {
+  const res = await fetch(fresh ? refreshUrl(url, Date.now()) : url);
   if (!res.ok) throw new Error('sync ' + res.status);
   return liveToStore(await res.json());
 }
