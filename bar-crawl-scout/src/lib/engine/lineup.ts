@@ -65,12 +65,33 @@ export function optimalLineup(players: RosterPlayer[], slots: string[]): LineupR
     .filter((p) => p.starter === true && !inOptimal.has(p))
     .sort((a, b) => a.proj - b.proj);
 
+  // Pair each entering player with the sitting player they actually displace —
+  // NEVER by list index (that produced illegal pairs like "TE over WR @ TE").
+  // 1. Same position first: a WR coming in sits the worst WR going out, at the
+  //    seat the newcomer takes.
+  // 2. Cross-position leftovers displace each other through the flex chain, so
+  //    pair them at a slot BOTH are eligible for (FLEX/SUPER_FLEX), worst out first.
   const moves: LineupResult['moves'] = [];
-  shouldStart.forEach((x, i) => {
-    const out = shouldSit[i];
-    if (!x.p) return;
-    moves.push({ in: x.p.name, out: out ? out.name : '(bench)', slot: x.seat.slot, gain: Math.round((x.p.proj - (out ? out.proj : 0)) * 10) / 10 });
-  });
+  const remaining = shouldSit.slice(); // proj asc — worst sitters matched first
+  const push = (p: RosterPlayer, out: RosterPlayer | undefined, slot: string) => {
+    moves.push({ in: p.name, out: out ? out.name : '(bench)', slot, gain: Math.round((p.proj - (out ? out.proj : 0)) * 10) / 10 });
+  };
+  const leftovers: Array<{ seat: Seat; p: RosterPlayer }> = [];
+  for (const x of shouldStart) {
+    if (!x.p) continue;
+    const j = remaining.findIndex((o) => o.pos === x.p!.pos);
+    if (j >= 0) push(x.p, remaining.splice(j, 1)[0], x.seat.slot);
+    else leftovers.push({ seat: x.seat, p: x.p });
+  }
+  for (const x of leftovers) {
+    const j = remaining.findIndex((o) => slots.some((s) => eligible(s, o.pos) && eligible(s, x.p.pos)));
+    if (j < 0) { push(x.p, undefined, x.seat.slot); continue; }
+    const out = remaining.splice(j, 1)[0];
+    // Label with the shared slot the swap flows through (the flex), not the
+    // dedicated seat the newcomer occupies.
+    const shared = slots.find((s) => eligible(s, out.pos) && eligible(s, x.p.pos)) || x.seat.slot;
+    push(x.p, out, shared);
+  }
   moves.sort((a, b) => b.gain - a.gain);
   return { seats, bench, moves };
 }

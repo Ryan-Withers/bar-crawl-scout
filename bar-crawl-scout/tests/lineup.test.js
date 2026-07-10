@@ -41,6 +41,37 @@ describe('lineup optimizer', () => {
     expect(optimalLineup(r, slots).moves).toEqual([]);
   });
 
+  // Regression (Ryan's bug): moves used to zip should-start/should-sit by index
+  // with no eligibility check, producing pairs like "TE over WR @ TE" — an
+  // illegal Sleeper move. Same-position swaps must pair together; cross-position
+  // leftovers pair at the flex, never at a dedicated slot.
+  it('never suggests sitting a player at a slot their position cannot occupy', () => {
+    const slots2 = ['WR', 'WR', 'TE', 'FLEX'];
+    const r = [
+      { ...P('WR_A', 'WR', 10), starter: true },
+      { ...P('WR_B', 'WR', 9), starter: true },
+      { ...P('TE_A', 'TE', 8), starter: true },
+      { ...P('TE_B', 'TE', 7), starter: true },  // currently flexed
+      { ...P('WR_C', 'WR', 12), starter: false }, // should start
+      { ...P('TE_C', 'TE', 11), starter: false }, // should start
+    ];
+    const { moves } = optimalLineup(r, slots2);
+    const ELIG = { WR: ['WR'], TE: ['TE'], FLEX: ['RB', 'WR', 'TE'] };
+    for (const m of moves) {
+      if (m.out === '(bench)') continue;
+      const outPos = r.find((p) => p.name === m.out).pos;
+      expect(ELIG[m.slot], `${m.in} over ${m.out} @ ${m.slot} is illegal`).toContain(outPos);
+    }
+    // The TE entering pairs with a TE (or a flex seat) — never "over a WR @ TE".
+    const teMove = moves.find((m) => m.in === 'TE_C');
+    expect(teMove.out).toBe('TE_B');
+    expect(teMove.slot).toBe('TE');
+    // The WR entering displaces the remaining TE via the flex chain.
+    const wrMove = moves.find((m) => m.in === 'WR_C');
+    expect(wrMove.out).toBe('TE_A');
+    expect(wrMove.slot).toBe('FLEX');
+  });
+
   it('flags bye-week holes among the starters', () => {
     const r = roster.map((p) => (p.name === 'RB1' ? { ...p, bye: 7 } : p));
     const { seats } = optimalLineup(r, slots);
