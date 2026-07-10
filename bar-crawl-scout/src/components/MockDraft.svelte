@@ -9,7 +9,7 @@
   import { keepers, mode } from '../lib/store.js';
   import { leagueQuery, usersQuery, rostersQuery, realDraftQuery } from '../api/queries';
   import { draftSlotBoard } from '../api/league';
-  import { createMock, makePick, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters, sequenceFromSlots, shortName } from '../lib/engine/mockdraft.ts';
+  import { createMock, makePick, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters, sequenceFromSlots, shortName, recapText } from '../lib/engine/mockdraft.ts';
   import PlayerChip from './PlayerChip.svelte';
 
   const leagueQ = createQuery(leagueQuery());
@@ -191,6 +191,25 @@
     writeLS('bcs_mock_history', history);
   }
   let viewOld = null;
+
+  // ---- copy the debrief for the group chat ----
+  let copied = false;
+  async function copyRecap() {
+    const text = recapText(st, grades, {
+      nameOf: nm,
+      seat: spectate ? undefined : seat,
+      when: new Date().toLocaleDateString(),
+      url: 'https://ryan-withers.github.io/bar-crawl-scout/mock',
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+      setTimeout(() => (copied = false), 2500);
+    } catch {
+      // Clipboard blocked (old browser / no permission): show the text instead.
+      window.prompt('Copy it yourself, champ:', text);
+    }
+  }
 
   // ---- the wall board: slots across, rounds down, filling in live ----
   const nm = (h) => TEAMSHORT[h] || h;
@@ -410,7 +429,10 @@
     </div>
 
   {:else if phase === 'done' && grades}
-    <div class="donebar">🏁 Mock complete — {st.log.length} picks. <button class="ghost" on:click={() => start()}>🔁 run it back (new seed)</button></div>
+    <div class="donebar">🏁 Mock complete — {st.log.length} picks.
+      <button class="ghost copybtn" class:did={copied} on:click={copyRecap}>{copied ? '✓ copied — go stir the pot' : '📋 copy for the group chat'}</button>
+      <button class="ghost" on:click={() => start()}>🔁 run it back (new seed)</button>
+    </div>
 
     <div class="sethd big">Draft grades</div>
     <div class="gradeboard">
@@ -573,6 +595,8 @@
   .need.ok { color: var(--good); }
 
   .donebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--chalk); background: var(--blue-wash); border: 1px solid var(--blue); border-radius: 10px; padding: 10px 14px; }
+  .copybtn { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .copybtn.did { background: var(--good); border-color: var(--good); }
   .gradeboard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
   .grow { display: grid; grid-template-columns: 34px 1fr auto auto 56px 40px; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px dashed var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
   .grow:last-child { border-bottom: none; } .grow.you { background: var(--blue-wash); border-radius: 6px; }

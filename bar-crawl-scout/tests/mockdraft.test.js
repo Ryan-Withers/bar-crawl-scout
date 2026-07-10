@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createMock, makePick, simToUser, simToEnd, gradeMock, blendValue,
-  needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle, shortName,
+  needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle, shortName, recapText,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -197,6 +197,41 @@ describe('mock draft — the real board (explicit sequence)', () => {
     expect(unfilledStarters(done.rosters.B, SLOTS)).toEqual([]);
     expect(done.rosters.A.length).toBe(5);
     expect(done.rosters.B.length).toBe(9);
+  });
+});
+
+describe('mock draft — the group-chat recap', () => {
+  it('builds paste-ready banter: podium, your haul, steal & reach, link', () => {
+    // Force a reach so both flag lines render (K1 at pick 2 is board-rank ~17).
+    const s = createMock(cfg2({ teams: [team('A'), team('B', undefined, [], true)] }));
+    const done = simToEnd(makePick(simToUser(s), 'K1'));
+    const g = gradeMock(done);
+    const text = recapText(done, g, {
+      nameOf: (h) => `Team ${h}`, seat: 'B', when: '22/10/2025', url: 'https://x.test/mock',
+    });
+    const lines = text.split('\n');
+    expect(lines[0]).toBe('🏈 THE WAR ROOM — mock draft · 22/10/2025');
+    expect(lines[1]).toContain('🥇 Team ' + g.rows[0].handle);
+    expect(lines[1]).toContain(`(${g.rows[0].total})`);
+    expect(text).toContain('MY HAUL (Team B');
+    expect(text).toContain('🚨 Reach of the draft: K1 by Team B @ pick 2');
+    expect(text).toContain('Run yours: https://x.test/mock');
+    // Haul lists at most 5 names with an ellipsis when there are more.
+    const haul = lines.find((l) => l.startsWith('MY HAUL'));
+    expect(haul.split(',').length).toBeLessThanOrEqual(5);
+    expect(haul.endsWith('…')).toBe(true);
+  });
+
+  it('spectate recap (no seat) skips the haul line; empty flags skip theirs', () => {
+    const done = simToEnd(createMock(cfg2()));
+    const g = gradeMock(done);
+    const noFlags = { rows: g.rows, steals: [], reaches: [] };
+    const text = recapText(done, noFlags, {});
+    expect(text).not.toContain('MY HAUL');
+    expect(text).not.toContain('💎');
+    expect(text).not.toContain('🚨');
+    expect(text).not.toContain('Run yours');
+    expect(text.split('\n')).toHaveLength(2); // header + podium only
   });
 });
 
