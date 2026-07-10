@@ -131,7 +131,7 @@
 
 <style>
   /* Sticky identity + controls + nav: the hero above scrolls away, this stays. */
-  .stickytop { position: sticky; top: 0; z-index: 30; background: var(--field); box-shadow: 0 8px 18px -10px rgba(0,0,0,.7); }
+  .stickytop { position: sticky; top: 0; z-index: 30; background: var(--field); box-shadow: 0 8px 18px -10px rgba(28,46,64,.22); }
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 7px; border-bottom: 1px solid var(--line); }
   .mark { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; white-space: nowrap; }
   .mark b { color: var(--neon); }
@@ -151,10 +151,10 @@
     .groups {
       flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
       background:
-        linear-gradient(90deg, var(--field) 30%, rgba(14,20,32,0)) left / 26px 100% no-repeat local,
-        linear-gradient(90deg, rgba(14,20,32,0), var(--field) 70%) right / 26px 100% no-repeat local,
-        radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.45), transparent) left / 12px 100% no-repeat scroll,
-        radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.45), transparent) right / 12px 100% no-repeat scroll;
+        linear-gradient(90deg, var(--field) 30%, rgba(247,250,253,0)) left / 26px 100% no-repeat local,
+        linear-gradient(90deg, rgba(247,250,253,0), var(--field) 70%) right / 26px 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, rgba(28,46,64,.10), transparent) left / 12px 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, rgba(28,46,64,.10), transparent) right / 12px 100% no-repeat scroll;
     }
     .groups::-webkit-scrollbar { display: none; }
     /* 44px minimum thumb target on mobile (WCAG / Apple HIG). */

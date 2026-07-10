@@ -118,7 +118,7 @@
     background-image: repeating-linear-gradient(rgba(28, 26, 22, 0.05) 0 1px, transparent 1px 26px);
     transition: transform 0.14s ease, box-shadow 0.14s ease;
   }
-  .folder:hover { transform: rotate(0deg) translateY(-3px); box-shadow: 0 16px 30px rgba(0, 0, 0, 0.5); z-index: 2; }
+  .folder:hover { transform: rotate(0deg) translateY(-3px); box-shadow: 0 16px 30px rgba(28,46,64,.16); z-index: 2; }
   .tab {
     position: absolute; top: -15px; left: 16px;
     background: var(--paper); color: var(--ink);

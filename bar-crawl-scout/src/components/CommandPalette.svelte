@@ -81,7 +81,7 @@
 
 <style>
   .scrim { position: fixed; inset: 0; background: rgba(6, 10, 18, 0.82); z-index: 200; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
-  .palette { width: min(560px, 92vw); background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.6); overflow: hidden; }
+  .palette { width: min(560px, 92vw); background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px rgba(28,46,64,.16); overflow: hidden; }
   .bar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .lens { color: var(--neon); font-size: 18px; }
   .bar input { flex: 1; background: none; border: none; outline: none; color: var(--chalk); font-family: 'IBM Plex Mono', monospace; font-size: 15px; }

@@ -94,8 +94,8 @@
   .tug .val { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--muted); text-align: center; }
   .tug .val.win { color: var(--neon); font-weight: 700; }
   .mid { text-align: center; }
-  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #090e16; }
-  .fa, .fb { height: 100%; background: rgba(216, 222, 230, 0.14); transition: width 0.3s; }
+  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #FFFFFF; }
+  .fa, .fb { height: 100%; background: rgba(28,46,64,.12); transition: width 0.3s; }
   .fa { border-right: 1px solid var(--barroom); }
   .fa.win, .fb.win { background: var(--neon); }
   .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }

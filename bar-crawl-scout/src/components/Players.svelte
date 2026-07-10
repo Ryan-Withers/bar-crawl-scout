@@ -96,7 +96,7 @@
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1; border: 1px solid var(--line); background: var(--barroom-lift); color: var(--muted); border-radius: 20px; padding: 7px 13px; cursor: pointer; }
   .chip.on { background: var(--neon); color: var(--on-neon); border-color: var(--neon); }
-  .search { flex: 1 1 200px; min-width: 160px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; }
+  .search { flex: 1 1 200px; min-width: 160px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; }
   .count { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); margin-bottom: 8px; }
   .list { display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: minmax(110px, 1.4fr) 1.1fr 52px 48px 76px 44px; align-items: center; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }

@@ -152,7 +152,7 @@
   .box.wide { margin-top: 4px; }
   .prow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
   .pname { flex: 0 1 240px; }
-  .code { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: #0b0e15; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; resize: vertical; word-break: break-all; }
+  .code { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; resize: vertical; word-break: break-all; }
   .paste { margin-top: 12px; }
   .paste .add { margin-top: 8px; }
   .codemsg { color: #7fcfa6; margin-top: 8px; }

@@ -214,7 +214,7 @@
   .ceyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #7f9285; margin-bottom: 8px; }
   .math { font-family: 'Caveat', cursive; font-size: 26px; color: #eef4ee; }
   .math.sub { font-size: 22px; color: #cfe8d8; }
-  .math b { color: var(--neon); }
+  .math b { color: var(--neon-hot); }
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9fb0a5; margin-top: 8px; line-height: 1.6; }
 
   .cmpbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
