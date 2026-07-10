@@ -34,3 +34,17 @@ export const matchupsQuery = (week: number) => ({ queryKey: qk.matchups(week), q
 export const transactionsQuery = (week: number) => ({ queryKey: qk.transactions(week), queryFn: () => S.getTransactions(week), staleTime: 2 * MIN });
 export const weekProjectionsQuery = (season: string, week: number) => ({ queryKey: ['proj', season, week] as const, queryFn: () => S.getWeekProjections(season, week), staleTime: 30 * MIN });
 export const trendingAddsQuery = () => ({ queryKey: qk.trendingAdds, queryFn: () => S.getTrendingAdds(25), staleTime: 30 * MIN });
+
+// The league's current draft + its traded picks, in one shot (for the War Room's
+// real slot board). Null when there's no draft with an assigned order yet.
+export const realDraftQuery = () => ({
+  queryKey: ['realdraft'] as const,
+  staleTime: 30 * MIN,
+  queryFn: async () => {
+    const drafts = await S.getLeagueDrafts();
+    const draft = (Array.isArray(drafts) ? drafts : []).find((d) => d && d.draft_order) || null;
+    if (!draft) return null;
+    const traded = await S.getTradedPicks(draft.draft_id).catch(() => []);
+    return { draft, traded };
+  },
+});

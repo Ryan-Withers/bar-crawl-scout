@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createMock, makePick, simToUser, simToEnd, gradeMock, blendValue,
-  needFactor, unfilledStarters, buildSequence, currentHandle, shuffle,
+  needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -157,6 +157,46 @@ describe('mock draft — the debrief', () => {
     const done = simToEnd(makePick(simToUser(s), 'K1'));
     const { reaches } = gradeMock(done);
     expect(reaches.some((r) => r.player.name === 'K1')).toBe(true);
+  });
+});
+
+describe('mock draft — the real board (explicit sequence)', () => {
+  it('snakes base slots and honors traded-pick overrides at (round, slot)', () => {
+    // 3 slots, 2 rounds; B traded their 1.02 to A.
+    const seq = sequenceFromSlots(['A', 'B', 'C'], [{ round: 1, slot: 2, handle: 'A' }], 2, 'snake');
+    expect(seq).toEqual(['A', 'A', 'C', 'C', 'B', 'A']);
+    // Linear boards repeat the slot order every round.
+    expect(sequenceFromSlots(['A', 'B'], [], 2, 'linear')).toEqual(['A', 'B', 'A', 'B']);
+  });
+
+  it('an explicit sequence overrides the generated snake', () => {
+    const sequence = ['A', 'A', 'B', 'B', 'A', 'B']; // A owns picks 1 AND 2 (a trade)
+    const s = createMock(cfg2({ rosterSize: 3, sequence }));
+    expect(s.seq).toEqual(sequence);
+    const done = simToEnd(s);
+    // Round 1 belongs to A twice — the exact "Ryan has picks 2 & 4" shape.
+    expect(done.log[0].handle).toBe('A');
+    expect(done.log[1].handle).toBe('A');
+    expect(done.log[0].round).toBe(1);
+    expect(done.log[1].round).toBe(1);
+    expect(done.rosters.A.length).toBe(3);
+    expect(done.rosters.B.length).toBe(3);
+  });
+
+  it('uneven pick counts from trades still end in legal lineups', () => {
+    // A traded away picks: B drafts 9 of 14, A drafts 5 of 14 in a 7-round 2-team grid.
+    const rounds = 7;
+    const seq = sequenceFromSlots(['A', 'B'], [
+      { round: 2, slot: 1, handle: 'B' }, { round: 5, slot: 1, handle: 'B' },
+    ], rounds, 'snake');
+    expect(seq.filter((h) => h === 'B').length).toBe(9);
+    const done = simToEnd(createMock(cfg2({ rosterSize: 14, sequence: seq, seed: 3 })));
+    expect(done.done).toBe(true);
+    // The endgame guard counts remaining picks from the SEQUENCE, so even the
+    // short-handed team fills every dedicated starting slot it can.
+    expect(unfilledStarters(done.rosters.B, SLOTS)).toEqual([]);
+    expect(done.rosters.A.length).toBe(5);
+    expect(done.rosters.B.length).toBe(9);
   });
 });
 

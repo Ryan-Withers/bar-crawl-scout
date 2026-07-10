@@ -7,11 +7,15 @@
   import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN } from '../lib/data.js';
   import { windowVal, isAvailable } from '../lib/models.js';
   import { keepers, mode } from '../lib/store.js';
-  import { leagueQuery } from '../api/queries';
-  import { createMock, makePick, simToUser, simToEnd, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters } from '../lib/engine/mockdraft.ts';
+  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery } from '../api/queries';
+  import { draftSlotBoard } from '../api/league';
+  import { createMock, makePick, gradeMock, currentHandle, roundOf, shuffle, blendValue, unfilledStarters, sequenceFromSlots } from '../lib/engine/mockdraft.ts';
   import PlayerChip from './PlayerChip.svelte';
 
   const leagueQ = createQuery(leagueQuery());
+  const usersQ = createQuery(usersQuery());
+  const rostersQ = createQuery(rostersQuery());
+  const realQ = createQuery(realDraftQuery());
 
   // ---- pool & league shape (skill board only — no K/DEF on the board) ----
   const SKILL = new Set(['QB', 'RB', 'WR', 'TE']);
@@ -26,6 +30,7 @@
   $: mockPositions = positions.filter((p) => !['K', 'DEF', 'IDP_FLEX', 'IR', 'TAXI'].includes(p));
   $: slots = mockPositions.filter((p) => p !== 'BN');
   $: rosterSize = mockPositions.length;
+  $: mockRounds = Math.max(1, rosterSize - 3);
 
   const toMockPlayer = (name) => {
     const p = BYUNAME[(name || '').toLowerCase()];
@@ -34,7 +39,20 @@
   };
   const keepersOf = (h) => ((ks[h] || []).slice(0, 3).map((s) => s && s[0]).filter(Boolean).map(toMockPlayer).filter(Boolean));
 
-  // ---- personas (persisted) + order ----
+  // ---- the REAL board: Sleeper draft slots + traded picks -> who owns each pick ----
+  const HANDLESET = new Set(TEAMS.map(([h]) => h));
+  $: slotBoard = draftSlotBoard($realQ.data?.draft, $realQ.data?.traded, $usersQ.data || [], $rostersQ.data || []);
+  $: realOk = !!slotBoard && slotBoard.slotHandles.length === TEAMS.length && slotBoard.slotHandles.every((h) => HANDLESET.has(h));
+  let orderSource = 'real'; // 'real' (Sleeper slots + trades) | 'custom' (shuffle your own)
+  $: useReal = orderSource === 'real' && realOk;
+  // Round-1 preview for the setup card: base slot owner, overridden by trades.
+  $: round1 = realOk ? slotBoard.slotHandles.map((h, i) => {
+    const ov = slotBoard.overrides.find((o) => o.round === 1 && o.slot === i + 1);
+    return { slot: i + 1, handle: ov ? ov.handle : h, via: ov ? h : null };
+  }) : [];
+  $: tradeCount = realOk ? slotBoard.overrides.filter((o) => o.round <= mockRounds).length : 0;
+
+  // ---- personas (persisted) + custom order ----
   const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full */ } };
   const defaultPersonas = () => Object.fromEntries(TEAMS.map(([h]) => [h, { window: 50, chaos: 50 }]));
@@ -58,6 +76,7 @@
   let phase = 'setup';    // setup | live | done
   let st = null;
   let grades = null;
+  let boardType = 'snake';
   let speed = 700;        // ms per bot pick when auto-playing
   let playing = false;
   let timer = null;
@@ -71,35 +90,60 @@
       keepers: keepersOf(h),
       isUser: !spectate && h === seat,
     }));
-    st = createMock({ teams, order: [...order], slots, rosterSize, seed, pool });
+    boardType = useReal ? slotBoard.type : 'snake';
+    const cfg = { teams, order: useReal ? slotBoard.slotHandles.slice() : [...order], slots, rosterSize, seed, pool };
+    if (useReal) cfg.sequence = sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type);
+    st = createMock(cfg);
     grades = null;
     phase = 'live';
-    if (spectate) play(); else st = simToUser(st);
+    if (spectate) play(); else toMyPick();
     checkDone();
   }
 
   const onClock = () => st && !st.done && currentHandle(st);
   $: userTurn = st && !spectate && onClock() === seat && !st.done;
 
+  // Auto-play: one bot pick per `speed` ms, pausing when you're up.
   function stepBot() {
     if (!st || st.done || userTurn) { pause(); return; }
     st = makePick(st);
     checkDone();
     if (userTurn) pause();
   }
-  function play() { if (playing) return; playing = true; timer = setInterval(stepBot, speed); }
+  function play() { stopFF(); if (playing) return; playing = true; timer = setInterval(stepBot, speed); }
   function pause() { playing = false; if (timer) { clearInterval(timer); timer = null; } }
   function setSpeed(ms) { speed = ms; if (playing) { pause(); play(); } }
-  function toMyPick() { pause(); st = simToUser(st); checkDone(); }
-  function toEnd() { pause(); st = simToEnd(st); checkDone(); }
-  function pick(name) { if (!userTurn) return; st = makePick(st, name); checkDone(); if (!st.done) st = simToUser(st); checkDone(); }
-  function autoPick() { if (!userTurn) return; st = makePick(st); checkDone(); if (!st.done) st = simToUser(st); checkDone(); }
+
+  // Fast-forward: tick the picks through ONE BY ONE so the board fills before
+  // your eyes — "sim to my pick" at a steady clip, "sim to end" accelerating.
+  let ffwd = false;
+  let ffTimer = null;
+  function stopFF() { ffwd = false; if (ffTimer) { clearTimeout(ffTimer); ffTimer = null; } }
+  const atUser = () => !spectate && st && !st.done && currentHandle(st) === seat;
+  function runFF(stop, ms, accel = 1) {
+    pause(); stopFF();
+    ffwd = true;
+    const tickOnce = (delay) => {
+      ffTimer = setTimeout(() => {
+        if (!st || st.done || stop()) { stopFF(); return; }
+        st = makePick(st);
+        checkDone();
+        if (!st || st.done || stop()) { stopFF(); return; }
+        tickOnce(Math.max(30, delay * accel));
+      }, delay);
+    };
+    tickOnce(ms);
+  }
+  function toMyPick() { if (ffwd) { stopFF(); return; } runFF(atUser, 260); }
+  function toEnd() { if (ffwd) { stopFF(); return; } runFF(() => false, 200, 0.93); }
+  function pick(name) { if (!userTurn) return; st = makePick(st, name); checkDone(); if (st && !st.done) runFF(atUser, 260); }
+  function autoPick() { if (!userTurn) return; st = makePick(st); checkDone(); if (st && !st.done) runFF(atUser, 260); }
   function checkDone() {
     if (st && st.done && phase === 'live') {
-      pause(); grades = gradeMock(st); phase = 'done'; saveHistory();
+      pause(); stopFF(); grades = gradeMock(st); phase = 'done'; saveHistory();
     }
   }
-  onDestroy(pause);
+  onDestroy(() => { pause(); stopFF(); });
 
   // ---- your live pick list ----
   $: myPersona = personas[seat] || { window: 50, chaos: 50 };
@@ -124,22 +168,40 @@
   }
   let viewOld = null;
 
-  // ---- board grid helpers ----
+  // ---- the wall board: slots across, rounds down, filling in live ----
   const nm = (h) => TEAMSHORT[h] || h;
-  $: rounds = st ? Math.max(...st.log.map((p) => p.round), 1) : 0;
-  const cellFor = (log, h, r) => log.find((p) => p.handle === h && p.round === r);
+  const lastName = (n) => String(n).split(' ').slice(-1)[0];
   const POSC = { QB: '#B07818', RB: '#1D8A4E', WR: '#2F7FB8', TE: '#8A4FBF' };
+  $: Ncols = st ? st.cfg.order.length : 0;
+  $: gridOk = st && Ncols > 0 && st.seq.length % Ncols === 0;
+  $: totalRounds = gridOk ? st.seq.length / Ncols : 0;
+  // seq index for (0-based round r, 0-based column c): even rounds reverse on a snake.
+  const seqIdx = (r, c, N) => r * N + (boardType === 'snake' && r % 2 === 1 ? N - 1 - c : c);
+
+  // Keep the on-the-clock cell in view as the picks tick through.
+  let boardEl;
+  $: if (boardEl && st) followClock(st.cursor);
+  function followClock() {
+    if (typeof requestAnimationFrame === 'undefined') return;
+    requestAnimationFrame(() => {
+      const el = boardEl && boardEl.querySelector('.cur');
+      if (!el || !boardEl) return;
+      const br = boardEl.getBoundingClientRect(); const er = el.getBoundingClientRect();
+      boardEl.scrollLeft += er.left - br.left - br.width / 2 + er.width / 2;
+      boardEl.scrollTop += er.top - br.top - br.height / 2 + er.height / 2;
+    });
+  }
 </script>
 
 <section class="warroom">
   <div class="wrtop">
     <a href="/board" use:link class="back">← Draft Room</a>
     <div class="wrtitle">THE WAR ROOM <span>· mock draft simulator</span></div>
-    {#if phase !== 'setup'}<button class="ghost" on:click={() => { pause(); phase = 'setup'; viewOld = null; }}>New setup</button>{/if}
+    {#if phase !== 'setup'}<button class="ghost" on:click={() => { pause(); stopFF(); phase = 'setup'; viewOld = null; }}>New setup</button>{/if}
   </div>
 
   {#if phase === 'setup'}
-    <p class="blurb">Everyone's keepers are locked out of the pool — you draft the rest. Every computer GM has two dials: <b>window</b> (win-now ↔ future) and <b>chaos</b> (by the book ↔ anything can happen). Skill positions only — K/DEF aren't on the board, draft those with your gut on the day.</p>
+    <p class="blurb">Everyone's keepers are locked out of the pool — you draft the rest. The order comes straight off Sleeper — <b>traded picks included</b> — or roll your own. Every computer GM has two dials: <b>window</b> (win-now ↔ future) and <b>chaos</b> (by the book ↔ anything can happen). Skill positions only — K/DEF aren't on the board, draft those with your gut on the day.</p>
 
     <div class="setgrid">
       <div class="setcard">
@@ -148,21 +210,42 @@
           {#each TEAMS as [h, t]}<option value={h}>{t.replace(' (YOU)', '')}</option>{/each}
         </select>
         <label class="chk"><input type="checkbox" bind:checked={spectate} /> Spectate — sim all 10, I'll watch</label>
-        <div class="meta">{rosterSize} roster spots · keepers count · ~{rosterSize - 3} rounds</div>
+        <div class="meta">{rosterSize} roster spots · keepers count · ~{mockRounds} rounds</div>
       </div>
 
       <div class="setcard">
-        <div class="sethd">Draft order <button class="mini" on:click={shuffleOrder}>🎲 shuffle</button></div>
-        <ol class="orderlist">
-          {#each order as h, i}
-            <li><span class="on">{i + 1}</span> {nm(h)}
-              <span class="arrows">
-                <button class="mini" on:click={() => moveOrder(i, -1)} disabled={i === 0} aria-label="up">↑</button>
-                <button class="mini" on:click={() => moveOrder(i, 1)} disabled={i === order.length - 1} aria-label="down">↓</button>
-              </span>
-            </li>
-          {/each}
-        </ol>
+        <div class="sethd">Draft order
+          {#if realOk}
+            <span class="srcchips">
+              <button class="mini" class:on={orderSource === 'real'} on:click={() => (orderSource = 'real')}>🏛 real board</button>
+              <button class="mini" class:on={orderSource === 'custom'} on:click={() => (orderSource = 'custom')}>🎲 custom</button>
+            </span>
+          {:else}
+            <button class="mini" on:click={shuffleOrder}>🎲 shuffle</button>
+          {/if}
+        </div>
+        {#if useReal}
+          <div class="meta">Sleeper {slotBoard.season} board · {slotBoard.type} · {tradeCount} traded pick{tradeCount === 1 ? '' : 's'} honored</div>
+          <ol class="orderlist">
+            {#each round1 as r}
+              <li><span class="on">{r.slot}</span> {nm(r.handle)}
+                {#if r.via}<em class="via">via {nm(r.via)}</em>{/if}
+              </li>
+            {/each}
+          </ol>
+        {:else}
+          {#if realOk}<div class="meta"><button class="mini" on:click={shuffleOrder}>🎲 shuffle</button></div>{/if}
+          <ol class="orderlist">
+            {#each order as h, i}
+              <li><span class="on">{i + 1}</span> {nm(h)}
+                <span class="arrows">
+                  <button class="mini" on:click={() => moveOrder(i, -1)} disabled={i === 0} aria-label="up">↑</button>
+                  <button class="mini" on:click={() => moveOrder(i, 1)} disabled={i === order.length - 1} aria-label="down">↓</button>
+                </span>
+              </li>
+            {/each}
+          </ol>
+        {/if}
       </div>
     </div>
 
@@ -213,9 +296,9 @@
         <b>Rd {roundOf(st)} · Pick {st.log.length + 1}</b> — {nm(onClock())} thinking…
       {/if}
       <span class="controls">
-        {#if !spectate}<button on:click={toMyPick} disabled={userTurn}>⏩ sim to my pick</button>{/if}
-        <button on:click={playing ? pause : play} disabled={userTurn}>{playing ? '⏸ pause' : '▶ auto'}</button>
-        <button on:click={toEnd}>⏭ sim to end</button>
+        {#if !spectate}<button on:click={toMyPick} disabled={userTurn && !ffwd}>{ffwd ? '⏹ stop' : '⏩ sim to my pick'}</button>{/if}
+        <button on:click={playing ? pause : play} disabled={userTurn || ffwd}>{playing ? '⏸ pause' : '▶ auto'}</button>
+        <button on:click={toEnd}>{ffwd ? '⏹ stop' : '⏭ sim to end'}</button>
         <span class="speed">
           <button class:on={speed === 1200} on:click={() => setSpeed(1200)}>slow</button>
           <button class:on={speed === 700} on:click={() => setSpeed(700)}>med</button>
@@ -223,6 +306,33 @@
         </span>
       </span>
     </div>
+
+    {#if gridOk}
+      <div class="dboardwrap" bind:this={boardEl}>
+        <table class="dboard">
+          <thead><tr><th class="rd"></th>{#each st.cfg.order as h, c}<th><i>{c + 1}</i> {h}</th>{/each}</tr></thead>
+          <tbody>
+            {#each Array(totalRounds) as _, r}
+              <tr><td class="rd">{r + 1}</td>
+                {#each Array(Ncols) as _, c}
+                  {@const idx = seqIdx(r, c, Ncols)}
+                  {@const p = st.log[idx]}
+                  <td class="dcell" class:cur={idx === st.cursor} class:mine={!spectate && st.seq[idx] === seat}>
+                    {#if p}
+                      <span class="dpk" class:fresh={p.overall === st.log.length} style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{lastName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>
+                    {:else if idx === st.cursor}
+                      <span class="onclk">⏱ {st.seq[idx]}</span>
+                    {:else}
+                      <span class="todo">{st.seq[idx]}</span>
+                    {/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
 
     <div class="livegrid">
       <div class="poolpane">
@@ -311,21 +421,26 @@
     {/if}
 
     <div class="sethd big">The full board</div>
-    <div class="boardwrap">
-      <table class="fullboard">
-        <thead><tr><th>Rd</th>{#each st.cfg.order as h}<th>{nm(h)}</th>{/each}</tr></thead>
-        <tbody>
-          {#each Array(rounds) as _, r}
-            <tr><td class="rd">{r + 1}</td>
-              {#each st.cfg.order as h}
-                {@const c = cellFor(st.log, h, r + 1)}
-                <td>{#if c}<span class="cell" style="--pc:{POSC[c.player.pos] || '#5C6B7A'}">{c.player.name}</span>{/if}</td>
-              {/each}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    {#if gridOk}
+      <div class="dboardwrap full">
+        <table class="dboard">
+          <thead><tr><th class="rd"></th>{#each st.cfg.order as h, c}<th><i>{c + 1}</i> {h}</th>{/each}</tr></thead>
+          <tbody>
+            {#each Array(totalRounds) as _, r}
+              <tr><td class="rd">{r + 1}</td>
+                {#each Array(Ncols) as _, c}
+                  {@const idx = seqIdx(r, c, Ncols)}
+                  {@const p = st.log[idx]}
+                  <td class="dcell" class:mine={!spectate && st.seq[idx] === seat}>
+                    {#if p}<span class="dpk" style="--pc:{POSC[p.player.pos] || '#5C6B7A'}"><b>{lastName(p.player.name)}</b><i>{p.player.pos} · {p.handle}</i></span>{/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
   {/if}
 </section>
 
@@ -340,13 +455,15 @@
 
   .setgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
   .setcard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .sethd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .sethd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .sethd.big { margin-top: 22px; } .sethd .sub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; text-transform: none; color: var(--muted); }
+  .srcchips { display: flex; gap: 5px; }
   .chk { display: flex; gap: 8px; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--chalk); margin-top: 10px; cursor: pointer; }
   .meta { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); margin-top: 10px; }
   .orderlist { list-style: none; margin: 0; padding: 0; }
-  .orderlist li { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--chalk); padding: 3px 0; }
+  .orderlist li { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--chalk); padding: 3px 0; flex-wrap: wrap; }
   .orderlist .on { color: var(--accent); font-weight: 700; width: 20px; }
+  .via { font-style: normal; font-size: 9px; color: var(--muted); background: var(--field-3); border-radius: 3px; padding: 1px 6px; }
   .arrows { margin-left: auto; display: flex; gap: 4px; }
   .mini { font-family: 'IBM Plex Mono', monospace; font-size: 10px; background: var(--field-3); border: 1px solid var(--line); color: var(--chalk); border-radius: 5px; padding: 3px 8px; cursor: pointer; min-height: 26px; }
   .mini.on { background: var(--blue); color: #fff; border-color: var(--blue); }
@@ -379,6 +496,26 @@
   .controls button:disabled { opacity: .4; }
   .speed { display: flex; gap: 3px; } .speed button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
 
+  /* THE WALL BOARD — slots across, rounds down, filling in pick by pick. */
+  .dboardwrap { overflow: auto; max-height: 330px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 6px; margin-bottom: 12px; scroll-behavior: smooth; }
+  .dboardwrap.full { max-height: none; }
+  .dboard { border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+  .dboard th { position: sticky; top: 0; z-index: 2; background: var(--barroom-lift); font-size: 8.5px; text-transform: uppercase; color: var(--muted); padding: 4px 5px; text-align: left; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dboard th i { font-style: normal; color: var(--blue); font-weight: 700; }
+  .dboard .rd { position: sticky; left: 0; z-index: 1; background: var(--barroom-lift); color: var(--muted); font-weight: 700; padding: 2px 6px; }
+  .dboard th.rd { z-index: 3; }
+  .dcell { min-width: 88px; max-width: 110px; border: 1px dashed var(--line); padding: 2px 3px; vertical-align: top; }
+  .dcell.mine { background: rgba(130, 201, 252, 0.10); }
+  .dcell.cur { background: var(--blue-wash); box-shadow: inset 0 0 0 2px var(--blue); }
+  .dpk { display: block; border-left: 3px solid var(--pc); padding: 1px 5px; }
+  .dpk b { display: block; color: var(--chalk); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dpk i { font-style: normal; color: var(--muted); font-size: 8.5px; white-space: nowrap; }
+  .dpk.fresh { animation: dpop .4s ease; }
+  @keyframes dpop { 0% { transform: scale(.7); opacity: 0; } 60% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
+  .todo { color: var(--muted); opacity: .6; font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .dcell.mine .todo { color: var(--blue-deep); opacity: .9; font-weight: 700; }
+  .onclk { color: var(--blue-deep); font-weight: 700; font-size: 9px; white-space: nowrap; display: block; }
+
   .livegrid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start; }
   .poolpane, .sidepane { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
   .pickhd { font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
@@ -409,17 +546,13 @@
   .srow { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--chalk); padding: 4px 0; border-bottom: 1px dashed var(--line); }
   .srow small { color: var(--muted); }
   .focus { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-  .boardwrap { overflow-x: auto; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
-  .fullboard { border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
-  .fullboard th { font-size: 9px; text-transform: uppercase; color: var(--muted); padding: 4px 6px; text-align: left; }
-  .fullboard td { padding: 3px 4px; border-top: 1px dashed var(--line); white-space: nowrap; }
-  .fullboard .rd { color: var(--muted); font-weight: 700; }
-  .cell { border-left: 3px solid var(--pc); padding-left: 5px; color: var(--chalk); }
 
   @media (max-width: 760px) {
     .setgrid, .livegrid, .twocol { grid-template-columns: 1fr; }
     .grow { grid-template-columns: 28px 1fr auto 36px; }
     .glean, .gpos { display: none; }
     .pool { max-height: 44vh; }
+    .dboardwrap { max-height: 260px; }
+    .dcell { min-width: 76px; }
   }
 </style>
