@@ -9,7 +9,7 @@ test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true
 test.beforeEach(async ({ page }) => { await mockSleeper(page); });
 
 test('no horizontal scroll-jack on the main screens', async ({ page }) => {
-  for (const href of ['/#/myteam', '/#/book', '/#/standings', '/#/players']) {
+  for (const href of ['./myteam', './book', './standings', './players']) {
     await page.goto(href);
     await page.waitForTimeout(300);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -18,7 +18,7 @@ test('no horizontal scroll-jack on the main screens', async ({ page }) => {
 });
 
 test('primary tap targets are at least ~44px tall', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const link = page.getByRole('link', { name: /my team/i }).first();
   const box = await link.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44); // WCAG / Apple HIG thumb target
@@ -26,7 +26,7 @@ test('primary tap targets are at least ~44px tall', async ({ page }) => {
 
 test('the mode toggle sits on its own full-width row (mobile fix)', async ({ page }) => {
   const errors = trackErrors(page);
-  await page.goto('/#/myteam');
+  await page.goto('./myteam');
   await expect(page.getByRole('button', { name: /win-now/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /balanced/i })).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);

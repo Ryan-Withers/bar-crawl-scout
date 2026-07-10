@@ -1,5 +1,5 @@
 <script>
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { PLAYERS, RYAN, TEAMSHORT } from '../lib/data.js';
   import { windowVal } from '../lib/models.js';

@@ -1,7 +1,7 @@
 <script>
   // Level 1 of the depth kit: any player name, linkified to their Player File,
   // with a Level-2 hover card after a short delay (desktop).
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { hoverCard } from '../lib/store.js';
   export let name;
   let t;

@@ -1,5 +1,5 @@
 <script>
-  import { link, push } from 'svelte-spa-router';
+  import { link, push } from '../lib/router.js';
   import { BYUNAME, MODES, RYAN, TAGTXT, PLAYERS } from '../lib/data.js';
   import { r26, r27, pts26, pts27, windowVal, ownerOf, isKept, isFinalYr, yearsLeft, rosterOwner, isRyanPlayer } from '../lib/models.js';
   import { keepers, mode, rosterOwn, playerNotes, unlocked } from '../lib/store.js';

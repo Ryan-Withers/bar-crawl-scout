@@ -1,7 +1,7 @@
 <script>
   // Cmd/Ctrl-K jump box — search every player + page. The Back Room card catalog.
   import { onMount } from 'svelte';
-  import { push } from 'svelte-spa-router';
+  import { push } from '../lib/router.js';
   import { PLAYERS } from '../lib/data.js';
 
   const PAGES = [

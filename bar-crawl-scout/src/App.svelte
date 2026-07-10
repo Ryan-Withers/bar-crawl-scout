@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import Router, { link, location } from 'svelte-spa-router';
-  import active from 'svelte-spa-router/active';
+  import Router from './lib/Router.svelte';
+  import { link, location, active } from './lib/router.js';
   import { QueryClientProvider } from '@tanstack/svelte-query';
   import { queryClient } from './api/queries';
   import { PLAYERS, MODEHINT } from './lib/data.js';
@@ -85,6 +85,24 @@
       g.pages.some(([p]) => hit(p)) || (g.match || []).some(hit)) || GROUPS[0];
   };
   $: activeGroup = groupOf($location);
+
+  // Real pages get real browser titles (tab, history, share sheets).
+  const TITLES = {
+    myteam: 'My Team', matchup: 'This Week', byes: 'Bye Radar',
+    board: 'Big Board', keepers: 'Keepers', trade: 'Trade Machine', intel: 'Intel',
+    player: 'Player File', compare: 'Tale of the Tape',
+    standings: 'The Table', power: 'Power Rankings', playoffs: 'Playoff Race',
+    matchups: 'Gameday', managers: 'Managers', history: 'History',
+    players: 'The Wire', waivers: 'FAAB Desk',
+    book: 'The Book', leaderboard: 'Leaderboard',
+    settings: 'Rules', sync: 'Sync',
+  };
+  $: {
+    const seg = ($location === '/' ? 'myteam' : $location.split('/')[1]) || 'myteam';
+    if (typeof document !== 'undefined') {
+      document.title = TITLES[seg] ? `${TITLES[seg]} · Bar Crawl Scout` : 'Bar Crawl Scout';
+    }
+  }
 
   // The window-mode control only means something on valuation pages.
   const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/players', '/intel'];

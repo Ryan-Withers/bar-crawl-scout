@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// base: './' keeps built asset URLs relative, so the bundle works on any static
-// host (Netlify) regardless of the path it is served from.
+// base matches the GitHub Pages project path so real URLs (/bar-crawl-scout/book)
+// resolve assets on deep page loads (404.html fallback serves the app).
 export default defineConfig({
-  base: './',
+  base: '/bar-crawl-scout/',
   plugins: [svelte()],
   build: { outDir: 'dist', emptyOutDir: true },
   test: {

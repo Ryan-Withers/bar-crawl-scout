@@ -6,7 +6,7 @@
   "description": "Sleeper keeper-league scouting board for the Official Bar Crawl Order league.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
@@ -35,7 +35,6 @@
     "@fontsource/caveat": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@tanstack/svelte-query": "^5.90.2",
-    "idb-keyval": "^6.2.6",
-    "svelte-spa-router": "^4.0.2"
+    "idb-keyval": "^6.2.6"
   }
 }

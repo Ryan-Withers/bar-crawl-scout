@@ -1,5 +1,5 @@
 <script>
-  import { link } from 'svelte-spa-router';
+  import { link } from '../lib/router.js';
   import { PLAYERS, FIRSTROUND, TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
   import { isAvailable, windowVal, warchest, chestTag } from '../lib/models.js';
   import { keepers, mode } from '../lib/store.js';
