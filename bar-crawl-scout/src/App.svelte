@@ -31,6 +31,7 @@
   import Playoffs from './components/Playoffs.svelte';
   import PowerRankings from './components/PowerRankings.svelte';
   import TheBook from './components/TheBook.svelte';
+  import MockDraft from './components/MockDraft.svelte';
   import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
@@ -59,6 +60,7 @@
     '/standings': Standings,
     '/playoffs': Playoffs,
     '/power': PowerRankings,
+    '/mock': MockDraft,
     '/book': TheBook,
     '/leaderboard': BetLedger,
     '/history': Wall,
@@ -72,7 +74,7 @@
   // that belong to a group but aren't their own tab (detail/child pages).
   const GROUPS = [
     { id: 'team', label: 'My Team', pages: [['/myteam', 'Lineup'], ['/matchup', 'This Week'], ['/byes', 'Bye Radar']] },
-    { id: 'draft', label: 'Draft Room', pages: [['/board', 'Big Board'], ['/keepers', 'Keepers'], ['/trade', 'Trade'], ['/intel', 'Intel']], match: ['/player', '/compare'] },
+    { id: 'draft', label: 'Draft Room', pages: [['/board', 'Big Board'], ['/keepers', 'Keepers'], ['/mock', 'Mock Draft'], ['/trade', 'Trade'], ['/intel', 'Intel']], match: ['/player', '/compare'] },
     { id: 'league', label: 'The League', pages: [['/standings', 'Table'], ['/power', 'Power'], ['/playoffs', 'Playoffs'], ['/matchups', 'Gameday'], ['/managers', 'Managers'], ['/history', 'History']] },
     { id: 'wire', label: 'The Wire', pages: [['/players', 'Players'], ['/waivers', 'FAAB Desk']] },
     { id: 'book', label: 'The Book', pages: [['/book', 'Markets'], ['/leaderboard', 'Leaderboard']] },
@@ -94,7 +96,7 @@
     standings: 'The Table', power: 'Power Rankings', playoffs: 'Playoff Race',
     matchups: 'Gameday', managers: 'Managers', history: 'History',
     players: 'The Wire', waivers: 'FAAB Desk',
-    book: 'The Book', leaderboard: 'Leaderboard',
+    book: 'The Book', leaderboard: 'Leaderboard', mock: 'The War Room — Mock Draft',
     settings: 'Rules', sync: 'Sync',
   };
   $: {
@@ -108,14 +110,17 @@
   const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/players', '/intel'];
   $: showMode = $location === '/' || MODE_ROUTES.some((r) => $location.startsWith(r));
 
+  // The War Room is a separate room: hide the hub chrome, the page runs the show.
+  $: warRoom = $location.startsWith('/mock');
+
   function openPalette() { window.dispatchEvent(new CustomEvent('palette:open')); }
 </script>
 
 <QueryClientProvider client={queryClient}>
   <div class="wrap">
-    <Masthead />
+    {#if !warRoom}<Masthead />{/if}
 
-    <div class="stickytop">
+    <div class="stickytop" class:hidden={warRoom}>
       <div class="topbar">
         <a class="mark" href="/board" use:link>Bar&nbsp;Crawl&nbsp;<b>Scout</b></a>
         <div class="util">
@@ -137,7 +142,7 @@
       </nav>
     </div>
 
-    {#if showMode}<p class="modehint">{MODEHINT[$mode]}</p>{/if}
+    {#if showMode && !warRoom}<p class="modehint">{MODEHINT[$mode]}</p>{/if}
 
     <Router {routes} />
     <p class="credit">Bar Crawl Scout · ADP: FantasyPros 2026 half-PPR · The Back Room build</p>
@@ -149,6 +154,7 @@
 
 <style>
   /* Sticky identity + controls + nav: the hero above scrolls away, this stays. */
+  .stickytop.hidden { display: none; }
   .stickytop { position: sticky; top: 0; z-index: 30; background: var(--field); box-shadow: 0 8px 18px -10px rgba(28,46,64,.22); }
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 7px; border-bottom: 1px solid var(--line); }
   .mark { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; white-space: nowrap; }

@@ -5,7 +5,7 @@
   import { PLAYERS } from '../lib/data.js';
 
   const PAGES = [
-    ['The Big Board', '/board'], ['Keeper Ledger', '/keepers'], ['The Files (Managers)', '/managers'],
+    ['The Big Board', '/board'], ['Mock Draft (War Room)', '/mock'], ['Keeper Ledger', '/keepers'], ['The Files (Managers)', '/managers'],
     ['Trade Desk', '/trade'], ['The Wire (Waivers)', '/waivers'], ['Intel', '/intel'],
     ['Gameday', '/matchups'], ['The Table', '/standings'], ['History', '/history'], ['Sync', '/sync'],
   ];
