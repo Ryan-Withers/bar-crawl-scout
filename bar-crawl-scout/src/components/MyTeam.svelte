@@ -4,6 +4,7 @@
   import { derived, writable } from 'svelte/store';
   import { RYAN, TEAMS } from '../lib/data.js';
   import { keepers, mode, rosters } from '../lib/store.js';
+  import { refreshRosters } from '../lib/sync.js';
   import { myRoster } from '../lib/roster.js';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { optimalLineup, byeHoles } from '../lib/engine/lineup.ts';
@@ -40,6 +41,15 @@
   $: result = roster && roster.length ? optimalLineup(roster, slots) : null;
   $: holes = result ? byeHoles(result.seats, week) : [];
   $: teamName = (TEAMS.find((t) => t[0] === RYAN) || [RYAN, RYAN])[1].replace(' (YOU)', '');
+
+  // "Already did it" escape hatch: the Worker snapshot refreshes hourly, so a
+  // move you just made on Sleeper can linger as a suggestion. This forces the
+  // Worker to rebuild from Sleeper right now and re-pulls your lineup.
+  let refreshing = false;
+  async function doRefresh() {
+    refreshing = true;
+    try { await refreshRosters(); } finally { refreshing = false; }
+  }
 </script>
 
 <section class="myteam">
@@ -58,7 +68,9 @@
 
     {#if result.moves.length}
       <div class="advice">
-        <div class="ahd">📋 Lineup calls</div>
+        <div class="ahd">📋 Lineup calls
+          <button class="refreshbtn" on:click={doRefresh} disabled={refreshing} title="Already made these moves on Sleeper? Pull your lineup fresh — the auto-sync is hourly.">{refreshing ? 'checking Sleeper…' : '↻ already did it?'}</button>
+        </div>
         {#each result.moves.slice(0, 4) as m}
           <div class="move"><b class="start">START</b> {m.in} <span class="over">over</span> {m.out} <span class="slot">@ {m.slot}</span> <span class="gain">+{m.gain}</span></div>
         {/each}
@@ -109,7 +121,10 @@
   .alert b { color: var(--stamp-red); }
   .advice { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
   .advice.ok { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #7fcfa6; }
-  .ahd { font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; }
+  .ahd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; }
+  .refreshbtn { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-transform: none; background: var(--field-3); color: var(--accent); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; min-height: 28px; }
+  .refreshbtn:hover { border-color: var(--accent); }
+  .refreshbtn:disabled { opacity: .6; cursor: wait; }
   .move { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--chalk); padding: 4px 0; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
   .move .start { color: var(--neon); font-size: 9px; letter-spacing: .1em; border: 1px solid rgba(130,201,252,.4); border-radius: 3px; padding: 1px 5px; }
   .move .over { color: var(--muted); }

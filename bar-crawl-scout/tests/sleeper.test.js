@@ -21,3 +21,11 @@ describe('live sync adapter', () => {
     expect(SYNC_URL).toContain('workers.dev');
   });
 });
+
+describe('forced-fresh roster pull', () => {
+  it('refreshUrl busts both the Worker cache and the CDN', async () => {
+    const { refreshUrl } = await import('../src/lib/sleeper.js');
+    expect(refreshUrl('https://w.example', 123)).toBe('https://w.example/?refresh=1&t=123');
+    expect(refreshUrl('https://w.example/', 456)).toBe('https://w.example/?refresh=1&t=456');
+  });
+});

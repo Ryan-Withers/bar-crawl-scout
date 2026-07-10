@@ -9,16 +9,20 @@ import { rosters, faab, draft, lastSync } from './store.js';
 const now = () => new Date().toLocaleString();
 
 // Read the Worker's cached rosters on page open; silent no-op if unreachable.
-export async function autoLoad() {
+// `fresh` forces the Worker to rebuild from Sleeper right now — used when the
+// hourly snapshot may be stale (e.g. you just changed your lineup on Sleeper
+// and don't want the site suggesting moves you've already made).
+export async function autoLoad(fresh = false) {
   if (!SYNC_URL || typeof fetch !== 'function') return false;
   try {
-    const store = await fetchLiveRosters();
+    const store = await fetchLiveRosters(SYNC_URL, fresh);
     if (!store || !store.byHandle || !Object.keys(store.byHandle).length) return false;
     rosters.set(store);
     if (store.t) { try { lastSync.set(new Date(store.t).toLocaleString()); } catch { lastSync.set('live'); } }
     return true;
   } catch { return false; }
 }
+export const refreshRosters = () => autoLoad(true);
 
 // Full manual sync: league, FAAB medians (17 weeks), live rosters + player dict,
 // and 2024/2025 draft history. `status` is a callback that receives structured
