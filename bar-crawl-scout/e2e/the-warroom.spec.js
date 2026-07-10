@@ -22,12 +22,14 @@ test('full mock: setup -> sim to my pick -> pick -> sim to end -> grades', async
   // The wall board renders: slots across, rounds down, your cell highlighted.
   await expect(page.locator('.dboard')).toBeVisible();
   await expect(page.locator('.dcell.cur')).toHaveCount(1);
-  const filled = await page.locator('.dpk').count();
-  expect(filled, 'earlier picks appear on the wall board').toBeGreaterThan(0);
 
   // Make a manual pick (top of the list); bots tick on to your next turn.
   await page.getByRole('button', { name: 'PICK', exact: true }).first().click();
   await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
+  // Picks appear on the wall board. Checked AFTER the manual pick: the shuffled
+  // order can seat you 1st overall, in which case the board is legally empty at
+  // your first turn (that exact flake failed CI run 133 twice).
+  await expect(page.locator('.dpk').first()).toBeVisible();
 
   // Autopick once, then finish the whole thing (accelerating tick-through).
   await page.getByRole('button', { name: /autopick/i }).click();
