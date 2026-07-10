@@ -52,6 +52,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run smoke
+      - name: Full crawl (every link + button, mocked preview)
+        run: npm run e2e:crawl
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -17,6 +17,7 @@ export function normHandle(displayName: string): string {
 // owner user_id -> handle
 export function userHandleMap(users: SleeperUser[]): Record<string, string> {
   const m: Record<string, string> = {};
+  if (!Array.isArray(users)) return m; // guarded degradation: bad shape -> empty, never a throw
   for (const u of users) m[u.user_id] = normHandle(u.display_name || u.user_id);
   return m;
 }
@@ -31,6 +32,7 @@ export interface ManagerLive {
 // handle -> live identity (avatar, team name) from /users
 export function managersFromUsers(users: SleeperUser[]): Record<string, ManagerLive> {
   const out: Record<string, ManagerLive> = {};
+  if (!Array.isArray(users)) return out;
   for (const u of users) {
     const h = normHandle(u.display_name || u.user_id);
     out[h] = { handle: h, user_id: u.user_id, avatar: u.avatar, teamName: u.metadata?.team_name };
@@ -53,6 +55,7 @@ export function recordsFromRosters(
   userHandle: Record<string, string>,
 ): Record<string, ManagerRecord> {
   const out: Record<string, ManagerRecord> = {};
+  if (!Array.isArray(rosters)) return out;
   for (const r of rosters) {
     const h = userHandle[r.owner_id];
     if (!h) continue;

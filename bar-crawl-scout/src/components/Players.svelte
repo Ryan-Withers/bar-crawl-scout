@@ -36,7 +36,7 @@
     : PLAYERS.map((p) => ({ name: p[1], pos: p[2], team: p[3] }));
 
   // Trending adds keyed by name (needs the id->name blob).
-  $: trend = (byId && $trendingQ.data)
+  $: trend = (byId && Array.isArray($trendingQ.data))
     ? Object.fromEntries($trendingQ.data.map((t) => { const info = byId[t.player_id]; return info ? [info[0].toLowerCase(), t.count] : null; }).filter(Boolean))
     : {};
 

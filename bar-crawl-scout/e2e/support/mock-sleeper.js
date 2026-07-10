@@ -30,6 +30,7 @@ export async function mockSleeper(page) {
     if (url.endsWith('/users')) return json(route, USERS);
     if (url.endsWith('/rosters')) return json(route, ROSTERS);
     if (url.includes('/matchups/')) return json(route, []);
+    if (url.includes('/trending/')) return json(route, []);
     if (url.includes('/players/nfl')) return json(route, {});
     return json(route, []); // transactions, drafts, brackets, trending, etc.
   });

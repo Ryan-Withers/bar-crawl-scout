@@ -21,3 +21,12 @@ test('The Book renders on the live site', async ({ page }) => {
   await page.goto(LIVE + 'book');
   await expect(page.getByText(/DINGER/i).first()).toBeVisible();
 });
+
+// The exact failure Ryan hit: a deep link must load cold on the LIVE site
+// (GitHub Pages serves 404.html -> the app boots on the real URL).
+test('deep links load directly on the live site', async ({ page }) => {
+  await page.goto(LIVE + 'myteam');
+  await expect(page.getByLabel('Bar Crawl Scout')).toBeVisible();
+  await page.goto(LIVE + 'player/Joe%20Burrow');
+  await expect(page.getByText(/Joe Burrow/i).first()).toBeVisible();
+});
