@@ -40,6 +40,57 @@ export function managersFromUsers(users: SleeperUser[]): Record<string, ManagerL
   return out;
 }
 
+// ---- the real draft board: slot ownership incl. traded picks ----
+export interface LeagueDraftMeta {
+  draft_id: string;
+  season: string;
+  type?: string;                                   // 'snake' | 'linear'
+  draft_order?: Record<string, number> | null;     // user_id -> slot (1-based)
+}
+export interface TradedPick {
+  season: string;
+  round: number;
+  roster_id: number;         // ORIGINAL owner's roster (whose slot it is)
+  owner_id: number;          // CURRENT owner's roster
+}
+export interface SlotBoard {
+  slotHandles: string[];     // index 0 = slot 1's base owner handle
+  overrides: Array<{ round: number; slot: number; handle: string }>;
+  type: 'snake' | 'linear';
+  season: string;
+}
+
+// Live draft + traded picks + users/rosters -> who is actually on the clock at
+// every (round, slot). Pure; returns null on any missing/odd-shaped input so
+// the UI can fall back to a custom order.
+export function draftSlotBoard(
+  draft: LeagueDraftMeta | null | undefined,
+  traded: TradedPick[] | null | undefined,
+  users: SleeperUser[],
+  rosters: SleeperRoster[],
+): SlotBoard | null {
+  if (!draft?.draft_order || !Array.isArray(users) || !Array.isArray(rosters)) return null;
+  const uh = userHandleMap(users);
+  const slotHandles: string[] = [];
+  const userSlot: Record<string, number> = {};
+  for (const [uid, slot] of Object.entries(draft.draft_order)) {
+    userSlot[uid] = slot;
+    slotHandles[slot - 1] = uh[uid] || uid;
+  }
+  if (!slotHandles.length || slotHandles.some((s) => !s)) return null;
+  const rosterUser: Record<number, string> = {};
+  for (const r of rosters) rosterUser[r.roster_id] = r.owner_id;
+  const overrides: SlotBoard['overrides'] = [];
+  for (const t of Array.isArray(traded) ? traded : []) {
+    if (String(t.season) !== String(draft.season)) continue;
+    const slot = userSlot[rosterUser[t.roster_id]];
+    const handle = uh[rosterUser[t.owner_id]];
+    if (!slot || !handle) continue;
+    overrides.push({ round: t.round, slot, handle });
+  }
+  return { slotHandles, overrides, type: draft.type === 'linear' ? 'linear' : 'snake', season: draft.season };
+}
+
 export interface ManagerRecord {
   wins: number;
   losses: number;

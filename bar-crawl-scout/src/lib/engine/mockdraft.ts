@@ -29,6 +29,7 @@ export interface MockConfig {
   rosterSize: number;          // total roster spots incl. keepers
   seed: number;
   pool: MockPlayer[];          // available players (keepers are excluded again defensively)
+  sequence?: string[];         // explicit pick sequence (real slot ownership incl. traded picks)
 }
 export interface MockPick {
   overall: number;
@@ -117,7 +118,29 @@ export function unfilledStarters(roster: MockPlayer[], slots: string[]): string[
 }
 
 // ---- draft construction ----
+// Real-board sequence: base slot owners (index 0 = slot 1) snaked each round,
+// with traded picks overriding who's on the clock at a given (round, slot).
+// A team can own several picks in one round — e.g. Ryan holding 1.02 AND 1.04.
+export function sequenceFromSlots(
+  slotHandles: string[],
+  overrides: Array<{ round: number; slot: number; handle: string }>,
+  rounds: number,
+  type: 'snake' | 'linear' = 'snake',
+): string[] {
+  const N = slotHandles.length;
+  const ov = new Map(overrides.map((o) => [`${o.round}:${o.slot}`, o.handle]));
+  const seq: string[] = [];
+  for (let r = 1; r <= rounds; r++) {
+    for (let i = 0; i < N; i++) {
+      const slot = type === 'snake' && r % 2 === 0 ? N - i : i + 1;
+      seq.push(ov.get(`${r}:${slot}`) ?? slotHandles[slot - 1]);
+    }
+  }
+  return seq;
+}
+
 export function buildSequence(cfg: MockConfig): string[] {
+  if (cfg.sequence?.length) return cfg.sequence.slice();
   // Per-team pick counts can differ (a team with fewer keepers drafts more).
   const remaining: Record<string, number> = {};
   for (const t of cfg.teams) remaining[t.handle] = Math.max(0, cfg.rosterSize - t.keepers.length);
@@ -153,7 +176,9 @@ export function botChoice(s: MockState): MockPlayer {
 
   // Endgame guard: if remaining picks are only just enough to fill dedicated
   // starting holes, restrict to those positions (even a maniac fields a full team).
-  const remainingPicks = s.cfg.rosterSize - roster.length;
+  // Counted from the sequence itself — traded picks make per-team counts uneven.
+  let remainingPicks = 0;
+  for (let i = s.cursor; i < s.seq.length; i++) if (s.seq[i] === h) remainingPicks++;
   const holes = unfilledStarters(roster, s.cfg.slots);
   let candidates = s.pool;
   if (holes.length >= remainingPicks && holes.length > 0) {

@@ -29,10 +29,14 @@ export const getTrendingDrops = (limit = 25) =>
 export const getRawPlayers = () => get<Record<string, SleeperPlayer>>(`/players/nfl`);
 
 // Drafts: a league's drafts, then that draft's picks (for the custody chain).
+// The list entries carry the full draft object incl. draft_order (user_id -> slot).
 export const getLeagueDrafts = (id: string = LEAGUE_ID) =>
-  get<Array<{ draft_id: string; season: string }>>(`/league/${id}/drafts`);
+  get<Array<{ draft_id: string; season: string; type?: string; status?: string; draft_order?: Record<string, number> | null }>>(`/league/${id}/drafts`);
 export const getDraftPicks = (draftId: string) =>
   get<Array<Record<string, unknown>>>(`/draft/${draftId}/picks`);
+// Traded picks: who ACTUALLY owns each (round, original-roster) pick.
+export const getTradedPicks = (draftId: string) =>
+  get<Array<{ season: string; round: number; roster_id: number; owner_id: number; previous_owner_id: number | null }>>(`/draft/${draftId}/traded_picks`);
 
 // Playoff bracket — the final match's winner is that season's champion.
 export const getWinnersBracket = (id: string = LEAGUE_ID) =>
