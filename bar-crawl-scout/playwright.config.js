@@ -4,7 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
 // Chromium only; the mobile persona overrides the viewport per-spec via test.use.
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: '**/smoke/**', // the live smoke has its own config (playwright.smoke.config.js)
+  // smoke has its own config; the 4-minute full crawl runs nightly/on-demand (CRAWL=1), not per-PR.
+  testIgnore: process.env.CRAWL ? ['**/smoke/**'] : ['**/smoke/**', '**/the-inspector-crawl*'],
   timeout: 30_000,
   expect: { timeout: 8_000 },
   fullyParallel: true,

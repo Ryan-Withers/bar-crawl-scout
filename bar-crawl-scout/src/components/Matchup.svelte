@@ -30,7 +30,7 @@
     : ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
 
   // roster_id -> handle, from live rosters + users.
-  $: rosterHandle = ($rostersQ.data && $usersQ.data)
+  $: rosterHandle = (Array.isArray($rostersQ.data) && Array.isArray($usersQ.data))
     ? Object.fromEntries($rostersQ.data.map((r) => [r.roster_id, userHandleMap($usersQ.data)[r.owner_id]]).filter(([, h]) => h))
     : {};
 
