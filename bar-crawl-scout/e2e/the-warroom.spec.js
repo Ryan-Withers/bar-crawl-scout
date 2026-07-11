@@ -96,6 +96,26 @@ test('real board mode: Sleeper slots + a traded pick put Ryan on the clock at 1.
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
+test('copy for the group chat puts the recap on the clipboard', async ({ browser }) => {
+  const ctx = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  const page = await ctx.newPage();
+  await mockSleeper(page);
+  await page.goto('./mock');
+  await page.getByText(/Spectate — sim all 10/i).click();
+  await page.getByRole('button', { name: /start the mock/i }).click();
+  await page.getByRole('button', { name: /sim to end/i }).click();
+  await expect(page.getByText(/Mock complete/i)).toBeVisible({ timeout: 25_000 });
+
+  await page.getByRole('button', { name: /copy for the group chat/i }).click();
+  await expect(page.getByText(/copied — go stir the pot/i)).toBeVisible();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toContain('🏈 THE WAR ROOM — mock draft');
+  expect(text).toContain('🥇');
+  expect(text, 'spectate recap has no personal haul').not.toContain('MY HAUL');
+  expect(text).toContain('Run yours: https://ryan-withers.github.io/bar-crawl-scout/mock');
+  await ctx.close();
+});
+
 test('the pick clock counts down and auto-picks at zero', async ({ page }) => {
   const errors = trackErrors(page);
   // 3-second clock seeded directly so the test doesn't wait out a real 30s timer.

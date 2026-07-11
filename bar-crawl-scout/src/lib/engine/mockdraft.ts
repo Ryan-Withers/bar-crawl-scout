@@ -267,6 +267,30 @@ export function simToEnd(s: MockState): MockState {
   return st;
 }
 
+// ---- the group-chat recap ----
+// A finished mock condensed into paste-ready banter. Pure: names, date and
+// url come in as options so tests stay deterministic.
+export function recapText(
+  s: MockState,
+  g: { rows: GradeRow[]; steals: MockPick[]; reaches: MockPick[] },
+  opts: { nameOf?: (h: string) => string; seat?: string; when?: string; url?: string } = {},
+): string {
+  const nm = opts.nameOf || ((h: string) => h);
+  const lines: string[] = [];
+  lines.push(`🏈 THE WAR ROOM — mock draft${opts.when ? ` · ${opts.when}` : ''}`);
+  const medals = ['🥇', '🥈', '🥉'];
+  lines.push(g.rows.slice(0, 3).map((r, i) => `${medals[i]} ${nm(r.handle)} ${r.grade} (${r.total})`).join(' · '));
+  if (opts.seat) {
+    const mine = g.rows.find((r) => r.handle === opts.seat);
+    const haul = s.log.filter((p) => p.handle === opts.seat).slice(0, 5).map((p) => shortName(p.player.name));
+    if (mine) lines.push(`MY HAUL (${nm(opts.seat)} · ${mine.grade}): ${haul.join(', ')}${s.log.filter((p) => p.handle === opts.seat).length > 5 ? '…' : ''}`);
+  }
+  if (g.steals[0]) lines.push(`💎 Steal of the draft: ${g.steals[0].player.name} to ${nm(g.steals[0].handle)} @ pick ${g.steals[0].overall} (board #${g.steals[0].boardRank})`);
+  if (g.reaches[0]) lines.push(`🚨 Reach of the draft: ${g.reaches[0].player.name} by ${nm(g.reaches[0].handle)} @ pick ${g.reaches[0].overall} (board #${g.reaches[0].boardRank})`);
+  if (opts.url) lines.push(`Run yours: ${opts.url}`);
+  return lines.join('\n');
+}
+
 // ---- the debrief ----
 export interface GradeRow {
   handle: string;
