@@ -35,6 +35,16 @@ export const transactionsQuery = (week: number) => ({ queryKey: qk.transactions(
 export const weekProjectionsQuery = (season: string, week: number) => ({ queryKey: ['proj', season, week] as const, queryFn: () => S.getWeekProjections(season, week), staleTime: 30 * MIN });
 export const trendingAddsQuery = () => ({ queryKey: qk.trendingAdds, queryFn: () => S.getTrendingAdds(25), staleTime: 30 * MIN });
 
+// Every completed week's matchups in one cached shot (dossier form/records).
+// Best-effort per week: a missing week never sinks the season.
+export const seasonMatchupsQuery = () => ({
+  queryKey: ['seasonMatchups'] as const,
+  staleTime: 30 * MIN,
+  queryFn: () => Promise.all(
+    Array.from({ length: 17 }, (_, i) => S.getMatchups(i + 1).catch(() => [] as Awaited<ReturnType<typeof S.getMatchups>>)),
+  ),
+});
+
 // The league's current draft + its traded picks, in one shot (for the War Room's
 // real slot board). Null when there's no draft with an assigned order yet.
 export const realDraftQuery = () => ({
