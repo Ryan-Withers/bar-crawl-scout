@@ -1,11 +1,13 @@
 <script>
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
-  import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
+  import { MGRS, TEAMS, TEAMSHORT, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores, warchest, yearsLeft } from '../lib/models.js';
   import { keepers, draft, faab, managerNotes, unlocked } from '../lib/store.js';
-  import { usersQuery, rostersQuery } from '../api/queries';
+  import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
+  import { rosterHandleMap } from '../api/history';
+  import { weekResultsFor, streakSummary } from '../lib/engine/streaks.ts';
   import { avatarUrl } from '../api/sleeper';
   import Stamp from './Stamp.svelte';
   import Coaster from './Coaster.svelte';
@@ -16,6 +18,7 @@
 
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
+  const seasonQ = createQuery(seasonMatchupsQuery());
 
   $: m = MGRS.find((x) => x.h === handle);
   $: classified = handle === RYAN && !$unlocked;
@@ -25,6 +28,10 @@
   $: records = ($rostersQ.data && $usersQ.data) ? recordsFromRosters($rostersQ.data, userHandleMap($usersQ.data)) : {};
   $: rec = records[handle];
   $: db = $draft && $draft.byManager ? $draft.byManager[handle] : null;
+  // This season's form: raw weekly matchups -> W/L runs + best/worst weeks.
+  $: rh = ($rostersQ.data && $usersQ.data) ? rosterHandleMap($rostersQ.data, userHandleMap($usersQ.data)) : {};
+  $: form = ($seasonQ.data && Object.keys(rh).length) ? streakSummary(weekResultsFor(handle, $seasonQ.data, rh)) : null;
+  const oppName = (h) => TEAMSHORT[h] || h;
   $: fa = $faab && $faab.byManager ? $faab.byManager[handle] : null;
   $: keeps = (ks[handle] || []).slice(0, 3).filter((s) => s && s[0]);
   $: needs = m ? needScores(ks, handle) : {};
@@ -66,6 +73,20 @@
         <div class="stamps">
           {#each m.tags as t, ti}<Stamp text={t} tone={ti === 0 ? 'neon' : 'ink'} seed={ti + 3} />{/each}
           <Stamp text={chestTag(handle)} tone={chestTag(handle) === 'LOADED' ? 'brass' : chestTag(handle) === 'STRIPPED' ? 'red' : 'ink'} seed={9} />
+        </div>
+
+        <div class="sec"><h4>Form &amp; records <small>(this season)</small></h4>
+          {#if form && form.cur}
+            <div class="formrow">
+              {#each form.last5 as k}<span class="fchip {k.toLowerCase()}">{k}</span>{/each}
+              <b class="curstreak {form.cur.kind.toLowerCase()}">{form.cur.len}{form.cur.kind}{form.cur.kind === 'W' ? ' streak 🔥' : form.cur.kind === 'L' ? ' skid 🥶' : ''}</b>
+            </div>
+            <p>Best week: <b>{form.best.pts.toFixed(1)}</b> (wk {form.best.week} vs {oppName(form.best.opp)}) ·
+              Worst: <b>{form.worst.pts.toFixed(1)}</b> (wk {form.worst.week} vs {oppName(form.worst.opp)}) ·
+              Longest win run: <b>{form.longestW}</b></p>
+          {:else}
+            <p class="incomplete"><Stamp text="File Incomplete" tone="ink" seed={11} /> no completed weeks yet — check back after kickoff.</p>
+          {/if}
         </div>
 
         <div class="sec"><h4>Tendencies</h4><p>{m.tend}</p><p class="note2">{m.note}</p></div>
@@ -133,6 +154,11 @@
   .need i { flex: 1; height: 6px; border-radius: 3px; background: rgba(28,26,22,.14); position: relative; }
   .need i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: #2f7fb8; border-radius: 3px; }
   .incomplete { display: flex; align-items: center; gap: 8px; color: var(--ink-soft) !important; }
+  .formrow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .fchip { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 4px; font-family: 'Archivo Black', sans-serif; font-size: 11px; color: #fff; }
+  .fchip.w { background: #0c8c4a; } .fchip.l { background: #b8442f; } .fchip.t { background: #4a4636; }
+  .curstreak { font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-left: 8px; }
+  .curstreak.w { color: #0c8c4a; } .curstreak.l { color: #b8442f; } .curstreak.t { color: #4a4636; }
   textarea { width: 100%; min-height: 70px; background: rgba(255,255,255,.4); border: 1px solid rgba(28,26,22,.25); border-radius: 4px; padding: 8px; font-family: 'Caveat', cursive; font-size: 18px; color: #2a271f; resize: vertical; }
   textarea:focus { outline: 2px solid #2f7fb8; }
 </style>
