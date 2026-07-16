@@ -44,6 +44,28 @@
               {#if b.pointsLeader}<span class="stat">👑 Points king: <b>{name(b.pointsLeader.handle)}</b> ({b.pointsLeader.pf})</span>{/if}
               {#if b.bestRecord}<span class="stat">📋 Best record: <b>{name(b.bestRecord.handle)}</b> ({b.bestRecord.wins}-{b.bestRecord.losses})</span>{/if}
             </div>
+
+            {#if b.bracket}
+              <details class="bracket">
+                <summary>🏟️ The bracket</summary>
+                <div class="rounds">
+                  {#each b.bracket as rd (rd.round)}
+                    <div class="round">
+                      <div class="rlabel">{rd.label}</div>
+                      {#each rd.matches as mt (mt.m)}
+                        <div class="match" class:title={mt.place === 'Final'}>
+                          {#if mt.place === 'Third'}<span class="badge">3rd</span>{/if}
+                          <span class="team" class:win={mt.winner && mt.winner === mt.a}>{name(mt.a) || 'TBD'}</span>
+                          <span class="v">v</span>
+                          <span class="team" class:win={mt.winner && mt.winner === mt.b}>{name(mt.b) || 'TBD'}</span>
+                          {#if mt.place === 'Final' && mt.winner}<span class="mini">🏆</span>{/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/each}
+                </div>
+              </details>
+            {/if}
           </div>
         </div>
       {/each}
@@ -74,5 +96,25 @@
   .sub { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
   .sub b { color: var(--chalk); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 60ch; }
-  @media (max-width: 520px) { .banner { grid-template-columns: 1fr; gap: 8px; } .yr { flex-direction: row; align-items: baseline; gap: 10px; } }
+
+  /* The bracket: an expandable per-season playoff tree, dark Book palette. */
+  .bracket { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .bracket summary { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--neon); cursor: pointer; list-style: none; user-select: none; }
+  .bracket summary::-webkit-details-marker { display: none; }
+  .bracket summary::before { content: '▸ '; color: var(--muted); }
+  .bracket[open] summary::before { content: '▾ '; }
+  .rounds { display: flex; gap: 12px; margin-top: 10px; align-items: flex-start; }
+  .round { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rlabel { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .match { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: rgba(130,201,252,.06); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
+  .match.title { border-color: rgba(130,201,252,.4); }
+  .match .team { color: var(--chalk); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .match .team.win { color: var(--neon-hot); font-weight: 700; }
+  .match .v { color: var(--muted); font-size: 9px; }
+  .match .badge { font-size: 8px; letter-spacing: .06em; color: var(--brass); border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px; }
+  .match .mini { margin-left: auto; }
+  @media (max-width: 520px) {
+    .banner { grid-template-columns: 1fr; gap: 8px; } .yr { flex-direction: row; align-items: baseline; gap: 10px; }
+    .rounds { flex-direction: column; gap: 12px; }
+  }
 </style>
