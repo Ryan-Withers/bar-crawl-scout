@@ -6,9 +6,24 @@ import * as S from './sleeper';
 import { userHandleMap } from './league';
 import { rosterHandleMap } from './history';
 import { championFromBracket } from '../lib/engine/wall';
+import { buildBracketTree, bracketPlayed } from '../lib/engine/brackettree';
 
 const settle = <T>(p: Promise<T>, fallback: T): Promise<T> => p.then((x) => x, () => fallback);
 const r1 = (n: number) => Math.round(n * 10) / 10;
+
+// A bracket match with roster ids already resolved to our manager handles.
+export interface BannerMatch {
+  m: number;
+  a: string | null;
+  b: string | null;
+  winner: string | null;
+  place: 'Final' | 'Third' | null;
+}
+export interface BannerRound {
+  round: number;
+  label: string;
+  matches: BannerMatch[];
+}
 
 export interface SeasonBanner {
   season: string;
@@ -17,6 +32,7 @@ export interface SeasonBanner {
   runnerUp: string | null;
   pointsLeader: { handle: string; pf: number } | null;
   bestRecord: { handle: string; wins: number; losses: number } | null;
+  bracket: BannerRound[] | null;   // handle-resolved playoff tree (null until a game is decided)
 }
 
 interface RosterLite {
@@ -39,6 +55,17 @@ export async function assembleWall(): Promise<SeasonBanner[]> {
     const rh = rosterHandleMap(rosters as { roster_id: number; owner_id: string }[], userHandleMap(users));
     const { champion, runnerUp } = championFromBracket(bracket);
 
+    // The already-fetched bracket, resolved to handles. Only surfaced once a
+    // game has actually been played (unplayed current-season brackets stay null).
+    const h = (id: number | null): string | null => (id != null ? rh[id] ?? null : null);
+    const bracketTree: BannerRound[] | null = bracketPlayed(bracket)
+      ? buildBracketTree(bracket).map((rd) => ({
+          round: rd.round,
+          label: rd.label,
+          matches: rd.matches.map((mt) => ({ m: mt.m, a: h(mt.t1), b: h(mt.t2), winner: h(mt.winner), place: mt.place })),
+        }))
+      : null;
+
     let pointsLeader: SeasonBanner['pointsLeader'] = null;
     let bestRecord: SeasonBanner['bestRecord'] = null;
     for (const r of rosters) {
@@ -54,7 +81,7 @@ export async function assembleWall(): Promise<SeasonBanner[]> {
       season, current: season === currentSeason,
       champion: champion != null ? rh[champion] ?? null : null,
       runnerUp: runnerUp != null ? rh[runnerUp] ?? null : null,
-      pointsLeader, bestRecord,
+      pointsLeader, bestRecord, bracket: bracketTree,
     };
   }));
 
