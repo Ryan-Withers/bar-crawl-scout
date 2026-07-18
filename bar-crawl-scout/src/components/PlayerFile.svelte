@@ -8,6 +8,7 @@
   import ChainOfCustody from './ChainOfCustody.svelte';
   import VsLeague from './VsLeague.svelte';
   import GameLog from './GameLog.svelte';
+  import Consistency from './Consistency.svelte';
   import Career from './Career.svelte';
   import Projection from './Projection.svelte';
   import Usage from './Usage.svelte';
@@ -60,7 +61,7 @@
     }
   }
 
-  const SECTIONS = [['pf-gl', 'Game Log'], ['pf-car', 'Career'], ['pf-proj', 'Proj vs Reality'], ['pf-usg', 'Usage'], ['pf-vs', 'Vs League'], ['pf-coc', 'Chain'], ['pf-sim', 'Similar'], ['pf-notes', 'Notes']];
+  const SECTIONS = [['pf-gl', 'Game Log'], ['pf-con', 'Consistency'], ['pf-car', 'Career'], ['pf-proj', 'Proj vs Reality'], ['pf-usg', 'Usage'], ['pf-vs', 'Vs League'], ['pf-coc', 'Chain'], ['pf-sim', 'Similar'], ['pf-notes', 'Notes']];
   function jumpTo(id) { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 
   let cmp = '';
@@ -134,6 +135,11 @@
         <!-- This season's receipt: league-scored per-week points (live) -->
         <div class="sheet stub" id="pf-gl">
           <GameLog rows={hist.gameLog} totals={hist.totals} best={hist.best} loading={histLoading} />
+        </div>
+
+        <!-- Floor/ceiling/volatility read off the same played weeks -->
+        <div class="sheet stub" id="pf-con">
+          <Consistency weekly={(hist.gameLog || []).filter((r) => !r.dnp).map((r) => r.pts)} loading={histLoading} />
         </div>
 
         <!-- Season-by-season league-scored totals (live) -->
