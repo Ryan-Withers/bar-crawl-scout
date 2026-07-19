@@ -4,8 +4,9 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { TEAMSHORT, RYAN } from '../lib/data.js';
   import { pairMatchups } from '../lib/engine/gameday.ts';
+  import { priceMatchup } from '../lib/engine/matchupodds.ts';
   import { stateQuery, usersQuery, rostersQuery, matchupsQuery } from '../api/queries';
-  import { userHandleMap } from '../api/league';
+  import { userHandleMap, recordsFromRosters } from '../api/league';
   import Skeleton from './Skeleton.svelte';
 
   const stateQ = createQuery(stateQuery());
@@ -29,6 +30,33 @@
     ? pairMatchups($matchupsQ.data, rosterHandle, TEAMSHORT)
     : [];
   $: loading = $stateQ.isLoading || $matchupsQ.isFetching;
+
+  // Season points-per-game per handle -> a pregame line for each matchup.
+  $: records = ($rostersQ.data && $usersQ.data) ? recordsFromRosters($rostersQ.data, userHandleMap($usersQ.data)) : {};
+  const ppgOf = (recs, h) => {
+    const r = recs[h];
+    if (!r) return null;
+    const g = r.wins + r.losses + r.ties;
+    return g > 0 ? r.pf / g : null;
+  };
+  // Only price a game once both sides have a scoring sample.
+  function lineFor(recs, g) {
+    if (!g.b) return null;
+    const pa = ppgOf(recs, g.a.handle);
+    const pb = ppgOf(recs, g.b.handle);
+    if (pa == null || pb == null) return null;
+    const p = priceMatchup(pa, pb);
+    const fav = p.favoursA ? g.a : g.b;
+    const dog = p.favoursA ? g.b : g.a;
+    return {
+      ...p,
+      fav, dog,
+      favProb: p.favoursA ? p.probA : p.probB,
+      favOdds: p.favoursA ? p.oddsA : p.oddsB,
+      dogOdds: p.favoursA ? p.oddsB : p.oddsA,
+    };
+  }
+  const pct = (p) => Math.round(p * 100);
 </script>
 
 <section class="gameday">
@@ -50,6 +78,15 @@
             {/if}
           {/each}
           {#if g.b}<div class="margin">{g.margin === 0 ? 'DEAD EVEN' : 'by ' + g.margin.toFixed(1)}</div>{/if}
+          {#if lineFor(records, g)}
+            {@const ln = lineFor(records, g)}
+            <div class="line" title="Pregame line from season points-per-game">
+              <span class="lbl">LINE</span>
+              <span class="fav">{ln.line === 0.5 && ln.margin === 0 ? 'pick&apos;em' : ln.fav.team + ' −' + ln.line}</span>
+              <span class="prob">{pct(ln.favProb)}%</span>
+              <span class="ml">${ln.favOdds.toFixed(2)} · dog ${ln.dogOdds.toFixed(2)}</span>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -76,5 +113,11 @@
   .side.bye .tm { color: var(--muted); font-weight: 400; font-style: italic; }
   .pts { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 17px; color: var(--chalk); }
   .margin { position: absolute; top: 12px; right: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  /* Pregame line — the sportsbook read from season scoring strength. */
+  .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+  .line .lbl { font-size: 8px; letter-spacing: .1em; color: var(--neon); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
+  .line .fav { color: var(--chalk); font-weight: 700; }
+  .line .prob { color: var(--neon); font-weight: 700; }
+  .line .ml { margin-left: auto; color: var(--muted); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 60ch; }
 </style>
