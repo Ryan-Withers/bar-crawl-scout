@@ -4,6 +4,7 @@
   import { TEAMS, TEAMSHORT, MGRS, RYAN } from '../lib/data.js';
   import { rankStandings } from '../lib/engine/standings.ts';
   import { allPlayTable, luckBoard } from '../lib/engine/allplay.ts';
+  import { recordBook } from '../lib/engine/recordbook.ts';
   import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
   import { userHandleMap, recordsFromRosters } from '../api/league';
   import { rosterHandleMap } from '../api/history';
@@ -39,6 +40,11 @@
     ? luckBoard(allPlayTable($seasonQ.data, rh), actualWins).filter((r) => r.weeks > 0)
     : [];
   const fmtLuck = (n) => (n > 0 ? '+' : '') + n.toFixed(1);
+
+  // The season record book, off the same weekly scores.
+  $: book = ($seasonQ.data && Object.keys(rh).length) ? recordBook($seasonQ.data, rh) : null;
+  $: hasBook = book && book.topWeek;
+  const nm = (h) => TEAMSHORT[h] || h;
 </script>
 
 <section class="table-page">
@@ -69,6 +75,19 @@
       </div>
     {/each}
   </div>
+
+  {#if hasBook}
+    <div class="luck-hd"><span class="eyebrow">The Record Book</span>
+      <p class="blurb">This season's extremes, straight off the scoreboard.</p>
+    </div>
+    <div class="recbook">
+      <div class="rec"><span class="ricon">💥</span><b>{book.topWeek.pts}</b><span class="rlbl">Highest week</span><span class="rwho">{nm(book.topWeek.handle)} · wk {book.topWeek.week}</span></div>
+      <div class="rec"><span class="ricon">💤</span><b>{book.lowWeek.pts}</b><span class="rlbl">Lowest week</span><span class="rwho">{nm(book.lowWeek.handle)} · wk {book.lowWeek.week}</span></div>
+      {#if book.blowout}<div class="rec"><span class="ricon">🩸</span><b>{book.blowout.margin}</b><span class="rlbl">Biggest blowout</span><span class="rwho">{nm(book.blowout.winner)} def {nm(book.blowout.loser)} · wk {book.blowout.week}</span></div>{/if}
+      {#if book.nailbiter}<div class="rec"><span class="ricon">😰</span><b>{book.nailbiter.margin}</b><span class="rlbl">Closest game</span><span class="rwho">{nm(book.nailbiter.winner)} def {nm(book.nailbiter.loser)} · wk {book.nailbiter.week}</span></div>{/if}
+      {#if book.shootout}<div class="rec"><span class="ricon">🔥</span><b>{book.shootout.combined}</b><span class="rlbl">Shootout</span><span class="rwho">{nm(book.shootout.a)} v {nm(book.shootout.b)} · wk {book.shootout.week}</span></div>{/if}
+    </div>
+  {/if}
 
   {#if luck.length}
     <div class="luck-hd">
@@ -120,6 +139,14 @@
   .wl { font-weight: 700; }
   .diff.pos { color: #2e7d46; } .diff.neg { color: #b5442f; }
   .gb { color: var(--ink-soft); }
+  /* The Record Book — a compact tile strip of season extremes. */
+  .recbook { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .rec { background: var(--paper); color: var(--ink); border-radius: 6px; padding: 12px 10px; box-shadow: 0 8px 20px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 2px; }
+  .rec .ricon { font-size: 16px; }
+  .rec b { font-family: 'Archivo Black', sans-serif; font-size: 24px; color: var(--ink); line-height: 1.05; }
+  .rec .rlbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin-top: 2px; }
+  .rec .rwho { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #2a271f; }
+
   /* The Luck Index — same paper ledger, its own column rhythm. */
   .luck-hd { margin: 26px 0 10px; }
   .luck-hd .blurb { margin: 8px 0 0; }
