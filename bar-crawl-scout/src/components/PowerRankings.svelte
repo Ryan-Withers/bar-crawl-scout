@@ -5,11 +5,14 @@
   import { keepers, mode, rosters } from '../lib/store.js';
   import { rosterFor } from '../lib/roster.js';
   import { powerRankings } from '../lib/engine/power.ts';
-  import { usersQuery, rostersQuery } from '../api/queries';
+  import { strengthOfSchedule } from '../lib/engine/sos.ts';
+  import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
   import { userHandleMap, recordsFromRosters } from '../api/league';
+  import { rosterHandleMap } from '../api/history';
 
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
+  const seasonQ = createQuery(seasonMatchupsQuery());
 
   $: ks = $keepers;
   $: md = $mode;
@@ -44,6 +47,17 @@
   }
   $: ranked = powerRankings(inputs);
   $: anyRoster = $rosters && $rosters.byHandle && Object.keys($rosters.byHandle).length > 0;
+
+  // Strength of schedule: average opponent season ppg over games played.
+  $: rh = ($rostersQ.data && $usersQ.data) ? rosterHandleMap($rostersQ.data, userHandleMap($usersQ.data)) : {};
+  $: ppgByHandle = Object.fromEntries(Object.entries(liveRecords).map(([h, r]) => {
+    const g = r.wins + r.losses + r.ties;
+    return [h, g ? r.pf / g : 0];
+  }));
+  $: sos = ($seasonQ.data && Object.keys(rh).length && live)
+    ? Object.fromEntries(strengthOfSchedule($seasonQ.data, rh, ppgByHandle).map((r) => [r.handle, r]))
+    : {};
+  $: sosCount = Object.keys(sos).length;
 </script>
 
 <section class="power">
@@ -59,6 +73,12 @@
         <span class="rk">{t.rank}</span>
         <div class="main">
           <a class="tm" href={'/managers/' + t.handle} use:link>{TEAMSHORT[t.handle] || t.team}</a>
+          {#if sos[t.handle]}
+            {@const s = sos[t.handle]}
+            <span class="sos" class:hard={s.rank <= 3} class:soft={s.rank > sosCount - 3} title="Average opponent scoring average, over games played">
+              SOS #{s.rank} · opp {s.oppPpg}
+            </span>
+          {/if}
           <div class="bars">
             <span class="bar rec" title="Record {t.parts.record}"><i style="width:{t.parts.record}%"></i></span>
             <span class="bar sco" title="Scoring {t.parts.scoring}"><i style="width:{t.parts.scoring}%"></i></span>
@@ -86,6 +106,9 @@
   .main { min-width: 0; }
   .tm { font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; color: var(--chalk); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .tm:hover { color: var(--neon-hot); }
+  .sos { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .02em; color: var(--muted); background: var(--field-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; margin-top: 4px; }
+  .sos.hard { color: var(--stamp-red); border-color: rgba(214,69,60,.3); }
+  .sos.soft { color: var(--good, #0C8C4A); border-color: rgba(12,140,74,.3); }
   .bars { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
   .bar { height: 5px; background: rgba(255,255,255,.05); border-radius: 3px; overflow: hidden; }
   .bar i { display: block; height: 100%; border-radius: 3px; }
