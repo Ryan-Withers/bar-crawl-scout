@@ -9,6 +9,7 @@
   import { optimalLineup } from '../lib/engine/lineup.ts';
   import { pairMatchups } from '../lib/engine/gameday.ts';
   import { winProbability, matchupGrade } from '../lib/engine/matchup.ts';
+  import { positionalEdges, edgeHighlights } from '../lib/engine/edges.ts';
   import { projMapFromBlob } from '../api/projections.ts';
   import { userHandleMap } from '../api/league';
   import { stateQuery, usersQuery, rostersQuery, leagueQuery, matchupsQuery, playersQuery, weekProjectionsQuery } from '../api/queries';
@@ -66,6 +67,12 @@
   $: winPct = me && opp ? winProbability(me.total, opp.total) : null;
   $: grade = winPct != null ? matchupGrade(winPct) : null;
   const top = (side) => (side ? side.seats.slice().sort((a, b) => b.player.proj - a.player.proj).slice(0, 3) : []);
+
+  // Where the game is won: projected points by slot, you vs them.
+  $: edges = (me && opp) ? positionalEdges(me.seats, opp.seats) : [];
+  $: swing = edgeHighlights(edges);
+  // Bar scale: widest single-side position total, so bars are comparable.
+  $: edgeMax = edges.reduce((m, e) => Math.max(m, e.mine, e.theirs), 1);
 </script>
 
 <section class="matchup">
@@ -118,6 +125,26 @@
         </div>
       {/if}
     </div>
+
+    {#if edges.length}
+      <div class="edges">
+        <div class="ehd">Where it's won
+          {#if swing.best && swing.best.edge > 0}<span class="etag good">{swing.best.pos} +{swing.best.edge}</span>{/if}
+          {#if swing.worst && swing.worst.edge < 0}<span class="etag bad">{swing.worst.pos} {swing.worst.edge}</span>{/if}
+        </div>
+        {#each edges as e}
+          <div class="erow">
+            <span class="epos">{e.pos}</span>
+            <div class="ebar">
+              <div class="half l"><i style="width:{(e.theirs / edgeMax) * 100}%"></i><b>{e.theirs}</b></div>
+              <div class="half r"><i style="width:{(e.mine / edgeMax) * 100}%"></i><b>{e.mine}</b></div>
+            </div>
+            <span class="edelta" class:good={e.edge > 0} class:bad={e.edge < 0}>{e.edge > 0 ? '+' : ''}{e.edge}</span>
+          </div>
+        {/each}
+        <div class="efoot"><span>◀ {opp ? teamOf(oppHandle) : 'them'}</span><span>{teamOf(RYAN)} ▶</span></div>
+      </div>
+    {/if}
   {/if}
 </section>
 
@@ -151,5 +178,20 @@
   .kp { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
   .kp .pos { min-width: 34px; color: var(--muted); font-weight: 700; font-size: 9.5px; }
   .kp .pv { margin-left: auto; font-weight: 700; color: var(--chalk); }
+  /* Where it's won — a per-slot diverging bar, theirs left, yours right. */
+  .edges { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 16px; }
+  .ehd { font-family: 'Archivo Black', sans-serif; font-size: 11px; text-transform: uppercase; color: var(--chalk); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .etag { font-family: 'IBM Plex Mono', monospace; font-size: 9px; border-radius: 3px; padding: 1px 6px; }
+  .etag.good { color: var(--neon); border: 1px solid rgba(47,127,184,.35); } .etag.bad { color: var(--stamp-red); border: 1px solid rgba(214,69,60,.3); }
+  .erow { display: grid; grid-template-columns: 44px 1fr 46px; align-items: center; gap: 8px; padding: 4px 0; }
+  .epos { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; color: var(--muted); }
+  .ebar { display: flex; align-items: center; gap: 3px; }
+  .half { flex: 1; display: flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
+  .half.l { flex-direction: row-reverse; }
+  .half i { display: block; height: 9px; border-radius: 3px; }
+  .half.l i { background: var(--brass); } .half.r i { background: var(--neon); }
+  .edelta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-align: right; color: var(--muted); }
+  .edelta.good { color: var(--neon); } .edelta.bad { color: var(--stamp-red); }
+  .efoot { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); }
   @media (max-width: 560px) { .keys { grid-template-columns: 1fr; } .side .score { font-size: 34px; } }
 </style>
