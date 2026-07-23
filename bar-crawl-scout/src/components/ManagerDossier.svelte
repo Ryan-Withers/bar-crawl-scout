@@ -8,6 +8,7 @@
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { rosterHandleMap } from '../api/history';
   import { weekResultsFor, streakSummary } from '../lib/engine/streaks.ts';
+  import { rivalryLedger } from '../lib/engine/rivalries.ts';
   import { avatarUrl } from '../api/sleeper';
   import Stamp from './Stamp.svelte';
   import Coaster from './Coaster.svelte';
@@ -28,9 +29,11 @@
   $: records = ($rostersQ.data && $usersQ.data) ? recordsFromRosters($rostersQ.data, userHandleMap($usersQ.data)) : {};
   $: rec = records[handle];
   $: db = $draft && $draft.byManager ? $draft.byManager[handle] : null;
-  // This season's form: raw weekly matchups -> W/L runs + best/worst weeks.
+  // This season's week-by-week results power both the Form panel and Rivalries.
   $: rh = ($rostersQ.data && $usersQ.data) ? rosterHandleMap($rostersQ.data, userHandleMap($usersQ.data)) : {};
-  $: form = ($seasonQ.data && Object.keys(rh).length) ? streakSummary(weekResultsFor(handle, $seasonQ.data, rh)) : null;
+  $: results = ($seasonQ.data && Object.keys(rh).length) ? weekResultsFor(handle, $seasonQ.data, rh) : [];
+  $: form = results.length ? streakSummary(results) : null;
+  $: rivals = rivalryLedger(results);
   const oppName = (h) => TEAMSHORT[h] || h;
   $: fa = $faab && $faab.byManager ? $faab.byManager[handle] : null;
   $: keeps = (ks[handle] || []).slice(0, 3).filter((s) => s && s[0]);
@@ -88,6 +91,22 @@
             <p class="incomplete"><Stamp text="File Incomplete" tone="ink" seed={11} /> no completed weeks yet — check back after kickoff.</p>
           {/if}
         </div>
+
+        {#if rivals.length}
+          <div class="sec"><h4>Rivalries <small>(this season, head-to-head)</small></h4>
+            <div class="rivals">
+              {#each rivals as r}
+                <div class="riv">
+                  <span class="rres {r.lastResult.toLowerCase()}">{r.lastResult}</span>
+                  <span class="rnm">{oppName(r.opp)}</span>
+                  <span class="rrec">{r.wins}-{r.losses}{r.ties ? '-' + r.ties : ''}</span>
+                  <span class="rdiff" class:pos={r.diff > 0} class:neg={r.diff < 0}>{r.diff > 0 ? '+' : ''}{r.diff}</span>
+                </div>
+              {/each}
+            </div>
+            <p class="note2">Series record and season point differential against each rival — last meeting's result on the left.</p>
+          </div>
+        {/if}
 
         <div class="sec"><h4>Tendencies</h4><p>{m.tend}</p><p class="note2">{m.note}</p></div>
 
@@ -154,6 +173,14 @@
   .need i { flex: 1; height: 6px; border-radius: 3px; background: rgba(28,26,22,.14); position: relative; }
   .need i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: #2f7fb8; border-radius: 3px; }
   .incomplete { display: flex; align-items: center; gap: 8px; color: var(--ink-soft) !important; }
+  .rivals { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 6px; }
+  .riv { display: grid; grid-template-columns: 22px 1fr auto 52px; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed rgba(28,26,22,.14); color: #2a271f; }
+  .riv .rres { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 4px; font-size: 10px; font-weight: 700; color: #fff; }
+  .rres.w { background: #1d8a4e; } .rres.l { background: #b5442f; } .rres.t { background: #4a4636; }
+  .riv .rnm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .riv .rrec { color: var(--ink-soft); }
+  .riv .rdiff { text-align: right; font-weight: 700; color: var(--ink-soft); }
+  .riv .rdiff.pos { color: #1d8a4e; } .riv .rdiff.neg { color: #b5442f; }
   .formrow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 4px 0 8px; }
   .fchip { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 4px; font-family: 'Archivo Black', sans-serif; font-size: 11px; color: #fff; }
   .fchip.w { background: #0c8c4a; } .fchip.l { background: #b8442f; } .fchip.t { background: #4a4636; }
