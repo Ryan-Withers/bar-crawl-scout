@@ -4,18 +4,28 @@
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { chestTag, needScores } from '../lib/models.js';
   import { keepers, unlocked } from '../lib/store.js';
-  import { usersQuery, rostersQuery } from '../api/queries';
+  import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
+  import { rosterHandleMap } from '../api/history';
+  import { weekResultsFor } from '../lib/engine/streaks.ts';
+  import { clutchRecord } from '../lib/engine/clutch.ts';
   import { avatarUrl } from '../api/sleeper';
   import Stamp from './Stamp.svelte';
 
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
+  const seasonQ = createQuery(seasonMatchupsQuery());
 
   $: ks = $keepers;
   $: liveMgrs = $usersQ.data ? managersFromUsers($usersQ.data) : {};
   $: uhMap = $usersQ.data ? userHandleMap($usersQ.data) : {};
   $: records = ($rostersQ.data && $usersQ.data) ? recordsFromRosters($rostersQ.data, uhMap) : {};
+
+  // Each manager's record in one-score games (decided by <= 10).
+  $: rh = ($rostersQ.data && $usersQ.data) ? rosterHandleMap($rostersQ.data, uhMap) : {};
+  $: clutch = ($seasonQ.data && Object.keys(rh).length)
+    ? Object.fromEntries(MGRS.map((m) => [m.h, clutchRecord(weekResultsFor(m.h, $seasonQ.data, rh))]))
+    : {};
 
   // Live record/PF when synced, else the static fallback from the dossier data.
   const recOf = (m) => { const r = records[m.h]; return r ? `${r.wins}-${r.losses}${r.ties ? '-' + r.ties : ''}` : m.rec; };
@@ -88,6 +98,14 @@
             </div>
           </div>
 
+          {#if clutch[m.h] && clutch[m.h].closeGames}
+            {@const cl = clutch[m.h]}
+            <div class="clutch" class:hot={cl.rate >= 0.6} class:cold={cl.rate <= 0.4}>
+              <span class="cdot">{cl.rate >= 0.6 ? '🧊' : cl.rate <= 0.4 ? '😰' : '⏱'}</span>
+              <b>{cl.record}</b> in one-score games <small>(decided by ≤10)</small>
+            </div>
+          {/if}
+
           {@const c = CAPITAL[m.h] || [0, 0, 0]}
           <div class="cap">2026 capital: <b>{c[0]}</b>·1st <b>{c[1]}</b>·2nd <b>{c[2]}</b>·3rd</div>
           <p class="blurb">{m.note}</p>
@@ -155,6 +173,10 @@
 
   .cap { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); margin: 10px 0 8px; }
   .cap b { color: var(--ink); }
+  .clutch { display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #2a271f; margin: 8px 0 2px; }
+  .clutch b { color: var(--ink); }
+  .clutch small { color: var(--ink-soft); }
+  .clutch.hot b { color: #1d8a4e; } .clutch.cold b { color: #b5442f; }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.55; margin: 8px 0 0; color: #3a352a; background: none; border: none; padding: 0; }
   .openfile { display: inline-block; margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #2f7fb8; text-decoration: none; border-bottom: 1.5px solid currentColor; }
 
