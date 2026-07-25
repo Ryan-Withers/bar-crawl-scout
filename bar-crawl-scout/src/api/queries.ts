@@ -45,6 +45,16 @@ export const seasonMatchupsQuery = () => ({
   ),
 });
 
+// Every week's transactions in one cached shot (the league Ticker).
+// Best-effort per week: a missing week never sinks the feed.
+export const seasonTransactionsQuery = () => ({
+  queryKey: ['seasonTransactions'] as const,
+  staleTime: 5 * MIN,
+  queryFn: () => Promise.all(
+    Array.from({ length: 17 }, (_, i) => S.getTransactions(i + 1).catch(() => [] as Awaited<ReturnType<typeof S.getTransactions>>)),
+  ),
+});
+
 // The league's current draft + its traded picks, in one shot (for the War Room's
 // real slot board). Null when there's no draft with an assigned order yet.
 export const realDraftQuery = () => ({
