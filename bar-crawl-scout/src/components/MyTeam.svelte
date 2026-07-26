@@ -8,6 +8,7 @@
   import { myRoster } from '../lib/roster.js';
   import { rosterShape } from '../lib/engine/league-config.ts';
   import { optimalLineup, byeHoles } from '../lib/engine/lineup.ts';
+  import { rosterDepth } from '../lib/engine/rosterdepth.ts';
   import { projMapFromBlob } from '../api/projections.ts';
   import { leagueQuery, stateQuery, playersQuery, weekProjectionsQuery } from '../api/queries';
   import PlayerChip from './PlayerChip.svelte';
@@ -49,6 +50,7 @@
   $: hasFlags = curStarters.length > 0;
   $: curSeats = hasFlags ? optimalLineup(curStarters, slots).seats : [];
   $: curBench = roster ? roster.filter((p) => !p.starter) : [];
+  $: depth = roster && roster.length ? rosterDepth(roster, slots) : [];
   $: optNames = result ? new Set(result.seats.map((s) => s.player && s.player.name).filter(Boolean)) : new Set();
   $: curNames = new Set(curStarters.map((p) => p.name));
   const r1 = (n) => Math.round(n * 10) / 10;
@@ -162,6 +164,22 @@
         </div>
       {:else}<div class="prow"><span class="pn empty">Deep bench empty</span></div>{/each}
     </div>
+
+    {#if depth.length}
+      <div class="depth">
+        <div class="chd">Roster depth <span class="dsub">bodies vs starting slots · window value</span></div>
+        <div class="dgrid">
+          {#each depth as d}
+            <div class="dcell {d.tag.toLowerCase()}">
+              <span class="dpos">{d.pos}</span>
+              <b class="dcount">{d.count}<small>/{d.starters}</small></b>
+              <span class="dtag">{d.tag}</span>
+              <span class="dval">{d.value}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   {/if}
 </section>
 
@@ -197,6 +215,20 @@
   .total { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; color: var(--chalk); display: flex; align-items: baseline; gap: 5px; }
   .total small { font-size: 9px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
   .gainchip { font-size: 11px; color: #FFFFFF; background: var(--good); border-radius: 4px; padding: 1px 6px; }
+  /* Roster depth — bodies vs slots per position, with a thin/deep tag. */
+  .depth { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; margin-top: 12px; }
+  .depth .dsub { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); }
+  .dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; margin-top: 8px; }
+  .dcell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 6px; border-radius: 8px; background: var(--field-3); border: 1px solid var(--line); }
+  .dcell.thin { border-color: rgba(214,69,60,.35); }
+  .dcell.deep { border-color: rgba(29,138,78,.35); }
+  .dpos { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted); }
+  .dcount { font-family: var(--display); font-size: 22px; color: var(--chalk); line-height: 1; }
+  .dcount small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .dtag { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--muted); }
+  .dcell.thin .dtag { color: var(--stamp-red); }
+  .dcell.deep .dtag { color: var(--good); }
+  .dval { font-family: var(--mono); font-size: 10px; color: var(--blue-deep, #1C4E74); }
   .benchcard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; }
   .chd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; }
   .cnt { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
