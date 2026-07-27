@@ -20,8 +20,7 @@
 </script>
 
 <section class="wall">
-  <div class="eyebrow">File 09 / The Wall</div>
-  <p class="blurb">Every season on record{#if est}, back to {est}{/if}. Champions, points kings, and the best regular-season line.</p>
+  <p class="blurb">Every season on record{#if est}, back to {est}{/if}. Open a bracket to replay how the title was won.</p>
 
   {#if banners.length}
     <div class="banners">
@@ -78,10 +77,10 @@
 </section>
 
 <style>
-  .wall { max-width: 780px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 8px 0 16px; line-height: 1.6; }
-  .banners { display: flex; flex-direction: column; gap: 12px; }
+  .wall { padding-top: 2px; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 76ch; }
+  /* One banner per row on a phone, several across on a wide wall. */
+  .banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; align-items: start; }
   .banner { display: grid; grid-template-columns: 84px 1fr; gap: 14px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
   .banner.live { border-color: rgba(130,201,252,.4); }
   .yr { font-family: 'Archivo Black', sans-serif; font-size: 26px; color: var(--neon); line-height: 1; display: flex; flex-direction: column; gap: 6px; }
@@ -99,7 +98,7 @@
 
   /* The bracket: an expandable per-season playoff tree, dark Book palette. */
   .bracket { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
-  .bracket summary { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--neon); cursor: pointer; list-style: none; user-select: none; }
+  .bracket summary { display: flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--neon); cursor: pointer; list-style: none; user-select: none; }
   .bracket summary::-webkit-details-marker { display: none; }
   .bracket summary::before { content: '▸ '; color: var(--muted); }
   .bracket[open] summary::before { content: '▾ '; }

@@ -70,10 +70,12 @@
 </script>
 
 <section class="tab on">
-  <div class="box"><h3>FAAB &amp; interest</h3>
-    <div class="blurb" style="margin-bottom:10px">Type a player. You get who covets him (need + tendency + has drafted him before), a suggested bid range, and the threat order. Sync more weeks for real spend medians.</div>
-    <input class="search" list="plist" style="width:100%" placeholder="e.g. Kenneth Walker III" spellcheck="false" bind:value={fnm} on:keydown={(e) => e.key === 'Enter' && read()} />
-    <button class="go" on:click={read}>Read the room</button>
+  <div class="box">
+    <div class="ask">
+      <div class="blurb" style="margin-bottom:10px">Type a player — you get the threat order (need + tendency + has drafted him before) and a bid range. Sync more weeks for real spend medians.</div>
+      <input class="search" list="plist" style="width:100%" placeholder="e.g. Kenneth Walker III" spellcheck="false" bind:value={fnm} on:keydown={(e) => e.key === 'Enter' && read()} />
+      <button class="go" on:click={read}>Read the room</button>
+    </div>
 
     {#if result}
       {#if result.blocked}
@@ -83,6 +85,8 @@
           <div class="rhead">
             <PlayerChip name={result.nm} /> · {result.pos} · {result.stage}
           </div>
+          <div class="cols">
+          <div class="col">
           <p class="lead">
             <b>{result.tier}</b> ({result.tal}/100 talent). Suggested bid:
             <span class="wk">${result.lo} to ${result.hi}</span> of $100, {result.advice}.
@@ -101,17 +105,6 @@
             <p class="lead"><b>Has drafted him before:</b> {result.fans.join(', ')}.</p>
           {/if}
 
-          <div class="threats-hd">Threat order <span class="star">★ = drafted him before</span></div>
-          <div class="threats">
-            {#each result.threats as t}
-              <div class="threat">
-                <span class="tname">{t.short}{#if t.drafted}<span class="star">★</span>{/if}</span>
-                <span class="tmeter"><i style="width:{t.width}%;background:{t.color}"></i></span>
-                <span class="tlbl" style="color:{t.color}">{t.label}</span>
-              </div>
-            {/each}
-          </div>
-
           <p class="blurb foot">
             Bid is driven by player value first (a league-winner commands 80 to 100%, a useful starter 35 to 55%, depth 5 to 15%), then nudged by competition and need. Odd numbers win the dollar tiebreak.
             {#if result.agg.synced}
@@ -120,6 +113,21 @@
               Aggression from a week-1 sample. Tap Sync in a browser for real medians.
             {/if}
           </p>
+          </div>
+
+          <div class="col">
+            <div class="threats-hd">Threat order <span class="star">★ = drafted him before</span></div>
+            <div class="threats">
+              {#each result.threats as t}
+                <div class="threat">
+                  <span class="tname">{t.short}{#if t.drafted}<span class="star">★</span>{/if}</span>
+                  <span class="tmeter"><i style="width:{t.width}%;background:{t.color}"></i></span>
+                  <span class="tlbl" style="color:{t.color}">{t.label}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+          </div>
         </div>
       {/if}
     {/if}
@@ -127,8 +135,14 @@
 </section>
 
 <style>
+  .ask { max-width: 640px; }
+  /* Wide screens read the bid and the threat board side by side. */
+  .cols { display: grid; grid-template-columns: 1fr; gap: 6px 30px; align-items: start; }
+  .col { min-width: 0; }
+  @media (min-width: 900px) { .cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); } .threats-hd { margin-top: 0; } }
   .rhead { font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; }
-  .lead { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--chalk); margin: 6px 0; }
+  .lead { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--chalk); margin: 6px 0; max-width: 76ch; }
+  .col :global(.blurb) { max-width: 76ch; }
   .lead .wk { color: var(--neon); font-weight: 700; }
   .lead b { color: var(--neon-hot); }
   .threats-hd { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--chalk); margin: 14px 0 8px; }

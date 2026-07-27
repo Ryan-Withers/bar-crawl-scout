@@ -240,7 +240,8 @@
 
   .tablewrap { width: 100%; border-radius: 8px; }
   table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
-  thead th { position: sticky; top: 151px; background: var(--field-3); color: var(--muted); font-weight: 500; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; text-align: right; padding: 10px 9px; border-bottom: 1px solid var(--line); z-index: 4; white-space: nowrap; }
+  /* Sticks just under the shell's sticky top bar, not under the old masthead. */
+  thead th { position: sticky; top: 68px; background: var(--field-3); color: var(--muted); font-weight: 500; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; text-align: right; padding: 10px 9px; border-bottom: 1px solid var(--line); z-index: 4; white-space: nowrap; }
   thead th:nth-child(2) { text-align: left; }
   thead th.sortable { cursor: pointer; user-select: none; }
   thead th.sortable:hover { color: var(--chalk); }

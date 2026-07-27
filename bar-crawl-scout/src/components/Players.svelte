@@ -63,9 +63,7 @@
 </script>
 
 <section class="wire">
-  <div class="eyebrow">The Wire · Players</div>
-  <h1>The Wire</h1>
-  <p class="blurb"><b>{fullUniverse ? 'Every NFL player' : 'The top-200 board'}</b>, live-tagged with who owns them and what's <b>🔥 trending</b> across Sleeper. Default view is the <b>free-agent pool</b> ranked by your window value — the best players nobody's rostered. Tap any name for the full file, or send them to the <a href="/waivers" use:link>FAAB desk</a> for a bid read.
+  <p class="blurb"><b>{fullUniverse ? 'Every NFL player' : 'The top-200 board'}</b> ranked by your window value. Tap a name for the full file, or send them to the <a href="/waivers" use:link>FAAB desk</a> for a bid read.
     {#if !fullUniverse}<br><span class="warn">Showing the top-200 for now — open in a real browser and the full free-agent universe + trending adds load from Sleeper.</span>{:else if !isSynced}<br><span class="warn">Ownership isn't synced yet — everyone shows as free. Tap Sync so rosters load.</span>{/if}
   </p>
 
@@ -125,9 +123,7 @@
 </section>
 
 <style>
-  .wire { max-width: 900px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
+  .wire { padding-top: 2px; }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 78ch; }
   .blurb a { color: var(--neon); }
   .blurb .warn { color: #f0c98a; }
@@ -144,7 +140,7 @@
   .teye { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); }
   .tsub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
   .tcaret { margin-left: auto; color: var(--muted); }
-  .feed { display: flex; flex-direction: column; gap: 6px; }
+  .feed { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 6px; align-items: start; }
   .move { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 10px; padding: 8px 10px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; }
   .mtype { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: .06em; padding: 2px 6px; border-radius: 4px; white-space: nowrap; color: var(--muted); border: 1px solid var(--line); }
   .mtype.waiver { color: var(--brass); border-color: rgba(176,132,40,.35); }
@@ -153,8 +149,9 @@
   .mbody { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
   .madd { color: var(--chalk); } .mdrop { color: var(--muted); }
   .madd em, .mdrop em { font-style: normal; color: var(--neon); font-size: 10px; }
-  .list { display: flex; flex-direction: column; }
-  .row { display: grid; grid-template-columns: minmax(110px, 1.4fr) 1.1fr 52px 48px 76px 44px; align-items: center; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  /* Wide screens show MORE players, not a stretched column. */
+  .list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); column-gap: 26px; }
+  .row { min-width: 0; display: grid; grid-template-columns: minmax(110px, 1.4fr) 1.1fr 52px 48px 76px 44px; align-items: center; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
   .fire { font-size: 10px; color: #f0913f; text-align: right; white-space: nowrap; }
   .row.owned { opacity: .62; }
   .nm { font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 14px; color: var(--chalk); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

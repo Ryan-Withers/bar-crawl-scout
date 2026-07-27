@@ -48,11 +48,12 @@
 </script>
 
 <section class="table-page">
-  <div class="eyebrow">File 08 / The Table</div>
-  <p class="blurb">Where everyone actually stands. Sorted by record, points-for breaks ties.
+  <p class="blurb">Sorted by record; points-for breaks ties.
     {#if live}<span class="livedot">● live from Sleeper</span>{:else}Seeded from last season — tap <a href="/sync" use:link>Sync</a> in a browser for live.{/if}
   </p>
 
+  <div class="boards">
+  <div class="col">
   <div class="ledger">
     <div class="lrow head">
       <span class="rk">#</span><span class="tm">Team</span><span class="c">W-L</span>
@@ -88,7 +89,9 @@
       {#if book.shootout}<div class="rec"><span class="ricon">🔥</span><b>{book.shootout.combined}</b><span class="rlbl">Shootout</span><span class="rwho">{nm(book.shootout.a)} v {nm(book.shootout.b)} · wk {book.shootout.week}</span></div>{/if}
     </div>
   {/if}
+  </div>
 
+  <div class="col">
   {#if luck.length}
     <div class="luck-hd">
       <span class="eyebrow">The Luck Index</span>
@@ -113,12 +116,14 @@
       {/each}
     </div>
   {/if}
+  </div>
+  </div>
 </section>
 
 <style>
-  .table-page { max-width: 860px; padding-top: 6px; }
+  .table-page { padding-top: 2px; }
   .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 8px 0 16px; line-height: 1.6; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 74ch; }
   .blurb a { color: var(--neon); }
   .livedot { color: #4fb286; margin-left: 4px; }
 
@@ -140,7 +145,7 @@
   .diff.pos { color: #2e7d46; } .diff.neg { color: #b5442f; }
   .gb { color: var(--ink-soft); }
   /* The Record Book — a compact tile strip of season extremes. */
-  .recbook { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .recbook { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
   .rec { background: var(--paper); color: var(--ink); border-radius: 6px; padding: 12px 10px; box-shadow: 0 8px 20px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 2px; }
   .rec .ricon { font-size: 16px; }
   .rec b { font-family: 'Archivo Black', sans-serif; font-size: 24px; color: var(--ink); line-height: 1.05; }
@@ -155,6 +160,17 @@
   .ap { color: var(--ink-soft); }
   .luckchip { font-weight: 700; color: var(--ink-soft); }
   .luckchip.pos { color: #2e7d46; } .luckchip.neg { color: #b5442f; }
+
+  /* Wide screens: the ledgers spend the room on the numbers instead of one
+     enormous team column, and the two boards sit side by side. */
+  @media (min-width: 1100px) {
+    .lrow { grid-template-columns: 40px minmax(180px, 2.4fr) repeat(6, minmax(58px, 1fr)); font-size: 13px; }
+    .ledger.luck .lrow { grid-template-columns: 40px minmax(160px, 2.4fr) repeat(4, minmax(58px, 1fr)); }
+  }
+  @media (min-width: 1500px) {
+    .boards { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+    .boards > .col > .luck-hd:first-child { margin-top: 0; }
+  }
   @media (max-width: 620px) {
     .ledger { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .lrow { min-width: 540px; }

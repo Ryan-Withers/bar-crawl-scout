@@ -60,8 +60,7 @@
 </script>
 
 <section class="gameday">
-  <div class="eyebrow">File 07 / Gameday</div>
-  <p class="blurb">This week's slate, live from Sleeper.{#if season && week} Season {season} · Week {week}.{/if}</p>
+  <p class="blurb">{#if season && week}Season {season} · Week {week} — {/if}live from Sleeper. Each card carries a pregame line off season scoring form.</p>
 
   {#if games.length}
     <div class="slate">
@@ -98,10 +97,9 @@
 </section>
 
 <style>
-  .gameday { max-width: 820px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 8px 0 16px; }
-  .slate { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+  .gameday { padding-top: 2px; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 76ch; }
+  .slate { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; align-items: start; }
   .game { position: relative; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .side { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
   .side + .side { border-top: 1px dashed var(--line); }

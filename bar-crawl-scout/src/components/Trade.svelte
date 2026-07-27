@@ -57,7 +57,8 @@
 </script>
 
 <section class="tab on">
-  <div class="box"><h3>Trade builder</h3>
+  <div class="tradewrap">
+  <div class="box">
     <div class="note" style="margin-bottom:10px">Pick players and picks from the dropdowns. This does not add 50 + 50 = 100. Depth is discounted and the single best asset carries a scarcity premium, so consolidating up into a stud beats hoarding mediums. Picks are valued as the real player you would land after 30 keepers are off the board.</div>
     <div class="grid2">
       <div><div class="ksub">You give</div>
@@ -74,8 +75,10 @@
       </div>
     </div>
     <button class="go" on:click={evaluate}>Evaluate</button>
+  </div>
 
-    {#if result}
+  {#if result}
+    <div class="verdictcol">
       {#if result.blocked}
         <div class="out"><div class="big bd">Access denied</div>Cannot use Ryan's players. 🔒 The commissioner does not negotiate through your little calculator.</div>
       {:else if result.empty}
@@ -95,11 +98,17 @@
           <span slot="foot">* * * {result.head} * * *</span>
         </Receipt>
       {/if}
-    {/if}
+    </div>
+  {/if}
   </div>
 </section>
 
 <style>
+  /* Builder on the left, the printed verdict beside it once there's a deal. */
+  .tradewrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; align-items: start; }
+  .tradewrap > :global(.box) { min-width: 0; margin-bottom: 0; }
+  .verdictcol { min-width: 0; }
+  .verdictcol :global(.out) { margin-top: 0; }
   .asset .rm { background: none; border: none; color: var(--muted); font-weight: 700; font-size: 15px; line-height: 1; cursor: pointer; padding: 2px 6px; margin: -4px -4px -4px 0; border-radius: 4px; }
   .asset .rm:hover { color: var(--stamp-red); background: rgba(214,69,60,.12); }
   .why .up { color: #2e7d46; font-weight: 700; }
