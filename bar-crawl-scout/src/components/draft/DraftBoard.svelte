@@ -43,9 +43,11 @@
         <tr>
           <th class="rd" scope="col"><span class="sr">Round</span></th>
           {#each st.cfg.order as h, c}
-            <th scope="col" class:mine={!spectate && h === seat}>
-              <span class="av" aria-hidden="true">{initials(nm(h))}</span>
-              <span class="hname"><i>{c + 1}</i> {nm(h)}</span>
+            <th scope="col" class:mine={!spectate && h === seat} title={nm(h)}>
+              <span class="hcell">
+                <span class="av" aria-hidden="true">{initials(nm(h))}</span>
+                <span class="hname"><i>{c + 1}</i> {nm(h)}</span>
+              </span>
             </th>
           {/each}
         </tr>
@@ -98,33 +100,39 @@
     scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
   }
   .boardwrap.full { max-height: none; }
-  .board { border-collapse: separate; border-spacing: 2px; font-family: var(--mono); font-size: 10px; }
+  /* Fixed layout so a long team name can never widen (or spill out of) a column —
+     every name ellipses inside its own cell the way a real draft board does. */
+  .board { border-collapse: separate; border-spacing: 2px; font-family: var(--mono); font-size: 10px; table-layout: fixed; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
   th {
     position: sticky; top: 0; z-index: 2; background: var(--barroom-lift);
-    padding: 4px 5px 6px; text-align: left; min-width: 92px; max-width: 108px;
+    padding: 4px 5px 6px; text-align: left; width: 104px;
     border-bottom: 2px solid var(--line);
   }
+  .hcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
   th .av {
     display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
     background: var(--field-3); color: var(--blue-deep); font-family: var(--display);
-    font-weight: 800; font-size: 8px; margin-right: 4px; vertical-align: middle;
+    font-weight: 800; font-size: 8px; flex: none;
   }
   th.mine { border-bottom-color: var(--blue); }
   th.mine .av { background: var(--blue); color: #fff; }
-  .hname { font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+  .hname {
+    flex: 1; min-width: 0; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .hname i { font-style: normal; color: var(--blue); font-weight: 700; }
 
   .rd {
     position: sticky; left: 0; z-index: 1; background: var(--barroom-lift); color: var(--muted);
-    padding: 2px 6px; text-align: center; min-width: 34px;
+    padding: 2px 6px; text-align: center; width: 36px;
   }
   .rd b { display: block; font-size: 12px; color: var(--chalk); }
   .rd .dir { font-style: normal; font-size: 9px; color: var(--blue); }
   th.rd { z-index: 3; }
 
-  .cell { min-width: 92px; max-width: 108px; height: 40px; border-radius: 6px; background: var(--field-2); border: 1px solid var(--line); padding: 0; vertical-align: middle; }
+  .cell { width: 104px; height: 40px; border-radius: 6px; background: var(--field-2); border: 1px solid var(--line); padding: 0; vertical-align: middle; }
   .cell.empty { background: var(--field); border-style: dashed; }
   .cell.mine { background: rgba(130, 201, 252, .16); }
   .cell.mine.empty { background: rgba(130, 201, 252, .10); }
@@ -139,12 +147,12 @@
 
   .todo { display: block; padding: 3px 6px; color: var(--muted); opacity: .55; font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cell.mine .todo { color: var(--blue-deep); opacity: .95; font-weight: 700; }
-  .onclk { display: block; padding: 3px 6px; color: var(--blue-deep); font-weight: 700; font-size: 9px; white-space: nowrap; }
+  .onclk { display: block; padding: 3px 6px; color: var(--blue-deep); font-weight: 700; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nogrid { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 10px; margin: 0; }
 
   @media (max-width: 860px) {
     .boardwrap { max-height: calc(100vh - 250px); padding: 4px; }
-    .cell, th { min-width: 78px; max-width: 88px; }
+    .cell, th { width: 86px; }
     .pk b { font-size: 10px; }
   }
 </style>

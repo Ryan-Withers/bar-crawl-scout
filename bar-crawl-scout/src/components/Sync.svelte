@@ -72,7 +72,7 @@
 </script>
 
 <section class="tab on">
-  <div class="grid2">
+  <div class="panels">
     <div class="box"><h3>Sync Sleeper</h3>
       <div class="note" style="margin-bottom:10px">Live rosters load automatically when you open the site (from the sync Worker, refreshed hourly). Tapping Sync here also refreshes FAAB medians and 2024/2025 draft history. Runs in a real browser tab; inside an in-app preview the network is blocked.</div>
       <button class="go" on:click={doSync} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</button>
@@ -127,10 +127,9 @@
       <div class="toolbar"><button class="add" on:click={exportJSON}>Export JSON</button><button class="add" on:click={importJSON}>Import JSON</button></div>
       <div class="pmeta">{backOut}</div>
     </div>
-  </div>
 
-  <!-- Cross-device: a copy-paste code carries your whole profile, no account needed. -->
-  <div class="box wide"><h3>Move to another device</h3>
+    <!-- Cross-device: a copy-paste code carries your whole profile, no account needed. -->
+    <div class="box wide"><h3>Move to another device</h3>
     <div class="note" style="margin-bottom:12px">No account, no server — your saved data (keepers, draft boards, notes) rides in one code. Name your profile, copy the code here, then paste it on your phone/other browser to bring everything across.</div>
 
     <div class="prow">
@@ -145,19 +144,24 @@
       <button class="add" on:click={restoreCode} disabled={!pasteCode.trim()}>Restore from code</button>
     </div>
     {#if codeMsg}<div class="pmeta codemsg">{codeMsg}</div>{/if}
+    </div>
   </div>
 </section>
 
 <style>
-  .box.wide { margin-top: 4px; }
+  /* All three panels sit in one flow — two up on a laptop, three on a wide screen. */
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
+  .box.wide { margin-top: 0; }
   .prow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
   .pname { flex: 0 1 240px; }
   .code { width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 8px; padding: 9px 11px; resize: vertical; word-break: break-all; }
+  .pname { min-height: 44px; }
+  .prow .add, .paste .add { min-height: 44px; }
   .paste { margin-top: 12px; }
   .paste .add { margin-top: 8px; }
   .codemsg { color: #7fcfa6; margin-top: 8px; }
-  .grid2 { align-items: stretch; }
-  .box { display: flex; flex-direction: column; }
+  .box { min-width: 0; display: flex; flex-direction: column; }
+  .box .maprows, .box .code { overflow-wrap: anywhere; }
   .box .toolbar { margin-top: auto; }
   .box .toolbar .add { flex: 1; padding: 12px; font-size: 13px; }
   .sline { margin-top: 8px; }

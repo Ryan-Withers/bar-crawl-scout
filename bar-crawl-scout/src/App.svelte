@@ -131,7 +131,6 @@
           <div class="util">
             {#if $unlocked}<a class="commishchip" href="/settings" use:link title="Commissioner mode — your files are unsealed">🔓</a>{/if}
             <SyncCoaster />
-            {#if showMode}<div class="modewrap"><ToggleSwitch /></div>{/if}
             <button class="jump" on:click={openPalette} data-testid="jump">
               <span class="lens">⌕</span><span class="jtxt">Search</span><kbd>⌘K</kbd>
             </button>
@@ -141,7 +140,14 @@
         {#if openItem}
           <p class="pagelede" data-testid="page-lede">{openItem.desc}</p>
         {/if}
-        {#if showMode}<p class="modehint">{MODEHINT[$mode]}</p>{/if}
+        {#if showMode}
+          <!-- The window-mode dial gets its own row so it fits a phone and reads
+               next to the sentence that explains what it just did. -->
+          <div class="moderow" data-testid="moderow">
+            <ToggleSwitch />
+            <p class="modehint">{MODEHINT[$mode]}</p>
+          </div>
+        {/if}
       {/if}
 
       <main class="content" data-testid="content">
@@ -213,8 +219,7 @@
     margin: 0; font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1.15;
     color: var(--chalk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .util { display: flex; align-items: center; gap: 8px; flex: none; }
-  .modewrap { display: contents; }
+  .util { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; }
   .commishchip { font-size: 15px; text-decoration: none; line-height: 1; }
   .jump {
     display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--line);
@@ -229,7 +234,10 @@
     font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--muted);
     margin: 12px 16px 0; max-width: 78ch;
   }
-  .modehint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 6px 16px 0; line-height: 1.5; }
+  .moderow {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 10px 16px 0;
+  }
+  .modehint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; flex: 1 1 220px; }
   .content { padding: 14px 16px 20px; min-width: 0; }
   /* The draft room owns the whole viewport — no shell padding, no tab bar gap. */
   .app.focus .content { padding: 0; }
@@ -270,9 +278,9 @@
       background: #fff; border-right: 1px solid var(--line);
     }
     .burger, .tabbar { display: none; }
-    .topbar { padding: 12px 28px; background: rgba(247,250,253,.9); backdrop-filter: none; }
+    .topbar { padding: 12px 28px; background: rgba(247,250,253,.95); }
     .ctitle { font-size: 22px; }
-    .pagelede, .modehint, .credit { margin-left: 28px; margin-right: 28px; }
+    .pagelede, .moderow, .credit { margin-left: 28px; margin-right: 28px; }
     .content { padding: 16px 28px 40px; }
     .jtxt { display: inline; }
   }

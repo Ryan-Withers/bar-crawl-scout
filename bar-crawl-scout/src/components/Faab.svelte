@@ -93,7 +93,7 @@
           </p>
 
           {#if !result.inBoard}
-            <p class="blurb"><span class="bd">Note:</span> {result.nm} is not in the top-200 value board, so the talent number is a rough default. Trust the competition and need read below more than the bid here, and treat it as a depth add.</p>
+            <p class="blurb"><span class="bd">Note:</span> {result.nm} is not in the top-200 value board, so the talent number is a rough default. Trust the threat order more than the bid here, and treat it as a depth add.</p>
           {/if}
 
           <p class="lead">

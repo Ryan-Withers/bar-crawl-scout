@@ -36,7 +36,8 @@ test('opens the sportsbook and sees the markets', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('./book');
   await expect(page.getByText(/DINGER/i).first()).toBeVisible();
-  await expect(page.getByText(/season futures/i)).toBeVisible();
+  // Scope to the page body: the nav flyout and the page lede also say "season futures".
+  await expect(page.getByTestId('content').getByText(/season futures/i)).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 

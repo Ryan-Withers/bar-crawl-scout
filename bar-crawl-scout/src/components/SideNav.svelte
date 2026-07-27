@@ -35,7 +35,7 @@
 
   {#each SECTIONS as s (s.id)}
     <div class="sect">
-      <div class="secthd"><span class="sico">{s.icon}</span>{s.label}<em>{s.blurb}</em></div>
+      <div class="secthd"><span class="sico">{s.icon}</span><span class="stxt">{s.label}</span><em>{s.blurb}</em></div>
       {#each s.items as i (i.path)}
         <a
           class="navitem"

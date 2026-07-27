@@ -43,7 +43,8 @@ test('a dossier lists head-to-head rivalries, most-played first', async ({ page 
   await mockSeason(page);
   await page.goto('./managers/joshleota');
 
-  await expect(page.getByText(/Rivalries/i)).toBeVisible();
+  // Scope to the page body: the nav flyout and the page lede also say "rivalries".
+  await expect(page.getByTestId('content').getByText(/Rivalries/i)).toBeVisible();
   const rows = page.locator('.riv');
   await expect(rows.first()).toBeVisible();
 

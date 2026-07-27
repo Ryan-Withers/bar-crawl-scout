@@ -33,8 +33,7 @@
 </script>
 
 <section class="office">
-  <div class="eyebrow">File 11 / The Back Office</div>
-  <p class="blurb">The exact league config from Sleeper — the same scoring that drives every WIN, R26 and points number on this site. No hardcoding, no half-PPR guesses.</p>
+  <p class="blurb">This is the exact config Sleeper holds — the same scoring that drives every WIN, R26 and points number on this site. No hardcoding, no half-PPR guesses.</p>
 
   <!-- Commissioner access — unseal your own files so you can weigh up your trades. -->
   <div class="card commish" class:on={$unlocked}>
@@ -93,11 +92,10 @@
 </section>
 
 <style>
-  .office { max-width: 820px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 8px 0 16px; line-height: 1.6; max-width: 70ch; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .card { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .office { padding-top: 2px; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 70ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-bottom: 12px; align-items: start; }
+  .card { min-width: 0; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
   .card.wide { grid-column: 1 / -1; }
   h3 { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; }
   .hint { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
@@ -122,9 +120,9 @@
   .badge.open { color: var(--neon); border-color: rgba(130,201,252,.4); }
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 0 0 10px; max-width: 72ch; }
   .crow { display: flex; gap: 8px; }
-  .crow input { flex: 0 1 200px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px 11px; }
+  .crow input { flex: 0 1 200px; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #FFFFFF; border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px 11px; }
   .crow input.err { border-color: var(--stamp-red); }
-  .crow button, .relock { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--neon); color: var(--on-neon); border: none; border-radius: 7px; padding: 8px 16px; cursor: pointer; }
+  .crow button, .relock { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--neon); color: var(--on-neon); border: none; border-radius: 7px; padding: 8px 16px; min-height: 44px; cursor: pointer; }
   .relock { background: var(--barroom); color: var(--muted); border: 1px solid var(--line); }
   .relock:hover { color: var(--stamp-red); border-color: rgba(214,69,60,.4); }
   .cerr { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--stamp-red); margin-top: 6px; }
