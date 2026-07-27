@@ -41,6 +41,8 @@ export const SECTIONS = [
         desc: 'Test a trade both ways and see who really wins it.' },
       { path: '/intel', label: 'Scouting Intel', flavour: 'Intel', icon: '🔍',
         desc: 'Reads and tendencies on the other managers before you make an offer.' },
+      { path: '/vault', label: 'Past Drafts', flavour: 'The Vault', icon: '🗄️',
+        desc: 'Every draft this league has held, and who still owns what they took.' },
     ],
   },
   {

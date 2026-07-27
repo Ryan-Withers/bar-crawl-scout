@@ -68,3 +68,39 @@ export const realDraftQuery = () => ({
     return { draft, traded };
   },
 });
+
+// THE DRAFT VAULT — every completed draft this dynasty has ever held, plus the
+// roster->handle map for the season it happened in (roster ids are stable when
+// a league carries over, but we don't bet the page on it). Newest first.
+// Cached hard: a finished draft never changes.
+export const draftVaultQuery = () => ({
+  queryKey: ['draftvault'] as const,
+  staleTime: 6 * 60 * MIN,
+  queryFn: async () => {
+    const chain = await S.getLeagueChain();
+    const seasons = await Promise.all(chain.map(async (c) => {
+      const [drafts, users, rosters] = await Promise.all([
+        S.getLeagueDrafts(c.league_id).catch(() => []),
+        S.getUsers(c.league_id).catch(() => []),
+        S.getRosters(c.league_id).catch(() => []),
+      ]);
+      const done = (Array.isArray(drafts) ? drafts : []).filter((d) => d && d.status === 'complete');
+      if (!done.length) return null;
+      // A season can technically hold more than one draft; the one with picks wins.
+      const picksPerDraft = await Promise.all(
+        done.map((d) => S.getDraftPicks(d.draft_id).catch(() => [])),
+      );
+      let best = 0;
+      picksPerDraft.forEach((p, i) => { if ((p || []).length > (picksPerDraft[best] || []).length) best = i; });
+      const picks = picksPerDraft[best] || [];
+      if (!picks.length) return null;
+      return { season: c.season, draftId: done[best].draft_id, picks, users, rosters };
+    }));
+    return seasons.filter(Boolean) as Array<{
+      season: string; draftId: string;
+      picks: Array<Record<string, unknown>>;
+      users: Awaited<ReturnType<typeof S.getUsers>>;
+      rosters: Awaited<ReturnType<typeof S.getRosters>>;
+    }>;
+  },
+});

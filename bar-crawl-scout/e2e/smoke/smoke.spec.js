@@ -13,7 +13,7 @@ test('the live hub loads with the sign lit and the nav present', async ({ page }
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(LIVE);
   await expect(page.getByLabel('Bar Crawl Scout')).toBeVisible();
-  await expect(page.getByRole('link', { name: /the book/i }).first()).toBeVisible();
+  await expect(page.getByTestId('sidebar').getByTestId('nav-book')).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
@@ -26,7 +26,10 @@ test('The Book renders on the live site', async ({ page }) => {
 // (GitHub Pages serves 404.html -> the app boots on the real URL).
 test('deep links load directly on the live site', async ({ page }) => {
   await page.goto(LIVE + 'myteam');
-  await expect(page.getByLabel('Bar Crawl Scout')).toBeVisible();
+  // The shell names the page it opened. Asserting the H1 (not the brand mark)
+  // proves the ROUTER resolved the deep link, rather than Pages just handing
+  // back index.html and the app booting on the home page.
+  await expect(page.getByRole('heading', { name: 'Lineup', level: 1 })).toBeVisible();
   await page.goto(LIVE + 'player/Joe%20Burrow');
   await expect(page.getByText(/Joe Burrow/i).first()).toBeVisible();
 });

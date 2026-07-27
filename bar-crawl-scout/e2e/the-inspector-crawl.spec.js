@@ -7,7 +7,7 @@ import { mockSleeper, trackErrors } from './support/mock-sleeper.js';
 
 const ROUTES = [
   'myteam', 'matchup', 'byes',
-  'board', 'keepers', 'trade', 'intel',
+  'board', 'keepers', 'trade', 'intel', 'vault',
   'standings', 'power', 'playoffs', 'matchups', 'managers', 'history',
   'players', 'waivers',
   'book', 'leaderboard',
@@ -64,6 +64,12 @@ test('every enabled button on every page can be clicked without an uncaught erro
         await btn.click({ timeout: 1500, trial: false });
         await page.waitForTimeout(80);
       } catch { /* covered/moved buttons are fine — we only hunt runtime errors */ }
+      // Some buttons open something modal (the command palette, the phone
+      // drawer). Left open it covers every button after it, and each of those
+      // then burns the full click timeout waiting to become clickable — which
+      // is how this crawl went from minutes to hitting its ceiling. Dismiss
+      // between clicks so the rest of the page stays reachable.
+      await page.keyboard.press('Escape').catch(() => {});
       if (errors.length) { failures.push(`${r} -> "${label}": ${errors.splice(0).join(' | ')}`); }
       // A click may navigate (e.g. the command palette); come back for the rest.
       if (!page.url().includes('/' + r.split('/')[0])) { await page.goto('./' + r); await page.waitForTimeout(200); }

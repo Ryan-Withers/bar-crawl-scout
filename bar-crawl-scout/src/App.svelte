@@ -34,6 +34,7 @@
   import PowerRankings from './components/PowerRankings.svelte';
   import TheBook from './components/TheBook.svelte';
   import MockDraft from './components/MockDraft.svelte';
+  import Vault from './components/Vault.svelte';
   import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
@@ -63,6 +64,7 @@
     '/playoffs': Playoffs,
     '/power': PowerRankings,
     '/mock': MockDraft,
+    '/vault': Vault,
     '/book': TheBook,
     '/leaderboard': BetLedger,
     '/history': Wall,
