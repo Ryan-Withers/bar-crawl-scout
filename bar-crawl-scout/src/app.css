@@ -19,8 +19,8 @@
   /* Safety net: nothing may force horizontal scroll on mobile. Root causes are fixed
      per-component; this stops any future stray-wide element from breaking the page. */
   html{overflow-x:hidden}
-  body{background:var(--field);background-image:linear-gradient(rgba(47,127,184,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(47,127,184,.055) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:50px}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+  body{background:var(--field);background-image:linear-gradient(rgba(47,127,184,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(47,127,184,.055) 1px,transparent 1px);background-size:34px 34px;color:var(--chalk);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:0}
+  .wrap{width:100%;margin:0 auto;padding:0}
   header.mast{padding:18px 0 8px}
   /* Plain intro paragraph shared by Intel/FAAB; Managers overrides on paper. */
   .blurb{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 12px}

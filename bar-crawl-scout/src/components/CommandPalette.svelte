@@ -3,12 +3,11 @@
   import { onMount } from 'svelte';
   import { push } from '../lib/router.js';
   import { PLAYERS } from '../lib/data.js';
+  import { ALL_ITEMS } from '../lib/nav.js';
 
-  const PAGES = [
-    ['The Big Board', '/board'], ['Mock Draft (War Room)', '/mock'], ['Keeper Ledger', '/keepers'], ['The Files (Managers)', '/managers'],
-    ['Trade Desk', '/trade'], ['The Wire (Waivers)', '/waivers'], ['Intel', '/intel'],
-    ['Gameday', '/matchups'], ['The Table', '/standings'], ['History', '/history'], ['Sync', '/sync'],
-  ];
+  // Pages come straight from the nav model, so search matches the labels,
+  // the old nicknames and the plain-English description of each page.
+  const PAGES = ALL_ITEMS.map((i) => [i.label, i.path, i.flavour || '', i.desc || '']);
 
   let open = false;
   let q = '';
@@ -19,8 +18,8 @@
   $: hits = build(q);
   function build(query) {
     const s = query.trim().toLowerCase();
-    const pages = PAGES.map(([l, p]) => ({ kind: 'page', label: l, to: p }))
-      .filter((x) => !s || x.label.toLowerCase().includes(s));
+    const pages = PAGES.map(([l, p, flav, desc]) => ({ kind: 'page', label: l, to: p, sub: flav, desc }))
+      .filter((x) => !s || (x.label + ' ' + x.sub + ' ' + x.desc).toLowerCase().includes(s));
     const players = PLAYERS
       .map((p) => ({ kind: 'player', label: p[1], sub: `${p[2]} · ${p[3]}`, adp: p[5], to: '/player/' + encodeURIComponent(p[1]) }))
       .filter((x) => !s || x.label.toLowerCase().includes(s))
@@ -69,6 +68,7 @@
           <button class="row" class:on={i === sel} on:click={() => go(h)} on:mousemove={() => (sel = i)}>
             <span class="badge {h.kind}">{h.kind === 'page' ? 'GO' : h.sub}</span>
             <span class="lbl">{h.label}</span>
+            {#if h.kind === 'page' && h.desc}<span class="rdesc">{h.desc}</span>{/if}
           </button>
         {:else}
           <div class="none">No file matches “{q}”.</div>
@@ -92,6 +92,9 @@
   .badge { flex: none; min-width: 62px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
   .badge.page { color: var(--neon); }
   .lbl { font-family: 'Archivo', sans-serif; font-size: 14px; }
+  /* Search results explain themselves — you can find a page you've never opened. */
+  .rdesc { flex: 1 1 100%; padding-left: 74px; margin-top: 1px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 1.45; color: var(--muted); }
+  .row { flex-wrap: wrap; }
   .row.on .lbl { color: var(--neon-hot); }
   .none { padding: 20px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
   .foot { display: flex; gap: 10px; padding: 9px 16px; border-top: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
