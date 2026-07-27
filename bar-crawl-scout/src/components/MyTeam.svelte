@@ -70,11 +70,12 @@
 </script>
 
 <section class="myteam">
-  <div class="eyebrow">File 01 / Your Bench</div>
-  <h1>{teamName}</h1>
-  <p class="blurb">Your live roster from Sleeper — auto-synced when you open the app. Change your team on Sleeper and it updates here.
+  <div class="statusline">
+    <span class="team">{teamName}</span>
+    <span class="sep">·</span>
+    <span class="src">Live from Sleeper — change your lineup there and it updates here.</span>
     {#if liveProj}<span class="projsrc live">● Projections: live Week {week} (Sleeper)</span>{:else}<span class="projsrc">Projections: board value (offseason proxy — real weekly numbers load in-season)</span>{/if}
-  </p>
+  </div>
 
   {#if !mine}
     <div class="empty">No roster loaded yet. It auto-pulls from the sync Worker on open — if it's empty, tap <a href="/sync" use:link>Sync</a> in a real browser (the in-app preview blocks the network).</div>
@@ -152,6 +153,7 @@
       </div>
     {/if}
 
+    <div class="lower">
     <div class="benchcard">
       <div class="chd">Your bench <span class="cnt">{(hasFlags ? curBench : result.bench).length}</span></div>
       {#each (hasFlags ? curBench : result.bench) as p}
@@ -180,14 +182,19 @@
         </div>
       </div>
     {/if}
+    </div>
   {/if}
 </section>
 
 <style>
-  .myteam { max-width: 900px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 72ch; }
+  .myteam { padding-top: 2px; }
+  .statusline {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6;
+  }
+  .statusline .team { font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; color: var(--chalk); }
+  .statusline .sep { color: var(--line); }
+  .statusline .src { max-width: 60ch; }
   .projsrc { color: var(--muted); }
   .projsrc.live { color: #7fcfa6; }
   .empty a, .alert a { color: var(--neon); }
@@ -205,10 +212,11 @@
   .move .over { color: var(--muted); }
   .move .slot { color: var(--muted); font-size: 10px; }
   .move .gain { margin-left: auto; color: #7fcfa6; font-weight: 700; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; margin-bottom: 16px; }
+  .lower { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
   .lineupcard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; }
   .lineupcard.best { border-color: rgba(47,127,184,.45); box-shadow: 0 4px 16px -8px rgba(47,127,184,.35); }
-  .lineupcard.solo { grid-column: 1 / -1; max-width: 560px; }
+  .lineupcard.solo { grid-column: 1 / -1; max-width: 640px; }
   .lhd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'Archivo Black', sans-serif; font-size: 12px; text-transform: uppercase; color: var(--chalk); padding: 4px 0 8px; border-bottom: 1.5px solid var(--line); margin-bottom: 4px; }
   .step { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; color: var(--muted); border: 1.5px solid var(--line); border-radius: 4px; padding: 2px 7px; }
   .step.blue { color: #FFFFFF; background: var(--blue); border-color: var(--blue); }
@@ -216,7 +224,7 @@
   .total small { font-size: 9px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
   .gainchip { font-size: 11px; color: #FFFFFF; background: var(--good); border-radius: 4px; padding: 1px 6px; }
   /* Roster depth — bodies vs slots per position, with a thin/deep tag. */
-  .depth { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; margin-top: 12px; }
+  .depth { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; }
   .depth .dsub { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); }
   .dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; margin-top: 8px; }
   .dcell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 6px; border-radius: 8px; background: var(--field-3); border: 1px solid var(--line); }

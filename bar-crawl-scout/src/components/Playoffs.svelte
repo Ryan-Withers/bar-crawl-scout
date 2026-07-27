@@ -38,8 +38,6 @@
 </script>
 
 <section class="po">
-  <div class="eyebrow">The League · Playoff Picture</div>
-  <h1>The Race</h1>
   <p class="blurb">{spots} make it. {#if gamesLeft > 0}{gamesLeft} week{gamesLeft > 1 ? 's' : ''} left — <b>magic</b> is the wins + rivals' losses to lock a spot.{:else}Regular season's done.{/if}
     {#if live}<span class="livedot">● live</span>{:else} Seeded from last season — tap <a href="/sync" use:link>Sync</a> for live.{/if}
     <br><span class="fine">A picture, not the official cut — points-for breaks real ties.</span>
@@ -64,10 +62,8 @@
 </section>
 
 <style>
-  .po { max-width: 860px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 76ch; }
+  .po { padding-top: 2px; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 76ch; }
   .blurb b { color: var(--chalk); } .blurb a { color: var(--neon); }
   .livedot { color: #4fb286; } .fine { font-size: 10.5px; color: var(--ink-soft); }
   .ladder { display: flex; flex-direction: column; }
@@ -89,4 +85,9 @@
   .cutline::before, .cutline::after { content: ''; flex: 1; height: 1px; background: repeating-linear-gradient(90deg, var(--stamp-red) 0 6px, transparent 6px 12px); }
   .cutline span { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: .14em; color: var(--stamp-red); }
   @media (max-width: 620px) { .prow { grid-template-columns: 32px 1fr 56px auto 70px; } .pf { display: none; } }
+  /* Wide screens: spread the ladder across the room instead of stretching the
+     team name into a canyon. */
+  @media (min-width: 1000px) {
+    .prow { grid-template-columns: 52px minmax(180px, 2.4fr) minmax(70px, .8fr) minmax(84px, .8fr) minmax(112px, .9fr) minmax(92px, .8fr); padding: 11px 10px; font-size: 13px; }
+  }
 </style>

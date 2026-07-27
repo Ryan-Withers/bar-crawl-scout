@@ -61,9 +61,7 @@
 </script>
 
 <section class="power">
-  <div class="eyebrow">The League · Power Rankings</div>
-  <h1>Power Rankings</h1>
-  <p class="blurb">Not just the standings — a blend of <b>record</b> (45%), <b>points-for</b> (30%) and <b>roster value</b> (25%, your board), each scaled across the league.
+  <p class="blurb">The score blends <b>record</b> (45%), <b>points-for</b> (30%) and <b>roster value</b> (25%, off your board), each scaled across the league.
     {#if !anyRoster}<br><span class="fine">Roster value needs a sync — tap <a href="/sync" use:link>Sync</a> so the build strength counts.</span>{/if}
   </p>
 
@@ -93,12 +91,11 @@
 </section>
 
 <style>
-  .power { max-width: 820px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 76ch; }
+  .power { padding-top: 2px; }
+  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 76ch; }
   .blurb b { color: var(--chalk); } .blurb a { color: var(--neon); } .fine { font-size: 10.5px; color: var(--ink-soft); }
-  .list { display: flex; flex-direction: column; gap: 8px; }
+  /* One column on a phone, as many as fit on a wide screen. */
+  .list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; align-items: start; }
   .prow { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px; padding: 10px 10px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; }
   .prow.you { border-color: rgba(130,201,252,.4); }
   .rk { font-family: 'Archivo Black', sans-serif; font-size: 20px; color: var(--muted); text-align: center; }

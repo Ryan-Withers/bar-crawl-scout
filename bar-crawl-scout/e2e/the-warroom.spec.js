@@ -1,79 +1,166 @@
-// THE WAR ROOM — mock draft E2E: the full loop a mate will actually run.
+// THE WAR ROOM — the draft room E2E. The loop a mate actually runs on a
+// Tuesday night: lobby -> start -> your turn -> queue -> draft -> sim -> grades,
+// plus the phone, the queue, undo, the clock and spectate mode.
 import { test, expect } from '@playwright/test';
 import { mockSleeper, trackErrors } from './support/mock-sleeper.js';
 
 test.beforeEach(async ({ page }) => { await mockSleeper(page); });
 
-test('full mock: setup -> sim to my pick -> pick -> sim to end -> grades', async ({ page }) => {
+// The pool row the user would tap first: its star carries the player's name.
+async function topOfPool(page) {
+  const star = page.locator('[data-testid^="star-"]').first();
+  await expect(star).toBeVisible();
+  const testid = await star.getAttribute('data-testid');
+  const label = await star.getAttribute('aria-label');
+  return { star, slug: testid.replace(/^star-/, ''), name: label.replace(/^(Add to queue|Remove from queue): /, '') };
+}
+
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+
+test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to end -> grades', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('./mock');
+
+  // LOBBY: settings read as a summary, the GMs have plain-English personalities,
+  // the dials are still there behind the disclosure, and START is unmistakable.
+  await expect(page.getByTestId('lobby')).toBeVisible();
   await expect(page.getByText(/THE WAR ROOM/i)).toBeVisible();
-  await expect(page).toHaveTitle(/War Room/);
-  // The hub chrome is hidden — this is its own room.
-  await expect(page.getByRole('link', { name: /the league/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /the league/i })).toHaveCount(0); // hub chrome hidden
+  await expect(page.getByTestId('gm-list').locator('li')).toHaveCount(10);
+  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Balanced · keeps you guessing/);
+  await expect(page.getByTestId('customise-gms').locator('input[type=range]')).toHaveCount(20);
 
-  // Personas render with sliders (2 per team = 20).
-  await expect(page.locator('input[type=range]')).toHaveCount(20);
+  await page.getByTestId('start').click();
 
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  // Bots TICK to your pick one by one (not an instant jump); you're on the clock.
-  await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
+  // THE ROOM: the board is the hero, one cell is on the clock, and you're up.
+  await expect(page.getByTestId('draft-board')).toBeVisible();
+  await expect(page.getByTestId('clock')).toBeVisible();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid="draft-board"] .cur')).toHaveCount(1);
 
-  // The wall board renders: slots across, rounds down, your cell highlighted.
-  await expect(page.locator('.dboard')).toBeVisible();
-  await expect(page.locator('.dcell.cur')).toHaveCount(1);
+  // QUEUE a player from the pool, then draft straight off the queue.
+  const first = await topOfPool(page);
+  await first.star.click();
+  await expect(page.getByTestId('queue').getByTestId(`queued-${first.slug}`)).toBeVisible();
+  await page.getByTestId(`pick-${first.slug}`).click();
 
-  // Make a manual pick (top of the list); bots tick on to your next turn.
-  await page.getByRole('button', { name: 'PICK', exact: true }).first().click();
-  await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
-  // Picks appear on the wall board. Checked AFTER the manual pick: the shuffled
-  // order can seat you 1st overall, in which case the board is legally empty at
-  // your first turn (that exact flake failed CI run 133 twice).
-  await expect(page.locator('.dpk').first()).toBeVisible();
+  // The reveal announces it, the board fills, your roster and the feed agree.
+  await expect(page.getByTestId('reveal')).toContainText(first.name);
+  await expect(page.getByTestId('feed')).toContainText(first.name);
+  await expect(page.getByTestId('roster')).toContainText(first.name);
+  await expect(page.locator('[data-testid="draft-board"] .pk').first()).toBeVisible();
 
-  // Autopick once, then finish the whole thing (accelerating tick-through).
-  await page.getByRole('button', { name: /autopick/i }).click();
-  await page.getByRole('button', { name: /sim to end/i }).click({ timeout: 10_000 });
+  // Bots tick on (they don't teleport) until you're up again.
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
 
-  await expect(page.getByText(/Mock complete/i)).toBeVisible({ timeout: 25_000 });
-  await expect(page.getByText(/Draft grades/i)).toBeVisible();
-  await expect(page.getByText(/A\+/).first()).toBeVisible();
+  // AUTOPICK, then finish the thing.
+  await page.getByTestId('autopick').click();
+  await page.getByTestId('sim-to-end').click();
+
+  // THE DEBRIEF: your grade first and enormous, then the room and the board.
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('my-grade')).toContainText(/Your draft grade/i);
+  await expect(page.getByTestId('my-grade')).toContainText(/[A-D][+-]?/);
+  await expect(page.getByTestId('grade-board').locator('.grow')).toHaveCount(10);
   await expect(page.getByText(/The full board/i)).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
-test('spectate mode sims all ten and lands on grades', async ({ page }) => {
+test('the queue drives autopick: the starred man goes first', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('./mock');
-  await page.getByText(/Spectate — sim all 10/i).click();
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  await page.getByRole('button', { name: /sim to end/i }).click();
-  await expect(page.getByText(/Mock complete/i)).toBeVisible({ timeout: 25_000 });
-  await expect(page.getByText(/Draft grades/i)).toBeVisible();
-  // The finished wall board shows in the debrief too.
-  await expect(page.locator('.dboard')).toBeVisible();
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+
+  // Star the 6th name down — nowhere near best available — and push him to the top.
+  const stars = page.locator('[data-testid^="star-"]');
+  const target = stars.nth(5);
+  const name = (await target.getAttribute('aria-label')).replace(/^Add to queue: /, '');
+  const slug = (await target.getAttribute('data-testid')).replace(/^star-/, '');
+  await stars.nth(2).click();     // a decoy above him
+  await target.click();
+  await expect(page.getByTestId('queue').locator('li')).toHaveCount(2);
+
+  // Re-order: he's second, move him up, now he's the top of the queue.
+  const row = page.getByTestId(`queued-${slug}`);
+  await row.getByRole('button', { name: `Move ${name} up` }).click();
+  await expect(page.getByTestId('queue').locator('li').first()).toContainText(name);
+
+  // AUTOPICK takes the top queued player, not best available.
+  await page.getByTestId('autopick').click();
+  await expect(page.getByTestId('roster')).toContainText(name);
+  await expect(page.getByTestId('queue')).not.toContainText(name); // drafted, off the list
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('undo takes the last pick back', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+
+  const first = await topOfPool(page);
+  await page.getByTestId(`pick-${first.slug}`).click();
+  // Wait until the room settles back on your clock — nothing is ticking now.
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  const before = Number(await page.getByTestId('feed-count').textContent());
+  expect(before).toBeGreaterThan(0);
+
+  await page.getByTestId('undo').click();
+  await expect.poll(async () => Number(await page.getByTestId('feed-count').textContent())).toBe(before - 1);
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('the pick clock counts down and drafts your queue at zero', async ({ page }) => {
+  const errors = trackErrors(page);
+  // A 6-second clock seeded directly so the test doesn't sit out a real 30s.
+  await page.addInitScript(() => localStorage.setItem('bcs_mock_clock', '6'));
+  await page.goto('./mock');
+  await expect(page.getByTestId('lobby')).toContainText('6s');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('pickclock')).toHaveText(/0:0[0-6]/);
+
+  // Queue someone, then let the clock run out: the room takes HIM.
+  const first = await topOfPool(page);
+  await first.star.click();
+  await expect(page.getByTestId('roster')).toContainText(first.name, { timeout: 12_000 });
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('spectate mode with the clock off sims all ten and lands on grades', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+  await page.getByTestId('spectate').check();
+  await expect(page.getByTestId('clock-60')).toBeDisabled();   // no seat, no clock
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('clock')).toBeVisible();
+  await expect(page.getByTestId('pickclock')).toHaveCount(0);
+  await page.getByTestId('sim-to-end').click();
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('my-grade')).toContainText(/Best draft in the room/i);
+  await expect(page.getByTestId('draft-board')).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
 test('mock history persists a finished draft', async ({ page }) => {
   await page.goto('./mock');
-  await page.getByText(/Spectate — sim all 10/i).click();
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  await page.getByRole('button', { name: /sim to end/i }).click();
-  await expect(page.getByText(/Mock complete/i)).toBeVisible({ timeout: 25_000 });
-  await page.getByRole('button', { name: /new setup/i }).click();
+  await page.getByTestId('spectate').check();
+  await page.getByTestId('start').click();
+  await page.getByTestId('sim-to-end').click();
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId('new-setup').click();
   await expect(page.getByText(/Past mocks/i)).toBeVisible();
 });
 
 test('real board mode: Sleeper slots + a traded pick put Ryan on the clock at 1.02 AND 1.04', async ({ page }) => {
   const errors = trackErrors(page);
-  // A full 10-team league so the real slot board resolves. Slot i = handle i.
   const HANDLES = ['ImyHunter', 'Ryan', 'ShaydenB', 'JShrimp341', 'ATorelli4', 'jpdonners', 'WinzTheBrah', 'joshleota', 'JohnnyDuff', 'jduddy9'];
   const users = HANDLES.map((h, i) => ({ user_id: String(i + 1), display_name: h === 'Ryan' ? 'witherssssss' : h }));
   const rosters = HANDLES.map((_, i) => ({ roster_id: i + 1, owner_id: String(i + 1), players: [], starters: [], settings: {} }));
   const draft_order = Object.fromEntries(users.map((u, i) => [u.user_id, i + 1]));
   const json = (r, body) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-  // Registered AFTER mockSleeper's catch-all, so these win (Playwright matches newest-first).
+  // Registered AFTER mockSleeper's catch-all, so these win (newest route first).
   await page.route(/api\.sleeper\.app.*\/users$/, (r) => json(r, users));
   await page.route(/api\.sleeper\.app.*\/rosters$/, (r) => json(r, rosters));
   await page.route(/api\.sleeper\.app.*\/drafts$/, (r) => json(r, [{ draft_id: 'd1', season: '2026', type: 'snake', status: 'pre_draft', draft_order }]));
@@ -81,18 +168,20 @@ test('real board mode: Sleeper slots + a traded pick put Ryan on the clock at 1.
   await page.route(/api\.sleeper\.app.*\/traded_picks$/, (r) => json(r, [{ season: '2026', round: 1, roster_id: 4, owner_id: 2, previous_owner_id: 4 }]));
 
   await page.goto('./mock');
-  await expect(page.getByRole('button', { name: /real board/i })).toBeVisible();
+  await expect(page.getByTestId('order-real')).toHaveClass(/on/);
   await expect(page.getByText(/1 traded pick honored/i)).toBeVisible();
-  await expect(page.getByText(/via Shakir and Baker Baby/i)).toBeVisible(); // slot 4, rerouted to Ryan
+  await expect(page.getByText(/via Shakir and Baker Baby/i)).toBeVisible();
+  await expect(page.getByTestId('start')).toContainText('1.02');   // the lobby knows where you sit
 
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  const clock = page.locator('.clockbar');
-  await expect(clock).toContainText(/YOU'RE ON THE CLOCK/i, { timeout: 10_000 });
-  await expect(clock).toContainText('pick 2');
-  await page.getByRole('button', { name: 'PICK', exact: true }).first().click();
+  await page.getByTestId('start').click();
+  const clock = page.getByTestId('clock');
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  await expect(clock).toContainText('1.02');
+  const first = await topOfPool(page);
+  await page.getByTestId(`pick-${first.slug}`).click();
   // One bot ticks at 1.03, then Ryan is straight back up at 1.04.
-  await expect(clock).toContainText(/YOU'RE ON THE CLOCK/i, { timeout: 10_000 });
-  await expect(clock).toContainText('pick 4');
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  await expect(clock).toContainText('1.04');
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
@@ -101,12 +190,12 @@ test('copy for the group chat puts the recap on the clipboard', async ({ browser
   const page = await ctx.newPage();
   await mockSleeper(page);
   await page.goto('./mock');
-  await page.getByText(/Spectate — sim all 10/i).click();
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  await page.getByRole('button', { name: /sim to end/i }).click();
-  await expect(page.getByText(/Mock complete/i)).toBeVisible({ timeout: 25_000 });
+  await page.getByTestId('spectate').check();
+  await page.getByTestId('start').click();
+  await page.getByTestId('sim-to-end').click();
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
 
-  await page.getByRole('button', { name: /copy for the group chat/i }).click();
+  await page.getByTestId('copy-recap').click();
   await expect(page.getByText(/copied — go stir the pot/i)).toBeVisible();
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toContain('🏈 THE WAR ROOM — mock draft');
@@ -116,52 +205,51 @@ test('copy for the group chat puts the recap on the clipboard', async ({ browser
   await ctx.close();
 });
 
-test('the pick clock counts down and auto-picks at zero', async ({ page }) => {
-  const errors = trackErrors(page);
-  // 3-second clock seeded directly so the test doesn't wait out a real 30s timer.
-  await page.addInitScript(() => localStorage.setItem('bcs_mock_clock', '3'));
+test('the lobby remembers the pick clock and disables it for spectate', async ({ page }) => {
   await page.goto('./mock');
-  await page.getByRole('button', { name: /start the mock/i }).click();
-  await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('.pickclock')).toBeVisible();
-  await expect(page.locator('.pickclock')).toHaveText(/0:0[0-3]/);
-
-  // Don't touch anything: the clock expires and the room picks for you.
-  // (Roster growth is the proof — the clockbar may never blink out when the
-  // seat has back-to-back picks at a snake turnaround.)
-  await expect
-    .poll(async () => page.evaluate(() => document.querySelectorAll('.sidepane .mine .lrow').length), { timeout: 10_000 })
-    .toBeGreaterThan(3); // 3 keepers + at least the auto-picked player
-  expect(errors, errors.join('\n')).toHaveLength(0);
-});
-
-test('setup remembers the pick clock and disables it for spectate', async ({ page }) => {
-  await page.goto('./mock');
-  await page.getByRole('button', { name: '60s', exact: true }).click();
+  await page.getByTestId('clock-60').click();
   await page.reload();
-  await expect(page.getByRole('button', { name: '60s', exact: true })).toHaveClass(/on/);
-  await page.getByText(/Spectate — sim all 10/i).click();
-  await expect(page.getByRole('button', { name: '60s', exact: true })).toBeDisabled();
+  await expect(page.getByTestId('clock-60')).toHaveClass(/on/);
+  await page.getByTestId('spectate').check();
+  await expect(page.getByTestId('clock-60')).toBeDisabled();
 });
 
-for (const width of [320, 390, 430]) {
-  test(`phone ${width}px: setup and live both fit, and PICK is thumb-sized`, async ({ browser }) => {
-    const ctx = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
-    const page = await ctx.newPage();
-    await mockSleeper(page);
-    await page.goto('./mock');
-    await page.waitForTimeout(400);
-    const over1 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(over1, `setup overflows by ${over1}px`).toBeLessThanOrEqual(2);
+test('phone 375px: tabs, no overflow, and the draft button under your thumb', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await mockSleeper(page);
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+  await page.waitForTimeout(400);
+  expect(await overflow(page), 'the lobby overflows sideways').toBeLessThanOrEqual(2);
 
-    await page.getByRole('button', { name: /start the mock/i }).click();
-    await expect(page.getByText(/YOU'RE ON THE CLOCK/i)).toBeVisible({ timeout: 10_000 });
-    const over2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(over2, `live board overflows by ${over2}px`).toBeLessThanOrEqual(2);
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+  expect(await overflow(page), 'the room overflows sideways').toBeLessThanOrEqual(2);
 
-    // Tap targets: the PICK button must be comfortably thumbable on a phone.
-    const box = await page.getByRole('button', { name: 'PICK', exact: true }).first().boundingBox();
-    expect(box.height, `PICK is only ${box?.height}px tall`).toBeGreaterThanOrEqual(38);
-    await ctx.close();
-  });
-}
+  // BOARD | PLAYERS | MY TEAM | FEED — one view at a time, each full screen.
+  for (const [id, testid] of [['board', 'draft-board'], ['players', 'pool'], ['team', 'queue'], ['feed', 'feed']]) {
+    await page.getByTestId(`mobile-tab-${id}`).click();
+    await expect(page.getByTestId(testid)).toBeVisible();
+    expect(await overflow(page), `the ${id} tab overflows sideways`).toBeLessThanOrEqual(2);
+  }
+
+  // The primary action sits in the thumb zone and is a real tap target.
+  const thumb = page.getByTestId('thumb-draft');
+  await expect(thumb).toBeVisible();
+  const box = await thumb.boundingBox();
+  expect(box.height, `the draft button is only ${box.height}px tall`).toBeGreaterThanOrEqual(44);
+  expect(box.y, 'the draft button is out of thumb reach').toBeGreaterThan(812 * 0.6);
+  const picksBefore = Number(await page.getByTestId('feed-count').textContent());
+  await thumb.click();
+  await expect
+    .poll(async () => Number(await page.getByTestId('feed-count').textContent()))
+    .toBeGreaterThan(picksBefore);
+
+  // …and the debrief fits too.
+  await page.getByTestId('sim-to-end').click();
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  expect(await overflow(page), 'the debrief overflows sideways').toBeLessThanOrEqual(2);
+  expect(errors, errors.join('\n')).toHaveLength(0);
+  await ctx.close();
+});

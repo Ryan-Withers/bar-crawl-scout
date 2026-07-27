@@ -132,6 +132,7 @@
         {/if}
 
         <!-- Live sections stream in the browser; graceful here -->
+        <div class="sheets">
         <!-- This season's receipt: league-scored per-week points (live) -->
         <div class="sheet stub" id="pf-gl">
           <GameLog rows={hist.gameLog} totals={hist.totals} best={hist.best} loading={histLoading} />
@@ -193,15 +194,15 @@
             on:input={(e) => playerNotes.update((n) => ({ ...n, [name]: e.target.value }))}
           ></textarea>
         </div>
+        </div>
       {/if}
     </div>
   {/if}
 </section>
 
 <style>
-  .file { max-width: 760px; padding-top: 6px; }
-  .file.drawer { max-width: none; }
-  .back { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 12px; }
+  .file { padding-top: 2px; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 4px; }
   .miss { font-family: 'IBM Plex Mono', monospace; color: var(--muted); padding: 30px 0; }
 
   .sheet.header { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 22px; box-shadow: 0 12px 26px rgba(0,0,0,.4); }
@@ -224,12 +225,14 @@
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9fb0a5; margin-top: 8px; line-height: 1.6; }
 
   .cmpbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
-  .cmpbar input { background: rgba(255,255,255,.45); border: 1px solid rgba(28,26,22,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
-  .cmpbar button { background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+  .cmpbar input { min-height: 44px; background: rgba(255,255,255,.45); border: 1px solid rgba(28,26,22,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
+  .cmpbar button { min-height: 44px; background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
   .jumpnav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 151px; z-index: 3; padding: 10px 0; margin-top: 8px; background: linear-gradient(var(--barroom) 78%, transparent); }
   .jumpnav button { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px; cursor: pointer; line-height: 1; }
   .jumpnav button:hover { color: var(--neon); border-color: rgba(130,201,252,.5); }
-  .sheet.stub { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 12px; scroll-margin-top: 210px; }
+  /* The dossier panels tile across a wide screen instead of one endless scroll. */
+  .sheets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; margin-top: 12px; }
+  .sheet.stub { min-width: 0; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; scroll-margin-top: 210px; }
   .stubhd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 6px; }
   .stubhd small { text-transform: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 400; color: var(--muted); }
   .notes { width: 100%; min-height: 68px; margin-top: 6px; background: var(--barroom); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-family: 'Caveat', cursive; font-size: 17px; color: var(--chalk); resize: vertical; }

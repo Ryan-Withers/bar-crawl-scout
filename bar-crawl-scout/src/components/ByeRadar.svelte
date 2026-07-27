@@ -18,9 +18,7 @@
 </script>
 
 <section class="radar">
-  <div class="eyebrow">My Team · Bye Radar</div>
-  <h1>Bye Radar</h1>
-  <p class="blurb">Every week your players sit. <b class="thintag">THIN</b> means two or more out at one position that week — plan a stream or a trade before it hits.</p>
+  <p class="legend"><b class="thintag">THIN</b> means two or more of your players are out at the same position that week — plan a stream or a trade before it hits. Starters are flagged.</p>
 
   {#if !roster}
     <div class="empty">No roster loaded yet — it auto-pulls on open, or tap <a href="/sync" use:link>Sync</a> in a real browser.</div>
@@ -52,10 +50,8 @@
 </section>
 
 <style>
-  .radar { max-width: 900px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(26px, 4vw, 40px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.6; max-width: 70ch; }
+  .radar { padding-top: 2px; }
+  .legend { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; max-width: 74ch; }
   .empty a { color: var(--neon); }
   .thintag { color: var(--stamp-red); font-size: 9px; border: 1px solid rgba(214,69,60,.4); border-radius: 3px; padding: 1px 5px; }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); padding: 20px 0; }

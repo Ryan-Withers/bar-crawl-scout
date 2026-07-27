@@ -226,7 +226,7 @@
 </section>
 
 <style>
-  .book { max-width: 1000px; padding-top: 6px; }
+  .book { padding-top: 2px; }
   .sponsor { display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #0a1410, #0d1a12); border: 1px solid rgba(18,255,110,.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
   .sponsor .tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8FE8B8; }
 
@@ -249,8 +249,10 @@
   .bank .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .bank .amt { font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #0C8C4A; } .bank .of { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
 
-  .cols { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
-  .market { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  /* The extra width buys a second market board, not a stretched one. */
+  .markets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; align-items: start; min-width: 0; }
+  .market { min-width: 0; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
   .mhd { font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase; color: var(--chalk); margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
   .mhd .sub { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
   .orow { display: grid; grid-template-columns: 1fr 96px 96px; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }

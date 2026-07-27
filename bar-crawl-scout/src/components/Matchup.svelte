@@ -76,11 +76,11 @@
 </script>
 
 <section class="matchup">
-  <div class="eyebrow">My Team · This Week</div>
-  <h1>The Matchup{#if week} · Week {week}{/if}</h1>
-  <p class="blurb">Your projected total (optimal lineup) vs your opponent's. Win% from the projected margin.
-    {#if liveProj}<span class="live">● live Week {week} projections (Sleeper)</span>{:else}board-value proxy — real weekly projections load in-season{/if}
-  </p>
+  <div class="statusline">
+    {#if week}<span class="wk">Week {week}</span>{/if}
+    <span class="hint">Totals assume each side starts its optimal lineup; win% comes from the projected margin.</span>
+    {#if liveProj}<span class="live">● live Week {week} projections (Sleeper)</span>{:else}<span class="src">board-value proxy — real weekly projections load in-season</span>{/if}
+  </div>
 
   {#if !me}
     <div class="empty">No roster loaded yet — it auto-pulls on open, or tap <a href="/sync" use:link>Sync</a> in a real browser.</div>
@@ -113,7 +113,7 @@
       </div>
     </div>
 
-    <div class="keys">
+    <div class="panels">
       <div class="kcol">
         <div class="khd">Your guns</div>
         {#each top(me) as s}<div class="kp"><span class="pos">{s.slot}</span><PlayerChip name={s.player.name} /><span class="pv">{s.player.proj}</span></div>{/each}
@@ -124,9 +124,8 @@
           {#each top(opp) as s}<div class="kp"><span class="pos">{s.slot}</span><PlayerChip name={s.player.name} /><span class="pv">{s.player.proj}</span></div>{/each}
         </div>
       {/if}
-    </div>
 
-    {#if edges.length}
+      {#if edges.length}
       <div class="edges">
         <div class="ehd">Where it's won
           {#if swing.best && swing.best.edge > 0}<span class="etag good">{swing.best.pos} +{swing.best.edge}</span>{/if}
@@ -143,17 +142,21 @@
           </div>
         {/each}
         <div class="efoot"><span>◀ {opp ? teamOf(oppHandle) : 'them'}</span><span>{teamOf(RYAN)} ▶</span></div>
-      </div>
-    {/if}
+        </div>
+      {/if}
+    </div>
   {/if}
 </section>
 
 <style>
-  .matchup { max-width: 820px; padding-top: 6px; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--neon); }
-  h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(24px, 4vw, 38px); text-transform: uppercase; margin: 6px 0 4px; color: var(--chalk); }
-  .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; max-width: 72ch; }
-  .blurb .live { color: #7fcfa6; }
+  .matchup { padding-top: 2px; }
+  .statusline {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6;
+  }
+  .statusline .wk { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); }
+  .statusline .hint { max-width: 66ch; }
+  .statusline .live { color: #7fcfa6; }
   .empty a { color: var(--neon); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); padding: 20px 0; }
   .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 22px 18px; }
@@ -172,14 +175,14 @@
   .grade.good { color: var(--neon); } .grade.bad { color: var(--stamp-red); }
   .vs { font-family: 'Archivo Black', sans-serif; font-size: 22px; color: var(--muted); }
   .pending { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; color: var(--muted); margin-top: 4px; }
-  .keys { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-  .kcol { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
+  .kcol { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
   .khd { font-family: 'Archivo Black', sans-serif; font-size: 11px; text-transform: uppercase; color: var(--chalk); margin-bottom: 8px; }
   .kp { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
   .kp .pos { min-width: 34px; color: var(--muted); font-weight: 700; font-size: 9.5px; }
   .kp .pv { margin-left: auto; font-weight: 700; color: var(--chalk); }
   /* Where it's won — a per-slot diverging bar, theirs left, yours right. */
-  .edges { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 16px; }
+  .edges { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
   .ehd { font-family: 'Archivo Black', sans-serif; font-size: 11px; text-transform: uppercase; color: var(--chalk); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .etag { font-family: 'IBM Plex Mono', monospace; font-size: 9px; border-radius: 3px; padding: 1px 6px; }
   .etag.good { color: var(--neon); border: 1px solid rgba(47,127,184,.35); } .etag.bad { color: var(--stamp-red); border: 1px solid rgba(214,69,60,.3); }
@@ -193,5 +196,5 @@
   .edelta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-align: right; color: var(--muted); }
   .edelta.good { color: var(--neon); } .edelta.bad { color: var(--stamp-red); }
   .efoot { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); }
-  @media (max-width: 560px) { .keys { grid-template-columns: 1fr; } .side .score { font-size: 34px; } }
+  @media (max-width: 560px) { .panels { grid-template-columns: 1fr; } .side .score { font-size: 34px; } }
 </style>

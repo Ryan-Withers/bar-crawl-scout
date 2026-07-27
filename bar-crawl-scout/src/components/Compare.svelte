@@ -75,8 +75,8 @@
 </section>
 
 <style>
-  .tape { max-width: 760px; padding-top: 6px; }
-  .back { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 12px; }
+  .tape { padding-top: 2px; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 4px; }
   .miss { font-family: 'IBM Plex Mono', monospace; color: var(--muted); padding: 30px 0; }
   .miss code { color: var(--neon); }
   .poster { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
@@ -89,8 +89,9 @@
   .fighter .fwin.win { color: var(--neon); text-shadow: 0 0 14px rgba(130, 201, 252, 0.5); }
   .vs { font-family: 'Archivo Black', sans-serif; font-size: 16px; color: var(--stamp-red); }
 
-  .rows { display: flex; flex-direction: column; gap: 12px; }
-  .tug { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 10px; }
+  /* Wide screens read the six stat tugs in columns instead of one tall stack. */
+  .rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px 40px; }
+  .tug { min-width: 0; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 10px; }
   .tug .val { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--muted); text-align: center; }
   .tug .val.win { color: var(--neon); font-weight: 700; }
   .mid { text-align: center; }

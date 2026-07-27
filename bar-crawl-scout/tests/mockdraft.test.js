@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   createMock, makePick, simToUser, simToEnd, gradeMock, blendValue,
   needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle, shortName, recapText,
+  pickCode, slugify, queueTop, autoPickName, toggleQueued, moveQueued, pruneQueue,
+  pushSnapshot, undoLast, rewindToHandle, tierBreaks, tiersOf, clockPhase, fmtClock,
+  personaPhrase, picksUntil, nextPickOverall, fillSlots,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -253,5 +256,196 @@ describe('mock draft — shuffle', () => {
     expect(shuffle(arr, 9)).toEqual(shuffle(arr, 9));
     expect(shuffle(arr, 9).slice().sort()).toEqual(arr.slice().sort());
     expect(shuffle(arr, 9)).not.toEqual(shuffle(arr, 10));
+  });
+});
+
+// ===========================================================================
+// THE DRAFT ROOM — the live-room helpers.
+// ===========================================================================
+
+describe('draft room — pick codes & slugs', () => {
+  it('reads pick numbers the way a draft board does', () => {
+    expect(pickCode(1, 10)).toBe('1.01');
+    expect(pickCode(4, 10)).toBe('1.04');
+    expect(pickCode(10, 10)).toBe('1.10');
+    expect(pickCode(11, 10)).toBe('2.01');
+    expect(pickCode(24, 12)).toBe('2.12');
+    expect(pickCode(0, 10)).toBe('');       // no such pick
+    expect(pickCode(7, 0)).toBe('7');       // unknown room size: bare overall
+  });
+
+  it('slugs names into stable ids', () => {
+    expect(slugify("Ja'Marr Chase")).toBe('ja-marr-chase');
+    expect(slugify('Patrick Mahomes II')).toBe('patrick-mahomes-ii');
+    expect(slugify('Amon-Ra St. Brown')).toBe('amon-ra-st-brown');
+    expect(slugify('')).toBe('');
+  });
+});
+
+describe('draft room — MY QUEUE', () => {
+  const pool3 = [P('A1', 'RB', 9, 9, 9), P('B2', 'WR', 8, 8, 8), P('C3', 'TE', 7, 7, 7)];
+
+  it('takes the top queued player who is still available', () => {
+    expect(queueTop(pool3, ['B2', 'A1'])).toBe('B2');
+    expect(queueTop(pool3, ['GONE', 'C3'])).toBe('C3'); // skips the sniped one
+    expect(queueTop(pool3, [])).toBe(null);
+    expect(queueTop(pool3, ['NOBODY'])).toBe(null);
+  });
+
+  it('autopick prefers the queue, then falls back to best available', () => {
+    const s = createMock(cfg2({ teams: [team('A'), team('B', undefined, [], true)] }));
+    const atUser = simToUser(s);
+    // TE1 is nowhere near the top of the board — the queue overrides that.
+    expect(autoPickName(atUser, ['TE1'])).toBe('TE1');
+    // Queue full of players already off the board => the room's own choice.
+    const noQueue = autoPickName(atUser, []);
+    expect(autoPickName(atUser, [atUser.log[0].player.name])).toBe(noQueue);
+    expect(noQueue).toBe('WR1'); // balanced GM, RB1 already gone at 1.01
+    // A finished draft has nothing to take.
+    expect(autoPickName(simToEnd(atUser), ['TE1'])).toBe(null);
+  });
+
+  it('queues star, unstar, reorder and prune without mutating', () => {
+    const q = ['A1', 'B2'];
+    expect(toggleQueued(q, 'C3')).toEqual(['A1', 'B2', 'C3']);
+    expect(toggleQueued(q, 'A1')).toEqual(['B2']);
+    expect(q).toEqual(['A1', 'B2']); // untouched
+
+    expect(moveQueued(['a', 'b', 'c'], 2, -1)).toEqual(['a', 'c', 'b']);
+    expect(moveQueued(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c']);
+    expect(moveQueued(['a', 'b', 'c'], 0, -1)).toEqual(['a', 'b', 'c']); // off the top: no-op
+    expect(moveQueued(['a', 'b', 'c'], 2, 1)).toEqual(['a', 'b', 'c']);  // off the bottom: no-op
+
+    expect(pruneQueue(['A1', 'GONE', 'C3'], pool3)).toEqual(['A1', 'C3']);
+  });
+});
+
+describe('draft room — UNDO', () => {
+  it('snapshots rewind one pick at a time and stay bounded', () => {
+    const s0 = createMock(cfg2({ teams: [team('A'), team('B', undefined, [], true)] }));
+    const s1 = makePick(s0);
+    let stack = pushSnapshot([], s0);
+    stack = pushSnapshot(stack, s1);
+    expect(stack).toHaveLength(2);
+
+    const one = undoLast(stack);
+    expect(one.state).toBe(s1);
+    expect(one.stack).toHaveLength(1);
+    expect(undoLast(one.stack).state).toBe(s0);
+    expect(undoLast([]).state).toBe(null);
+
+    // The stack never grows without bound.
+    let big = [];
+    for (let i = 0; i < 12; i++) big = pushSnapshot(big, s0, 5);
+    expect(big).toHaveLength(5);
+  });
+
+  it('rewinds all the way back to your own turn', () => {
+    // Snake with 2 teams: A B | B A. The stack holds the state BEFORE each pick,
+    // exactly as the room records it, so the live state is never in the stack.
+    const s0 = createMock(cfg2({ teams: [team('A'), team('B', undefined, [], true)] }));
+    const s1 = makePick(s0);                 // A opened -> B (you) on the clock
+    const s2 = makePick(s1, 'TE1');          // you picked -> you're up again
+    const s3 = makePick(s2, 'TE2');          // you picked again -> A on the clock
+    const stack = [s0, s1, s2];              // three picks made, three snapshots
+    expect(currentHandle(s3)).toBe('A');
+
+    const back = rewindToHandle(stack, 'B'); // "give me that pick back"
+    expect(currentHandle(back.state)).toBe('B');
+    expect(back.state).toBe(s2);
+    expect(back.state.log).toHaveLength(2);  // A's opener + your first pick
+    expect(back.stack).toEqual([s0, s1]);
+    // Rewinding again walks back to your FIRST turn.
+    expect(rewindToHandle(back.stack, 'B').state).toBe(s1);
+    // A handle that was never on the clock in this stack leaves it alone.
+    expect(rewindToHandle(stack, 'ZZ')).toEqual({ stack, state: null });
+  });
+});
+
+describe('draft room — tier breaks', () => {
+  it('breaks where the board falls off a cliff, not on every step', () => {
+    //           0    1   2   3   4   5   -> one 26-point cliff before index 3
+    const vals = [100, 98, 96, 70, 68, 66];
+    expect(tierBreaks(vals)).toEqual([3]);
+    expect(tiersOf(vals)).toEqual([1, 1, 1, 2, 2, 2]);
+    // Two cliffs, three tiers.
+    expect(tiersOf([90, 89, 60, 59, 30, 29])).toEqual([1, 1, 2, 2, 3, 3]);
+    // A smooth board has no tiers at all.
+    expect(tierBreaks([50, 45, 40, 35, 30])).toEqual([]);
+    expect(tierBreaks([7])).toEqual([]);
+    expect(tierBreaks([])).toEqual([]);
+    // Tiny absolute gaps never count, however lopsided they are.
+    expect(tierBreaks([10, 10, 10, 9])).toEqual([]);
+  });
+});
+
+describe('draft room — the pick clock', () => {
+  it('escalates calm -> amber -> red -> expired, and stays off when unset', () => {
+    expect(clockPhase(60, 60)).toBe('calm');
+    expect(clockPhase(16, 60)).toBe('calm');
+    expect(clockPhase(15, 60)).toBe('warn');
+    expect(clockPhase(6, 60)).toBe('warn');
+    expect(clockPhase(5, 60)).toBe('urgent');
+    expect(clockPhase(1, 60)).toBe('urgent');
+    expect(clockPhase(0, 60)).toBe('expired');
+    expect(clockPhase(-3, 60)).toBe('expired');
+    expect(clockPhase(30, 0)).toBe('off');   // clock switched off in the lobby
+  });
+
+  it('formats m:ss and never shows a negative', () => {
+    expect(fmtClock(90)).toBe('1:30');
+    expect(fmtClock(60)).toBe('1:00');
+    expect(fmtClock(9)).toBe('0:09');
+    expect(fmtClock(0)).toBe('0:00');
+    expect(fmtClock(-5)).toBe('0:00');
+  });
+});
+
+describe('draft room — GM personality in plain English', () => {
+  it('turns two dials into a phrase a human reads', () => {
+    expect(personaPhrase({ window: 50, chaos: 50 })).toBe('Balanced · keeps you guessing');
+    expect(personaPhrase({ window: 0, chaos: 0 })).toBe('Win-now · by the book');
+    expect(personaPhrase({ window: 100, chaos: 100 })).toBe('Future-first · total chaos');
+    expect(personaPhrase({ window: 30, chaos: 20 })).toBe('Lean win-now · mostly disciplined');
+    expect(personaPhrase({ window: 75, chaos: 80 })).toBe('Lean future · unpredictable');
+    expect(personaPhrase({})).toBe('Balanced · keeps you guessing'); // defaults
+  });
+});
+
+describe('draft room — "you\'re up in N picks"', () => {
+  it('counts the picks between now and your next turn', () => {
+    const s = createMock(cfg2({ rosterSize: 3 })); // seq A B B A A B
+    expect(picksUntil(s, 'A')).toBe(0);            // on the clock
+    expect(nextPickOverall(s, 'A')).toBe(1);
+    expect(picksUntil(s, 'B')).toBe(1);
+    expect(nextPickOverall(s, 'B')).toBe(2);
+    const s2 = makePick(makePick(makePick(s)));    // A, B, B gone
+    expect(picksUntil(s2, 'B')).toBe(2);           // B waits out A's back-to-back
+    expect(nextPickOverall(s2, 'B')).toBe(6);
+    expect(picksUntil(simToEnd(s), 'A')).toBe(-1); // draft's over
+    expect(nextPickOverall(simToEnd(s), 'A')).toBe(0);
+  });
+});
+
+describe('draft room — the starting lineup', () => {
+  it('fills dedicated slots first, then flex from the leftovers', () => {
+    const roster = [
+      P('RBa', 'RB', 95, 95, 95), P('RBb', 'RB', 84, 84, 84), P('RBc', 'RB', 70, 70, 70),
+      P('WRa', 'WR', 92, 92, 92), P('QBa', 'QB', 85, 85, 85), P('TEa', 'TE', 72, 72, 72),
+    ];
+    const { starters, bench } = fillSlots(roster, SLOTS); // QB RB RB WR WR TE FLEX
+    expect(starters.map((s) => s.slot)).toEqual(SLOTS);
+    expect(starters.map((s) => s.player && s.player.name))
+      .toEqual(['QBa', 'RBa', 'RBb', 'WRa', null, 'TEa', 'RBc']);
+    expect(bench).toEqual([]);
+  });
+
+  it('benches the overflow and leaves holes honest', () => {
+    const roster = [P('W1', 'WR', 90, 90, 90), P('W2', 'WR', 80, 80, 80), P('W3', 'WR', 70, 70, 70), P('W4', 'WR', 60, 60, 60)];
+    const { starters, bench } = fillSlots(roster, SLOTS);
+    expect(starters.filter((s) => s.player).map((s) => s.player.name)).toEqual(['W1', 'W2', 'W3']); // WR WR FLEX
+    expect(starters.find((s) => s.slot === 'QB').player).toBe(null);
+    expect(bench.map((p) => p.name)).toEqual(['W4']);
+    expect(fillSlots([], SLOTS).starters.every((s) => s.player === null)).toBe(true);
   });
 });

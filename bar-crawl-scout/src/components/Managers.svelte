@@ -40,10 +40,7 @@
 </script>
 
 <section class="files">
-  <div class="filenote">
-    <span class="eyebrow">File 03 / The Files</span>
-    <p>Ten dossiers. Live rosters, tendencies and draft history load from Sleeper. One file is sealed — don't bother.</p>
-  </div>
+  <p class="filenote">Rosters, tendencies and draft history load live from Sleeper. One file is sealed by the commissioner — don't bother.</p>
 
   <div class="grid">
     {#each MGRS as m, i}
@@ -117,12 +114,11 @@
 </section>
 
 <style>
-  .files { padding-top: 6px; }
-  .filenote { margin-bottom: 18px; }
-  .filenote .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--neon); }
-  .filenote p { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin: 6px 0 0; }
+  .files { padding-top: 2px; }
+  .filenote { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.6; margin: 0 0 18px; max-width: 76ch; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 30px 22px; }
+  /* As many folders as the desk fits — one per row on a phone. */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 30px 22px; align-items: start; }
 
   .folder {
     position: relative;
@@ -178,7 +174,8 @@
   .clutch small { color: var(--ink-soft); }
   .clutch.hot b { color: #1d8a4e; } .clutch.cold b { color: #b5442f; }
   .blurb { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.55; margin: 8px 0 0; color: #3a352a; background: none; border: none; padding: 0; }
-  .openfile { display: inline-block; margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #2f7fb8; text-decoration: none; border-bottom: 1.5px solid currentColor; }
+  /* A thumb-sized target, not a hairline of text. */
+  .openfile { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #2f7fb8; text-decoration: underline; text-underline-offset: 3px; }
 
   .redacted { padding: 6px 0 2px; }
   .redacted .bar { height: 13px; background: #1c1a16; border-radius: 2px; margin: 8px 0; }

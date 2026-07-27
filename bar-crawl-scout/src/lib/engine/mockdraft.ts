@@ -327,3 +327,159 @@ export function gradeMock(s: MockState): { rows: GradeRow[]; steals: MockPick[];
   const reaches = withDelta.filter((p) => p.delta <= -8).sort((a, b) => a.delta - b.delta).slice(0, 8);
   return { rows, steals, reaches };
 }
+
+// ============================================================================
+// THE DRAFT ROOM — pure helpers behind the live room (queue, undo, tiers,
+// clock, lineup, pacing). Everything below is a pure function of its inputs so
+// the room can be rebuilt, replayed and unit-tested without a browser.
+// ============================================================================
+
+// ---- pick codes: overall 4 in a 10-team room reads "1.04" ----
+export function pickCode(overall: number, teams: number): string {
+  if (!Number.isFinite(overall) || overall < 1) return '';
+  if (!teams || teams < 1) return String(overall);
+  const round = Math.floor((overall - 1) / teams) + 1;
+  const slot = ((overall - 1) % teams) + 1;
+  return `${round}.${String(slot).padStart(2, '0')}`;
+}
+
+// ---- stable DOM/test ids from player names ----
+export function slugify(s: string): string {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// ---- MY QUEUE ----------------------------------------------------------
+// The queue is just an ordered list of names. Nothing is removed when a player
+// gets sniped — resolution simply skips anyone no longer in the pool, so the
+// user's ranking survives the draft chewing through it.
+export function queueTop(pool: MockPlayer[], queue: string[]): string | null {
+  const avail = new Set(pool.map((p) => p.name));
+  for (const n of queue) if (avail.has(n)) return n;
+  return null;
+}
+
+// What AUTOPICK (and an expired pick clock) actually takes: the top queued
+// player still on the board, else the room's own best available for that seat.
+export function autoPickName(s: MockState, queue: string[] = []): string | null {
+  if (s.done || !s.pool.length) return null;
+  return queueTop(s.pool, queue) ?? botChoice(s).name;
+}
+
+export function toggleQueued(queue: string[], name: string): string[] {
+  return queue.includes(name) ? queue.filter((n) => n !== name) : [...queue, name];
+}
+
+export function moveQueued(queue: string[], index: number, delta: number): string[] {
+  const j = index + delta;
+  if (index < 0 || index >= queue.length || j < 0 || j >= queue.length) return queue;
+  const out = queue.slice();
+  [out[index], out[j]] = [out[j], out[index]];
+  return out;
+}
+
+// Drop everyone already off the board (used by "tidy queue").
+export function pruneQueue(queue: string[], pool: MockPlayer[]): string[] {
+  const avail = new Set(pool.map((p) => p.name));
+  return queue.filter((n) => avail.has(n));
+}
+
+// ---- UNDO — a mock is practice, so every pick is reversible -------------
+// The component snapshots the state BEFORE each pick; undo just walks back.
+export function pushSnapshot(stack: MockState[], s: MockState, limit = 400): MockState[] {
+  const next = [...stack, s];
+  return next.length > limit ? next.slice(next.length - limit) : next;
+}
+
+export function undoLast(stack: MockState[]): { stack: MockState[]; state: MockState | null } {
+  if (!stack.length) return { stack, state: null };
+  return { stack: stack.slice(0, -1), state: stack[stack.length - 1] };
+}
+
+// Undo everything back to the last time `handle` was on the clock — the real
+// "I want that pick back" after three bots have already fired.
+export function rewindToHandle(stack: MockState[], handle: string): { stack: MockState[]; state: MockState | null } {
+  for (let i = stack.length - 1; i >= 0; i--) {
+    if (currentHandle(stack[i]) === handle) return { stack: stack.slice(0, i), state: stack[i] };
+  }
+  return { stack, state: null };
+}
+
+// ---- TIER BREAKS — where the board falls off a cliff --------------------
+// Indices that START a new tier: a gap that is both absolutely meaningful
+// (>= minGap) and much bigger than the typical step (>= sensitivity x mean).
+export function tierBreaks(values: number[], sensitivity = 1.7, minGap = 2): number[] {
+  if (values.length < 2) return [];
+  const gaps: number[] = [];
+  for (let i = 1; i < values.length; i++) gaps.push(Math.max(0, values[i - 1] - values[i]));
+  const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const out: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    const g = values[i - 1] - values[i];
+    if (g >= minGap && g >= sensitivity * avg) out.push(i);
+  }
+  return out;
+}
+
+// 1-based tier number for every row, derived from the same breaks.
+export function tiersOf(values: number[], sensitivity = 1.7, minGap = 2): number[] {
+  const breaks = new Set(tierBreaks(values, sensitivity, minGap));
+  let t = 1;
+  return values.map((_, i) => { if (breaks.has(i)) t += 1; return t; });
+}
+
+// ---- THE PICK CLOCK ----------------------------------------------------
+export type ClockPhase = 'off' | 'calm' | 'warn' | 'urgent' | 'expired';
+export function clockPhase(secondsLeft: number, len: number): ClockPhase {
+  if (!len || len <= 0) return 'off';
+  if (secondsLeft <= 0) return 'expired';
+  if (secondsLeft <= 5) return 'urgent';
+  if (secondsLeft <= 15) return 'warn';
+  return 'calm';
+}
+export function fmtClock(s: number): string {
+  const n = Math.max(0, Math.floor(s || 0));
+  return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+}
+
+// ---- GM personality in plain English -----------------------------------
+export function personaPhrase(p: Persona): string {
+  const w = Math.max(0, Math.min(100, p?.window ?? 50));
+  const c = Math.max(0, Math.min(100, p?.chaos ?? 50));
+  const win = w <= 15 ? 'Win-now' : w <= 40 ? 'Lean win-now' : w <= 60 ? 'Balanced' : w <= 85 ? 'Lean future' : 'Future-first';
+  const cha = c <= 10 ? 'by the book' : c <= 35 ? 'mostly disciplined' : c <= 65 ? 'keeps you guessing' : c <= 85 ? 'unpredictable' : 'total chaos';
+  return `${win} · ${cha}`;
+}
+
+// ---- "you're up in 6 picks" --------------------------------------------
+// Picks between now and this handle's next turn. 0 = on the clock, -1 = done.
+export function picksUntil(s: MockState, handle: string): number {
+  if (s.done) return -1;
+  for (let i = s.cursor; i < s.seq.length; i++) if (s.seq[i] === handle) return i - s.cursor;
+  return -1;
+}
+// The overall pick number of that next turn (1-based), 0 when there isn't one.
+export function nextPickOverall(s: MockState, handle: string): number {
+  const d = picksUntil(s, handle);
+  return d < 0 ? 0 : s.cursor + d + 1;
+}
+
+// ---- THE LINEUP — which drafted players actually start ------------------
+export interface SlotFill { slot: string; player: MockPlayer | null }
+// Greedy and honest: dedicated slots claim their best man first, flex slots
+// then take the best eligible leftover. Order of the returned slots matches
+// the league's own slot list, so the panel reads like the lineup page.
+export function fillSlots(roster: MockPlayer[], slots: string[]): { starters: SlotFill[]; bench: MockPlayer[] } {
+  const pool = roster.slice().sort((a, b) => b.v.balanced - a.v.balanced);
+  const used = new Set<MockPlayer>();
+  const starters: SlotFill[] = slots.map((slot) => ({ slot, player: null }));
+  const take = (ok: (p: MockPlayer) => boolean): MockPlayer | null => {
+    for (const p of pool) if (!used.has(p) && ok(p)) { used.add(p); return p; }
+    return null;
+  };
+  slots.forEach((slot, i) => { if (!FLEX_ELIG[slot]) starters[i].player = take((p) => p.pos === slot); });
+  slots.forEach((slot, i) => {
+    const elig = FLEX_ELIG[slot];
+    if (elig) starters[i].player = take((p) => elig.includes(p.pos));
+  });
+  return { starters, bench: pool.filter((p) => !used.has(p)) };
+}

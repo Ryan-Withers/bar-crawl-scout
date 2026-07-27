@@ -78,6 +78,7 @@
           <Stamp text={chestTag(handle)} tone={chestTag(handle) === 'LOADED' ? 'brass' : chestTag(handle) === 'STRIPPED' ? 'red' : 'ink'} seed={9} />
         </div>
 
+        <div class="secs">
         <div class="sec"><h4>Form &amp; records <small>(this season)</small></h4>
           {#if form && form.cur}
             <div class="formrow">
@@ -138,14 +139,15 @@
         <div class="sec"><h4>Scout notes <small>(private, local)</small></h4>
           <textarea placeholder="Your read on {handle}…" value={$managerNotes[handle] || ''} on:input={(e) => managerNotes.update((n) => ({ ...n, [handle]: e.target.value }))}></textarea>
         </div>
+        </div>
       {/if}
     </div>
   </section>
 {/if}
 
 <style>
-  .dossier { padding-top: 6px; max-width: 720px; }
-  .back { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; margin-bottom: 12px; }
+  .dossier { padding-top: 2px; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; }
   .stub { padding: 40px 0; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
   .stub a { color: var(--neon); display: block; margin-top: 10px; }
   .folder { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 24px; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); background-image: repeating-linear-gradient(rgba(28,26,22,.04) 0 1px, transparent 1px 30px); }
@@ -158,7 +160,13 @@
   .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3a352a; line-height: 1.7; padding: 12px 0; }
   .coasters { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
   .stamps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-  .sec { border-top: 1px dashed rgba(28,26,22,.2); padding: 12px 0; }
+  /* Stacked on a phone; on a wide desk the panels sit side by side so the
+     whole file reads without a scroll marathon. */
+  .secs { display: grid; grid-template-columns: 1fr; }
+  @media (min-width: 900px) {
+    .secs { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); column-gap: 30px; align-items: start; }
+  }
+  .sec { border-top: 1px dashed rgba(28,26,22,.2); padding: 12px 0; min-width: 0; }
   .sec h4 { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 6px; }
   .sec h4 small { text-transform: none; letter-spacing: 0; }
   .sec p { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6; margin: 4px 0; color: #2a271f; }
