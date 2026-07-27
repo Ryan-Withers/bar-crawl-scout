@@ -7,7 +7,7 @@ import { mockSleeper, trackErrors } from './support/mock-sleeper.js';
 
 const ROUTES = [
   'myteam', 'matchup', 'byes',
-  'board', 'keepers', 'trade', 'intel',
+  'board', 'keepers', 'trade', 'intel', 'vault',
   'standings', 'power', 'playoffs', 'matchups', 'managers', 'history',
   'players', 'waivers',
   'book', 'leaderboard',
@@ -52,20 +52,34 @@ test('every enabled button on every page can be clicked without an uncaught erro
   page.on('dialog', (d) => d.dismiss().catch(() => {}));
   const failures = [];
 
+  // The PAGE's own buttons, not the shell's. The sidebar, tab bar, sync coaster
+  // and search button are identical on all 22 routes — clicking them 22 times
+  // adds no coverage (the-regular and the-phone drive them properly), and the
+  // search button opens the command palette, which then covers everything else.
+  const SEL = '[data-testid="content"] button:enabled:visible';
+
   for (const r of ROUTES) {
     const errors = trackErrors(page);
     await page.goto('./' + r);
     await page.waitForTimeout(250);
-    const count = await page.locator('button:enabled:visible').count();
+    const count = await page.locator(SEL).count();
     for (let i = 0; i < Math.min(count, 40); i++) {
-      const btn = page.locator('button:enabled:visible').nth(i);
+      // A click can take most of the page's buttons with it — "switch" on The
+      // Book logs you out and leaves one. Reload rather than ask for an index
+      // that no longer exists, or every remaining one burns a full timeout.
+      if (await page.locator(SEL).count() <= i) {
+        await page.goto('./' + r);
+        await page.waitForTimeout(200);
+        if (await page.locator(SEL).count() <= i) break; // genuinely fewer buttons than we counted
+      }
+      const btn = page.locator(SEL).nth(i);
       const label = ((await btn.textContent().catch(() => '')) || '').trim().slice(0, 30) || '(unlabelled)';
       try {
         await btn.click({ timeout: 1500, trial: false });
         await page.waitForTimeout(80);
       } catch { /* covered/moved buttons are fine — we only hunt runtime errors */ }
       if (errors.length) { failures.push(`${r} -> "${label}": ${errors.splice(0).join(' | ')}`); }
-      // A click may navigate (e.g. the command palette); come back for the rest.
+      // A click may navigate; come back for the rest.
       if (!page.url().includes('/' + r.split('/')[0])) { await page.goto('./' + r); await page.waitForTimeout(200); }
     }
   }
