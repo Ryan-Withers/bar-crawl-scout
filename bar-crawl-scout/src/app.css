@@ -37,12 +37,17 @@
   details{margin:0 0 14px}summary{cursor:pointer;font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:13px;color:var(--accent)}
   details p{font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.7;max-width:90ch}
   .ksub{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:8px 0 4px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  /* min-width:0 on the tracks so a wide child (a select full of long player
+     names) shrinks instead of pushing the grid past the viewport. */
+  .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  .grid2>*{min-width:0}
   .box{background:var(--field-2);border:1px solid var(--line);border-radius:10px;padding:15px;margin-bottom:14px}
   .box h3{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:17px;margin:0 0 10px}
   button.go{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:15px;background:var(--accent);color:var(--on-neon);border:none;border-radius:8px;padding:12px;cursor:pointer;width:100%;margin-top:10px}
   button.add{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:12px;background:var(--field-3);color:var(--chalk);border:1px solid var(--line);border-radius:7px;padding:9px 13px;cursor:pointer}
-  .siderow{display:flex;gap:7px;margin-bottom:7px}.siderow select{flex:1}
+  /* min-width:0 so a long player name in the options can't force the select
+     wider than the phone. */
+  .siderow{display:flex;gap:7px;margin-bottom:7px}.siderow select{flex:1 1 0;min-width:0}
   .chiplist{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
   .asset{font-family:var(--mono);font-size:11px;background:var(--field-3);border:1px solid var(--line);border-radius:16px;padding:5px 9px;display:flex;gap:7px;align-items:center}
   .asset b{color:var(--accent)}.asset span{cursor:pointer;color:var(--muted);font-weight:700}
@@ -68,7 +73,7 @@
     nav.tabs::-webkit-scrollbar{display:none}
     nav.tabs a{font-size:13px;padding:9px 13px;white-space:nowrap}
     .toolbar{gap:8px}.toolbar select,.toolbar input.search{flex:1 1 100%;min-width:0}
-    .grid2{grid-template-columns:1fr}
+    .grid2{grid-template-columns:minmax(0,1fr)}
     details p{max-width:100%}
   }
   @media (max-width:420px){
