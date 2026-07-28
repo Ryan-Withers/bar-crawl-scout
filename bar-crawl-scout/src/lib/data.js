@@ -128,7 +128,31 @@ export const PROJ={
 // future board instead of leading it. He also climbs off a 0.70-discounted
 // 2026 base, so the step out has to be bigger than yr2's to land in the same
 // place. This is the dial to turn if you want rookies pushed harder still.
-export const STAGE={rookie:[0.70,1.28],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,1.00],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,1.00]};
+export const STAGE={rookie:[0.70,1.28],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,0.90],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,0.90]};
+
+// POSITIONAL AGE CURVES — how fast a career phase actually moves, by position.
+// The stage tags above are position-blind: "prime" meant [1.00, 1.00] whether
+// you were a 27-year-old back or a 26-year-old receiver, so 89% of the board
+// (and 53 of 61 RBs) lost NOTHING across the two-year keeper window. Nobody is
+// flat across a year, and backs are not receivers.
+//
+// DECAY multiplies the LOSS a declining stage takes (loss = 1 - stage[1]).
+// Backs take it in full; receivers about half; tight ends a little less; and a
+// quarterback ages so slowly he keeps most of what an "aging" tag would strip.
+// Tuned so the SEVERE end stays severe for everyone: at QB 0.30 a "fading"
+// quarterback still held 98% into 2027, which reads as immortality rather than
+// as a slow curve. Old quarterbacks stay startable; they don't stay forever.
+export const POS_DECAY={RB:1.00,WR:0.62,TE:0.55,QB:0.45};
+
+// DEV multiplies the GAIN a developing stage makes (gain = stage[1] - 1).
+// The mirror image: backs arrive closest to finished so they have the least
+// left to add, receivers famously take a year or two, tight ends longest.
+export const POS_DEV={RB:0.80,WR:1.10,TE:1.20,QB:1.00};
+
+// And the same asymmetry in year ONE: a rookie back is the most plug-and-play
+// player in football, a rookie receiver the least. Multiplies the year-one
+// rookie discount, clamped below 1 — no rookie is ever a free bet.
+export const POS_ROOKIE_Y1={RB:1.10,WR:0.97,TE:0.90,QB:0.94};
 export const REPLACEMENT=52;
 export const MODES={winnow:[1.0,0.15],balanced:[1.0,1.0],future:[0.4,1.0]};
 export const MODEHINT={winnow:"2026 is everything, 2027 only a tiebreak. The final-year studs (Chase, Gibbs, Bijan) rise to the top. A 100-and-gone beats a 55-that-stays here.",balanced:"Both seasons equal. Two-year risers (Jeanty, Bowers) win. A 55-that-stays can beat a 100-and-gone.",future:"2027 dominant, 2026 at 40%. Final-year players crater. This is how the rebuilders see the board."};
