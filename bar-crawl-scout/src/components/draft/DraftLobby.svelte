@@ -2,7 +2,7 @@
   // THE LOBBY — everything you set before the room opens, in the order you
   // actually decide it: what the draft is, where you sit, who you're up
   // against. The dials still exist; they just live behind a door now.
-  import { personaPhrase } from '../../lib/engine/mockdraft.ts';
+  import { personaPhrase, FOCUS_ORDER, FOCUS_LABEL } from '../../lib/engine/mockdraft.ts';
   import { initials } from './theme.js';
 
   export let teams = [];              // [[handle, teamName], …]
@@ -27,6 +27,8 @@
   export let onMoveOrder = () => {};
   export let onPersona = () => {};
   export let onResetPersonas = () => {};
+  export let focus = 'balanced';
+  export let onFocus = () => {};
 
   const CLOCKS = [[0, 'off'], [30, '30s'], [60, '60s'], [90, '90s']];
   const PRESETS = [
@@ -64,6 +66,13 @@
         {#each teams as [h, t]}<option value={h}>{t}</option>{/each}
       </select>
       <label class="chk"><input type="checkbox" bind:checked={spectate} data-testid="spectate" /> Spectate — sim all {teams.length}, I'll watch</label>
+      <div class="clockrow" class:dim={spectate} data-testid="lobby-focus">
+        <span class="clocklbl">🎯 Focus</span>
+        {#each FOCUS_ORDER as f}
+          <button class="mini" class:on={focus === f} disabled={spectate} data-testid={'lobby-focus-' + f} on:click={() => onFocus(f)}>{FOCUS_LABEL[f]}</button>
+        {/each}
+      </div>
+      <p class="meta">Which way your board leans. You can flip it mid-draft — start future-first, swing to win-now once your keepers are covered.</p>
       <div class="clockrow" class:dim={spectate}>
         <span class="clocklbl">⏱ Pick clock</span>
         {#each CLOCKS as [s, label]}

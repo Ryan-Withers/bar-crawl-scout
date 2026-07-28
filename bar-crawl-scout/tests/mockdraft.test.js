@@ -5,6 +5,7 @@ import {
   pickCode, slugify, queueTop, autoPickName, toggleQueued, moveQueued, pruneQueue,
   pushSnapshot, undoLast, rewindToHandle, tierBreaks, tiersOf, clockPhase, fmtClock,
   personaPhrase, picksUntil, nextPickOverall, fillSlots,
+  focusWindow, focusOf, flexPositions, needPositions, FOCUS_ORDER,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -449,3 +450,101 @@ describe('draft room — the starting lineup', () => {
     expect(fillSlots([], SLOTS).starters.every((s) => s.player === null)).toBe(true);
   });
 });
+
+describe('focus <-> the window dial', () => {
+  it('maps the three choices onto the dial the personas already use', () => {
+    expect(FOCUS_ORDER).toEqual(['winnow', 'balanced', 'future']);
+    expect(FOCUS_ORDER.map(focusWindow)).toEqual([0, 50, 100]);
+  });
+
+  it('round-trips, so a button press and a slider drag agree', () => {
+    for (const f of FOCUS_ORDER) expect(focusOf(focusWindow(f))).toBe(f);
+  });
+
+  it('reads a dragged slider as the nearest of the three', () => {
+    expect(focusOf(0)).toBe('winnow');
+    expect(focusOf(33)).toBe('winnow');
+    expect(focusOf(34)).toBe('balanced');
+    expect(focusOf(66)).toBe('balanced');
+    expect(focusOf(67)).toBe('future');
+    expect(focusOf(100)).toBe('future');
+  });
+
+  it('treats a missing or out-of-range dial as balanced/clamped', () => {
+    expect(focusOf(undefined)).toBe('balanced');
+    expect(focusOf(-40)).toBe('winnow');
+    expect(focusOf(900)).toBe('future');
+    expect(focusWindow('nonsense')).toBe(50);
+  });
+
+  it('actually reorders the board: win-now and future disagree on WR1 vs RB1', () => {
+    const rb1 = pool.find((p) => p.name === 'RB1');
+    const wr1 = pool.find((p) => p.name === 'WR1');
+    expect(blendValue(rb1, focusWindow('winnow'))).toBeGreaterThan(blendValue(wr1, focusWindow('winnow')));
+    expect(blendValue(wr1, focusWindow('future'))).toBeGreaterThan(blendValue(rb1, focusWindow('future')));
+  });
+});
+
+describe('flexPositions', () => {
+  it('reads FLEX as RB/WR/TE, in core order', () => {
+    expect(flexPositions(SLOTS)).toEqual(['RB', 'WR', 'TE']);
+  });
+
+  it('reads a superflex as including the QB', () => {
+    expect(flexPositions(['QB', 'RB', 'WR', 'SUPER_FLEX'])).toEqual(['QB', 'RB', 'WR', 'TE']);
+  });
+
+  it('reads the narrower flexes Sleeper offers', () => {
+    expect(flexPositions(['WRRB_FLEX'])).toEqual(['RB', 'WR']);
+    expect(flexPositions(['REC_FLEX'])).toEqual(['WR', 'TE']);
+  });
+
+  it('is empty for a league with no flex seat at all', () => {
+    expect(flexPositions(['QB', 'RB', 'RB', 'WR', 'WR', 'TE'])).toEqual([]);
+    expect(flexPositions([])).toEqual([]);
+  });
+
+  it('never double-counts a position two flexes both accept', () => {
+    expect(flexPositions(['FLEX', 'FLEX', 'REC_FLEX'])).toEqual(['RB', 'WR', 'TE']);
+  });
+});
+
+describe('needPositions', () => {
+  it('an empty roster needs every starting position', () => {
+    // QB RB RB WR WR TE FLEX -> the flex opens RB/WR/TE, already all needed.
+    expect(needPositions([], SLOTS)).toEqual(['QB', 'RB', 'WR', 'TE']);
+  });
+
+  it('drops a position once its dedicated seats are full', () => {
+    const roster = [P('QBa', 'QB', 80, 80, 80), P('TEa', 'TE', 70, 70, 70)];
+    const need = needPositions(roster, SLOTS);
+    expect(need).not.toContain('QB');
+    // TE is still listed: the FLEX seat is empty and a TE can fill it.
+    expect(need).toEqual(['RB', 'WR', 'TE']);
+  });
+
+  it('opens the flex to everything eligible once the dedicated seats are done', () => {
+    const roster = [
+      P('QBa', 'QB', 80, 80, 80), P('RBa', 'RB', 80, 80, 80), P('RBb', 'RB', 79, 79, 79),
+      P('WRa', 'WR', 80, 80, 80), P('WRb', 'WR', 79, 79, 79), P('TEa', 'TE', 70, 70, 70),
+    ];
+    expect(needPositions(roster, SLOTS)).toEqual(['RB', 'WR', 'TE']); // only the FLEX left
+  });
+
+  it('is empty when every starting seat is filled', () => {
+    const roster = [
+      P('QBa', 'QB', 80, 80, 80), P('RBa', 'RB', 80, 80, 80), P('RBb', 'RB', 79, 79, 79),
+      P('WRa', 'WR', 80, 80, 80), P('WRb', 'WR', 79, 79, 79), P('TEa', 'TE', 70, 70, 70),
+      P('RBc', 'RB', 60, 60, 60),
+    ];
+    expect(needPositions(roster, SLOTS)).toEqual([]);
+  });
+
+  it('agrees with fillSlots about what is still open', () => {
+    const roster = [P('WRa', 'WR', 90, 90, 90), P('WRb', 'WR', 80, 80, 80)];
+    const holes = fillSlots(roster, SLOTS).starters.filter((s) => !s.player).map((s) => s.slot);
+    expect(holes).toEqual(['QB', 'RB', 'RB', 'TE', 'FLEX']);
+    expect(needPositions(roster, SLOTS)).toEqual(['QB', 'RB', 'WR', 'TE']); // FLEX re-opens WR
+  });
+});
+

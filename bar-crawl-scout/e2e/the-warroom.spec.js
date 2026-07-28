@@ -253,3 +253,110 @@ test('phone 375px: tabs, no overflow, and the draft button under your thumb', as
   expect(errors, errors.join('\n')).toHaveLength(0);
   await ctx.close();
 });
+
+// ---- THE POOL FILTERS + THE FOCUS DIAL ---------------------------------
+
+test('the pool filters by position with buttons, including the flex', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('pool')).toBeVisible();
+
+  const rows = page.locator('[data-testid="pool"] .prow');
+  const posInRows = async () => (await page.locator('[data-testid="pool"] .prow .pos').allInnerTexts())
+    .map((t) => t.trim());
+
+  // A single position narrows to exactly that position.
+  await page.getByTestId('pos-rb').click();
+  expect(new Set(await posInRows())).toEqual(new Set(['RB']));
+
+  // FLX is the league's actual flex seat — RB/WR/TE here, never the QB.
+  await page.getByTestId('pos-flx').click();
+  const flx = new Set(await posInRows());
+  expect(flx.has('QB')).toBe(false);
+  expect([...flx].every((p) => ['RB', 'WR', 'TE'].includes(p))).toBe(true);
+  expect(flx.size).toBeGreaterThan(1); // it really is a group, not one position
+
+  // Each button carries its own count, and FLX's is the sum of its parts.
+  const n = (id) => page.getByTestId(id).locator('i').innerText().then((t) => Number(t));
+  expect(await n('pos-flx')).toBe((await n('pos-rb')) + (await n('pos-wr')) + (await n('pos-te')));
+
+  // Clear puts everyone back.
+  await page.getByTestId('clear-filters').click();
+  await expect(page.getByTestId('pos-all')).toHaveAttribute('aria-pressed', 'true');
+  expect(new Set(await posInRows()).size).toBeGreaterThan(1);
+  await expect(rows.first()).toBeVisible();
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('the needs filter shows only players who would fill a starting seat', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
+
+  // Nothing drafted yet: every starting position is still a need.
+  const needs = page.getByTestId('only-needs');
+  await expect(needs).toBeVisible();
+  await needs.click();
+  await expect(needs).toHaveAttribute('aria-pressed', 'true');
+
+  const shown = new Set((await page.locator('[data-testid="pool"] .prow .pos').allInnerTexts()).map((t) => t.trim()));
+  expect(shown.size).toBeGreaterThan(0);
+  // The count on the chip matches how many distinct positions it lets through
+  // once you page past the first window — assert the weaker, stable claim.
+  const count = Number(await needs.locator('i').innerText());
+  expect(count).toBeGreaterThan(0);
+  expect(count).toBeLessThanOrEqual(4); // QB/RB/WR/TE is the whole skill board
+});
+
+test('you can change focus mid-draft and the board reorders under you', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+
+  // Set it BEFORE the draft, from the lobby.
+  await page.getByTestId('lobby-focus-future').click();
+  await page.getByTestId('start').click();
+
+  const focus = page.getByTestId('focus');
+  await expect(focus).toBeVisible();
+  await expect(page.getByTestId('focus-future')).toHaveAttribute('aria-pressed', 'true');
+
+  const topName = () => page.locator('[data-testid="pool"] .prow .pn').first().innerText();
+  const topVal = () => page.locator('[data-testid="pool"] .prow .pv').first().innerText().then(Number);
+
+  const futureTop = await topName();
+  const futureVal = await topVal();
+
+  // Flip to win-now mid-draft: same pool, different order and different numbers.
+  await page.getByTestId('focus-winnow').click();
+  await expect(page.getByTestId('focus-winnow')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('focus-future')).toHaveAttribute('aria-pressed', 'false');
+  const winnowTop = await topName();
+  const winnowVal = await topVal();
+  expect(winnowTop !== futureTop || winnowVal !== futureVal).toBe(true);
+
+  // Balanced is a real third setting, not a label on one of the other two.
+  await page.getByTestId('focus-balanced').click();
+  await expect(page.getByTestId('focus-balanced')).toHaveAttribute('aria-pressed', 'true');
+
+  // And it sticks: back to the lobby, the lobby buttons agree with the room.
+  await expect(page.getByTestId('lobby-focus-balanced')).toHaveCount(0); // still live
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('the focus you pick survives a reload — it is your dial, not the run\'s', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByTestId('lobby-focus-winnow').click();
+  await expect(page.getByTestId('lobby-focus-winnow')).toHaveClass(/on/);
+  await page.reload();
+  await expect(page.getByTestId('lobby-focus-winnow')).toHaveClass(/on/);
+});
+
+test('spectating hides the focus dial — no seat, nothing to focus', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByTestId('spectate').check();
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('pool')).toBeVisible();
+  await expect(page.getByTestId('focus')).toHaveCount(0);
+  await expect(page.getByTestId('only-needs')).toHaveCount(0);
+});

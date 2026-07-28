@@ -441,6 +441,50 @@ export function fmtClock(s: number): string {
   return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
 }
 
+// ---- YOUR FOCUS — the win-now/future dial as three plain choices --------
+// The persona `window` stays the single source of truth (0 = win-now,
+// 50 = balanced, 100 = future) so the lobby slider and the three buttons can
+// never disagree; these just translate between the two.
+export type Focus = 'winnow' | 'balanced' | 'future';
+export const FOCUS_ORDER: Focus[] = ['winnow', 'balanced', 'future'];
+export const FOCUS_LABEL: Record<Focus, string> = { winnow: 'Win now', balanced: 'Balanced', future: 'Future' };
+const FOCUS_W: Record<Focus, number> = { winnow: 0, balanced: 50, future: 100 };
+
+export function focusWindow(f: string): number {
+  return FOCUS_W[f as Focus] ?? 50;
+}
+/** Which of the three a given dial position reads as — a dragged slider still
+ *  lights the right button. */
+export function focusOf(window: number): Focus {
+  const w = Math.max(0, Math.min(100, window ?? 50));
+  return w < 34 ? 'winnow' : w > 66 ? 'future' : 'balanced';
+}
+
+// ---- POOL FILTERS ------------------------------------------------------
+/** Every position this league's FLEX-type slots will accept, in CORE order. */
+export function flexPositions(slots: string[]): string[] {
+  const hit = new Set<string>();
+  for (const s of slots || []) for (const p of FLEX_ELIG[s] || []) hit.add(p);
+  return ['QB', 'RB', 'WR', 'TE'].filter((p) => hit.has(p));
+}
+
+/**
+ * Positions that would fill a starting seat you haven't filled yet — dedicated
+ * holes plus, for any empty flex seat, everything eligible for it. Runs off
+ * fillSlots so it agrees exactly with the lineup the roster panel draws.
+ */
+export function needPositions(roster: MockPlayer[], slots: string[]): string[] {
+  const { starters } = fillSlots(roster, slots);
+  const hit = new Set<string>();
+  for (const s of starters) {
+    if (s.player) continue;
+    const elig = FLEX_ELIG[s.slot];
+    if (elig) for (const p of elig) hit.add(p);
+    else hit.add(s.slot);
+  }
+  return ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].filter((p) => hit.has(p));
+}
+
 // ---- GM personality in plain English -----------------------------------
 export function personaPhrase(p: Persona): string {
   const w = Math.max(0, Math.min(100, p?.window ?? 50));

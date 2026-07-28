@@ -15,6 +15,7 @@
     createMock, makePick, gradeMock, currentHandle, shuffle, sequenceFromSlots, recapText, shortName,
     autoPickName, queueTop, toggleQueued, moveQueued, pruneQueue,
     pushSnapshot, undoLast, rewindToHandle, pickCode,
+    focusWindow, focusOf, flexPositions, needPositions,
   } from '../lib/engine/mockdraft.ts';
   import DraftLobby from './draft/DraftLobby.svelte';
   import ClockBar from './draft/ClockBar.svelte';
@@ -100,6 +101,23 @@
   $: myRoster = st && seat ? st.rosters[seat] || [] : [];
   $: keeperCount = st && seat ? (st.cfg.teams.find((t) => t.handle === seat)?.keepers.length || 0) : 0;
   $: myPersona = personas[seat] || { window: 50, chaos: 50 };
+
+  // ---- YOUR FOCUS — win-now / balanced / future, changeable any time --------
+  // The persona dial stays the source of truth so the lobby slider and the
+  // three buttons can't disagree. Mid-draft it also has to reach INTO the
+  // running state: cfg carries the persona the autopick bot drafts with, so a
+  // focus change has to land there too or your board and your autopick split.
+  $: myFocus = focusOf(myPersona.window);
+  function setFocus(f) {
+    setPersona(seat, { window: focusWindow(f) });
+    if (st && !spectate) {
+      const t = st.cfg.teams.find((x) => x.handle === seat);
+      if (t) { t.persona = { ...t.persona, window: focusWindow(f) }; st = st; }
+    }
+  }
+  // What the pool's FLX button accepts, and which positions still start for you.
+  $: flexPos = flexPositions(slots);
+  $: myNeeds = (!spectate && st) ? needPositions(myRoster, slots) : [];
   $: canUndo = phase === 'live' && hist.length > 0;
   $: canUndoMine = phase === 'live' && !spectate && !userTurn && hist.some((s) => currentHandle(s) === seat);
 
@@ -310,6 +328,7 @@
       teams={TEAMS.map(([h, t]) => [h, t.replace(' (YOU)', '')])}
       {nm} bind:seat bind:spectate {clockLen} bind:orderSource {realOk} {slotBoard} {round1} {tradeCount}
       bind:order {personas} rounds={mockRounds} {rosterSize} {yourFirstPick} {history}
+      focus={myFocus} onFocus={setFocus}
       onStart={() => start()} onClock={setClock} onShuffle={shuffleOrder} onMoveOrder={moveOrder}
       onPersona={setPersona} onResetPersonas={resetPersonas}
     />
@@ -333,6 +352,8 @@
         <section class="pane players" class:show={mobileTab === 'players'} aria-label="Player pool">
           <PlayerPool
             pool={st.pool} {userTurn} {queue} windowPref={myPersona.window}
+            focus={myFocus} onFocus={spectate ? null : setFocus}
+            {flexPos} needs={myNeeds}
             onPick={pick} onStar={star} onAutoPick={autoPick}
           />
         </section>

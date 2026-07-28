@@ -26,7 +26,11 @@
   .blurb{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 12px}
   .blurb b{color:var(--chalk)}
   nav.tabs{display:flex;gap:6px;padding:8px 0 8px;flex-wrap:wrap;border-top:1px solid var(--line)}
-  .tab{display:none;padding-top:14px}.tab.on{display:block}
+  /* Legacy page-panel primitive from the tabbed layout: only ever used as
+     <section class="tab on">. Left unscoped it also matched every OTHER .tab in
+     the app and display:none'd it — that's what hid the draft pool's position
+     buttons (all but the active one) and the team name on each manager folder. */
+  section.tab{display:none;padding-top:14px}section.tab.on{display:block}
   .note{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--field-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.6}
   .note b{color:var(--chalk)}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
