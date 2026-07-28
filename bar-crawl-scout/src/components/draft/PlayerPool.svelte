@@ -2,7 +2,7 @@
   // THE POOL — a focus dial, position buttons (FLX included), a needs filter,
   // search, and visible tier breaks so you can see the cliff coming. Star a
   // player to queue him; DRAFT takes him now.
-  import { blendValue, tiersOf, slugify, FOCUS_ORDER, FOCUS_LABEL } from '../../lib/engine/mockdraft.ts';
+  import { blendValue, tiersOf, slugify, filterPool, isRookie, FOCUS_ORDER, FOCUS_LABEL } from '../../lib/engine/mockdraft.ts';
   import { posColor, POS_TABS } from './theme.js';
 
   export let pool = [];
@@ -18,36 +18,34 @@
   export let onAutoPick = () => {};
   export let posFilter = 'ALL';
   export let onlyNeeds = false;
+  export let rookiesOnly = false;
   export let q = '';
 
   let limit = 60;
   // Any re-filter starts the window again from the top.
-  $: if (posFilter || q || onlyNeeds || windowPref != null) limit = 60;
+  $: if (posFilter || q || onlyNeeds || rookiesOnly || windowPref != null) limit = 60;
 
   // FLX only exists if the league actually starts a flex seat.
   $: tabs = flexPos.length ? [...POS_TABS, 'FLX'] : POS_TABS;
   $: flexSet = new Set(flexPos);
-  $: needSet = new Set(needs);
   $: if (posFilter === 'FLX' && !flexPos.length) posFilter = 'ALL';
   $: if (onlyNeeds && !needs.length) onlyNeeds = false;
-
-  const matchesPos = (p, f, flex) => (f === 'ALL' ? true : f === 'FLX' ? flex.has(p.pos) : p.pos === f);
 
   const val = (p) => p.me;
   $: ranked = pool
     .map((p) => ({ ...p, me: Math.round(blendValue(p, windowPref)) }))
     .sort((a, b) => val(b) - val(a));
   $: needle = q.trim().toLowerCase();
-  $: filtered = ranked.filter((p) =>
-    matchesPos(p, posFilter, flexSet)
-    && (!onlyNeeds || needSet.has(p.pos))
-    && (!needle || p.name.toLowerCase().includes(needle) || p.team.toLowerCase() === needle || p.pos.toLowerCase() === needle));
+  $: filtered = filterPool(ranked, { pos: posFilter, flex: flexPos, needs, onlyNeeds, rookiesOnly, q });
   $: tiers = tiersOf(filtered.map(val));
   $: shown = filtered.slice(0, limit);
   $: queued = new Set(queue);
   $: counts = pool.reduce((a, p) => { a[p.pos] = (a[p.pos] || 0) + 1; return a; }, {});
   $: flexCount = pool.reduce((n, p) => n + (flexSet.has(p.pos) ? 1 : 0), 0);
   $: tabCount = (t) => (t === 'FLX' ? flexCount : counts[t] || 0);
+  // Rookies left on the board — counted against the position you're already
+  // looking at, so the chip tells you what turning it on would actually show.
+  $: rookieCount = filterPool(pool, { pos: posFilter, flex: flexPos, needs, onlyNeeds, rookiesOnly: true }).length;
 </script>
 
 <div class="pool" data-testid="pool">
@@ -95,8 +93,15 @@
         on:click={() => (onlyNeeds = !onlyNeeds)}
       >⚑ my needs<i>{needs.length}</i></button>
     {/if}
-    {#if posFilter !== 'ALL' || onlyNeeds || needle}
-      <button class="mini clear" data-testid="clear-filters" on:click={() => { posFilter = 'ALL'; onlyNeeds = false; q = ''; }}>clear</button>
+    <button
+      class="mini rook" class:on={rookiesOnly}
+      aria-pressed={rookiesOnly}
+      title="First-year players only. They sit low on a win-now board by design — the board marks a rookie 0.70 on 2026 and 1.10 on 2027 — so pair this with FUTURE."
+      data-testid="only-rookies"
+      on:click={() => (rookiesOnly = !rookiesOnly)}
+    >🌱 rookies<i>{rookieCount}</i></button>
+    {#if posFilter !== 'ALL' || onlyNeeds || rookiesOnly || needle}
+      <button class="mini clear" data-testid="clear-filters" on:click={() => { posFilter = 'ALL'; onlyNeeds = false; rookiesOnly = false; q = ''; }}>clear</button>
     {/if}
   </div>
 
@@ -105,10 +110,11 @@
       {#if i > 0 && tiers[i] !== tiers[i - 1]}
         <div class="tierbreak"><span>TIER {tiers[i]}</span><i>the drop-off</i></div>
       {/if}
-      <div class="prow" class:starred={queued.has(p.name)}>
+      <div class="prow" class:starred={queued.has(p.name)} class:tight={userTurn}>
         <span class="pos" style="--pc:{posColor(p.pos)}">{p.pos}</span>
         <span class="pn">
-          {p.name}
+          <span class="nmtxt">{p.name}</span>
+          {#if isRookie(p)}<em class="rk" title="Rookie — priced down for 2026, up for 2027">R</em>{/if}
           <small>{p.team}{p.bye ? ' · bye ' + p.bye : ''}</small>
         </span>
         <span class="pv" title="value on your {FOCUS_LABEL[focus].toLowerCase()} board">{val(p)}</span>
@@ -125,7 +131,9 @@
       </div>
     {:else}
       <p class="none">
-        {#if onlyNeeds && posFilter !== 'ALL'}No {posFilter} left who'd fill a starting seat — drop the needs filter or try another position.
+        {#if rookiesOnly && posFilter !== 'ALL'}No {posFilter} rookies left on the board.
+        {:else if rookiesOnly}Every rookie is gone.
+        {:else if onlyNeeds && posFilter !== 'ALL'}No {posFilter} left who'd fill a starting seat — drop the needs filter or try another position.
         {:else if onlyNeeds}Every starting seat is filled. Turn off <b>my needs</b> to draft depth.
         {:else}Nobody left matching that. Clear the filters.{/if}
       </p>
@@ -171,17 +179,31 @@
   .poolbar .search { flex: 1 1 150px; min-width: 0; }
   .mini { font-family: var(--mono); font-size: 10px; background: var(--field-3); border: 1px solid var(--line); color: var(--chalk); border-radius: 6px; padding: 4px 9px; cursor: pointer; min-height: 32px; }
   .mini.on { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .needs { display: inline-flex; align-items: center; gap: 5px; flex: none; }
-  .needs i { font-style: normal; font-size: 9px; background: var(--line); color: var(--chalk); border-radius: 8px; padding: 1px 5px; }
-  .needs.on i { background: rgba(255,255,255,.28); color: #fff; }
+  .needs, .rook { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .needs i, .rook i { font-style: normal; font-size: 9px; background: var(--line); color: var(--chalk); border-radius: 8px; padding: 1px 5px; }
+  .needs.on i, .rook.on i { background: rgba(255,255,255,.28); color: #fff; }
+  .rook.on { background: var(--purp); border-color: var(--purp); color: #fff; }
   .clear { flex: none; color: var(--muted); }
+
+  /* The rookie mark rides with the name, so you can spot one without filtering. */
+  .rk {
+    flex: none; font-style: normal; font-family: var(--display); font-weight: 800; font-size: 8.5px;
+    color: #fff; background: var(--purp); border-radius: 3px; padding: 1px 3px; letter-spacing: .04em;
+  }
 
   .rows { max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .prow { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; }
   .prow.starred { background: var(--blue-wash); border-radius: 6px; }
   .pos { flex: none; width: 30px; text-align: center; font-size: 9px; font-weight: 700; color: #fff; background: var(--pc); border-radius: 4px; padding: 2px 0; }
-  .pn { flex: 1; color: var(--chalk); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pn small { color: var(--muted); font-size: 10px; }
+  /* A flex row, not one ellipsised string: the name and the team can each give
+     ground on a narrow screen, but the rookie mark never gets clipped off. */
+  .pn { flex: 1; display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow: hidden; color: var(--chalk); }
+  .nmtxt, .pn small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Shrink factors, not equal shares: the team/bye tail collapses ~200x faster
+     than the name, so a narrow row eats "MIN · bye 6" long before it eats a
+     letter of "Jeremiyah Love". */
+  .nmtxt { flex: 0 1 auto; }
+  .pn small { flex: 0 200 auto; color: var(--muted); font-size: 10px; }
   .pv { font-weight: 700; color: var(--blue-deep); font-variant-numeric: tabular-nums; }
   .star { flex: none; background: none; border: 1px solid transparent; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; border-radius: 6px; width: 34px; min-height: 34px; }
   .star.on { color: var(--brass); }
@@ -195,6 +217,13 @@
   .tierbreak::after { content: ''; flex: 1; height: 0; border-top: 2px dashed var(--line); }
   .none { font-family: var(--mono); font-size: 11.5px; color: var(--muted); padding: 12px 2px; }
   .more { width: 100%; margin-top: 8px; font-family: var(--mono); font-size: 10.5px; background: var(--field-3); border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 8px; cursor: pointer; min-height: 36px; }
+
+  /* On your turn every row grows a DRAFT button, and on a phone that leaves the
+     team/bye tail showing as "T…" — no information, and it costs the name real
+     letters. Drop it while the button is there; it's back the moment it isn't. */
+  @media (max-width: 430px) {
+    .prow.tight .pn small { display: none; }
+  }
 
   @media (max-width: 860px) {
     .rows { max-height: none; }

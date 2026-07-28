@@ -38,7 +38,7 @@
   $: pool = PLAYERS
     .filter((p) => SKILL.has(p[2]) && isAvailable(ks, p[1]))
     .map((p) => ({
-      name: p[1], pos: p[2], team: p[3], bye: p[4] || 0,
+      name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, stage: p[6] || '',
       v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') },
     }));
   $: positions = $leagueQ.data?.roster_positions || ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
@@ -50,7 +50,7 @@
   const toMockPlayer = (name) => {
     const p = BYUNAME[(name || '').toLowerCase()];
     if (!p || !SKILL.has(p[2])) return null;
-    return { name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') } };
+    return { name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, stage: p[6] || '', v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') } };
   };
   const keepersOf = (h) => ((ks[h] || []).slice(0, 3).map((s) => s && s[0]).filter(Boolean).map(toMockPlayer).filter(Boolean));
 

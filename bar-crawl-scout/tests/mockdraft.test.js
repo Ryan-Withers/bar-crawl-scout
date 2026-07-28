@@ -6,6 +6,7 @@ import {
   pushSnapshot, undoLast, rewindToHandle, tierBreaks, tiersOf, clockPhase, fmtClock,
   personaPhrase, picksUntil, nextPickOverall, fillSlots,
   focusWindow, focusOf, flexPositions, needPositions, FOCUS_ORDER,
+  isRookie, filterPool,
 } from '../src/lib/engine/mockdraft';
 
 const P = (name, pos, winnow, balanced, future, bye = 5) =>
@@ -545,6 +546,94 @@ describe('needPositions', () => {
     const holes = fillSlots(roster, SLOTS).starters.filter((s) => !s.player).map((s) => s.slot);
     expect(holes).toEqual(['QB', 'RB', 'RB', 'TE', 'FLEX']);
     expect(needPositions(roster, SLOTS)).toEqual(['QB', 'RB', 'WR', 'TE']); // FLEX re-opens WR
+  });
+});
+
+describe('isRookie', () => {
+  it('reads the board stage the valuation model already prices off', () => {
+    expect(isRookie({ name: 'A', pos: 'RB', team: 'X', bye: 5, stage: 'rookie', v: {} })).toBe(true);
+    expect(isRookie({ name: 'B', pos: 'RB', team: 'X', bye: 5, stage: 'yr2', v: {} })).toBe(false);
+    expect(isRookie({ name: 'C', pos: 'RB', team: 'X', bye: 5, stage: '', v: {} })).toBe(false);
+  });
+
+  it('is false, not a throw, for a player with no stage at all', () => {
+    expect(isRookie({ name: 'D', pos: 'RB', team: 'X', bye: 5, v: {} })).toBe(false);
+    expect(isRookie(undefined)).toBe(false);
+  });
+});
+
+describe('filterPool', () => {
+  const S = (name, pos, stage, team = 'BUF') =>
+    ({ name, pos, team, bye: 5, stage, v: { winnow: 50, balanced: 50, future: 50 } });
+  const POOL = [
+    S('Rook Back', 'RB', 'rookie'), S('Vet Back', 'RB', 'prime'),
+    S('Rook Wide', 'WR', 'rookie'), S('Vet Wide', 'WR', 'aging'),
+    S('Rook Passer', 'QB', 'rookie'), S('Vet Passer', 'QB', 'prime'),
+    S('Rook End', 'TE', 'rookie', 'MIA'),
+  ];
+  const names = (f) => filterPool(POOL, f).map((p) => p.name);
+
+  it('returns everyone when asked for nothing', () => {
+    expect(filterPool(POOL)).toHaveLength(POOL.length);
+    expect(filterPool(POOL, { pos: 'ALL' })).toHaveLength(POOL.length);
+  });
+
+  it('filters to one position', () => {
+    expect(names({ pos: 'RB' })).toEqual(['Rook Back', 'Vet Back']);
+  });
+
+  it('FLX takes the league\'s flex-eligible positions, and only those', () => {
+    expect(names({ pos: 'FLX', flex: ['RB', 'WR', 'TE'] }))
+      .toEqual(['Rook Back', 'Vet Back', 'Rook Wide', 'Vet Wide', 'Rook End']);
+    // A superflex league lets the QB in.
+    expect(names({ pos: 'FLX', flex: ['QB', 'RB', 'WR', 'TE'] })).toHaveLength(7);
+    // No flex seat configured -> FLX matches nobody rather than everybody.
+    expect(names({ pos: 'FLX', flex: [] })).toEqual([]);
+  });
+
+  it('filters to rookies', () => {
+    expect(names({ rookiesOnly: true })).toEqual(['Rook Back', 'Rook Wide', 'Rook Passer', 'Rook End']);
+  });
+
+  it('composes rookies WITH a position — the whole point of separate controls', () => {
+    expect(names({ pos: 'RB', rookiesOnly: true })).toEqual(['Rook Back']);
+    expect(names({ pos: 'FLX', flex: ['RB', 'WR', 'TE'], rookiesOnly: true }))
+      .toEqual(['Rook Back', 'Rook Wide', 'Rook End']);
+  });
+
+  it('composes rookies with needs', () => {
+    expect(names({ rookiesOnly: true, onlyNeeds: true, needs: ['QB', 'TE'] }))
+      .toEqual(['Rook Passer', 'Rook End']);
+  });
+
+  it('needs alone keeps every stage at those positions', () => {
+    expect(names({ onlyNeeds: true, needs: ['QB'] })).toEqual(['Rook Passer', 'Vet Passer']);
+  });
+
+  it('needs with an empty list matches nobody (a filled roster shows nothing)', () => {
+    expect(names({ onlyNeeds: true, needs: [] })).toEqual([]);
+  });
+
+  it('searches names loosely and teams exactly', () => {
+    expect(names({ q: 'rook' })).toEqual(['Rook Back', 'Rook Wide', 'Rook Passer', 'Rook End']);
+    expect(names({ q: 'MIA' })).toEqual(['Rook End']);
+    expect(names({ q: '  vet back  ' })).toEqual(['Vet Back']);
+  });
+
+  it('no longer matches a position typed into search — the buttons do that', () => {
+    expect(names({ q: 'RB' })).toEqual([]);
+  });
+
+  it('ANDs everything at once', () => {
+    expect(names({ pos: 'WR', rookiesOnly: true, onlyNeeds: true, needs: ['WR'], q: 'wide' }))
+      .toEqual(['Rook Wide']);
+    // One contradictory clause empties it.
+    expect(names({ pos: 'WR', rookiesOnly: true, onlyNeeds: true, needs: ['QB'] })).toEqual([]);
+  });
+
+  it('survives an empty or missing pool', () => {
+    expect(filterPool([], { pos: 'RB' })).toEqual([]);
+    expect(filterPool(undefined, { pos: 'RB' })).toEqual([]);
   });
 });
 
