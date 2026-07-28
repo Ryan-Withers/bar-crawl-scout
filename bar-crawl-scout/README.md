@@ -2,7 +2,7 @@
 
 A keeper-league scouting board for the **Official Bar Crawl Order** league (10-team, half-PPR, Sleeper). It ranks the draftable pool, tracks projected keepers per manager, models FAAB bids and trade value, and pulls live rosters straight from Sleeper.
 
-Live site: https://timely-souffle-28ce9e.netlify.app/
+Live site: https://ryan-withers.github.io/bar-crawl-scout/
 
 ## What it does
 
@@ -18,7 +18,7 @@ The commissioner's own team is redacted throughout (it is a tool shared with lea
 
 ## Architecture
 
-Bar Crawl Scout is a **Vite + Svelte single-page app**. The source lives in `src/`; Netlify runs the build in CI and serves the static bundle, so the target device only ever loads finished output — it never runs a build tool.
+Bar Crawl Scout is a **Vite + Svelte single-page app**. The source lives in `src/`; GitHub Actions runs the build in CI and Pages serves the static bundle, so the target device only ever loads finished output — it never runs a build tool.
 
 - `index.html` — Vite entry that mounts the app.
 - `src/App.svelte` — the shell: masthead, window-mode bar, tab navigation, and the on-open live auto-load.
@@ -49,11 +49,13 @@ Either join can misattribute if a leaguemate's Sleeper display name differs from
 
 ## Deploying
 
-**Netlify (current).** `netlify.toml` runs `npm run build` and publishes `dist/`. The build runs in Netlify's CI on every push to the default branch; the device never builds. (Netlify's base directory is set to `bar-crawl-scout/`.)
+**GitHub Pages (current).** `.github/workflows/deploy.yml` builds on every push to `main` and publishes `dist/` to https://ryan-withers.github.io/bar-crawl-scout/. The app is served from the `/bar-crawl-scout/` subpath, and `npm run build` copies `dist/index.html` to `dist/404.html` so deep links survive a cold load — Pages serves the 404 document and the router takes it from there. `inspector.yml` smoke-tests that URL nightly.
+
+**Netlify (connected, but not the live site).** Netlify is still linked to this repo from an earlier setup. `netlify.toml` now cancels every build (`ignore = "exit 0"`) so it stops consuming free-tier build minutes publishing a site nobody opens. Unlink it in the Netlify UI and the file can be deleted.
 
 **Cloudflare Pages.** Point a Pages project at this repo, build command `npm run build`, output directory `dist`. It sits next to the sync Worker (below).
 
-To update the site: edit `src/`, push, and the host rebuilds and redeploys.
+To update the site: edit `src/`, push to `main`, and the deploy workflow rebuilds and redeploys.
 
 ## Tests
 
