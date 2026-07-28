@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { PLAYERS, PROJ, TEAMS, REPLACEMENT } from '../src/lib/data.js';
+import { PLAYERS, PROJ, TEAMS, REPLACEMENT, STAGE, GROWTH } from '../src/lib/data.js';
 import {
   ownerOf, isKept, isAvailable, r26, r27, windowVal, yearsLeft, needScores,
+  tierFromADP, ADP_ANCHORS,
 } from '../src/lib/models.js';
 
 // Build the keeper map exactly as the app does: start from PROJ, pad to 4 slots
@@ -96,3 +97,78 @@ describe('roster need', () => {
     }
   });
 });
+
+// A player row is [rank, name, pos, team, bye, adp, stage].
+const row = (name, pos, adp, stage) => [0, name, pos, 'X', 5, adp, stage];
+
+describe('the ADP talent curve', () => {
+  it('hits every anchor exactly — the old tier numbers still mean what they meant', () => {
+    for (const [adp, want] of ADP_ANCHORS) expect(tierFromADP(adp)).toBeCloseTo(want, 6);
+  });
+
+  it('never rewards a WORSE ADP, anywhere on the board', () => {
+    for (let a = 1; a < 260; a++) expect(tierFromADP(a)).toBeGreaterThanOrEqual(tierFromADP(a + 1));
+  });
+
+  it('separates players the staircase used to call identical', () => {
+    // The exact defect: 61 and 110 both scored 48, so ~50 picks of ADP were
+    // invisible and a stage multiplier alone decided the order inside a tier.
+    expect(tierFromADP(61)).toBeGreaterThan(tierFromADP(110));
+    expect(tierFromADP(71.3)).toBeGreaterThan(tierFromADP(110));
+    expect(tierFromADP(61) - tierFromADP(110)).toBeGreaterThan(15);
+  });
+
+  it('has no cliff at a boundary — one pick can\'t cost 15 points any more', () => {
+    for (const edge of [12, 30, 60, 110, 160, 200]) {
+      expect(Math.abs(tierFromADP(edge) - tierFromADP(edge + 1))).toBeLessThan(1);
+    }
+  });
+
+  it('clamps both ends instead of running off the scale', () => {
+    expect(tierFromADP(0)).toBe(100);
+    expect(tierFromADP(-5)).toBe(100);
+    expect(tierFromADP(9999)).toBe(12);
+    expect(tierFromADP(undefined)).toBe(12);
+  });
+});
+
+describe('a rookie is priced as the player he becomes', () => {
+  it('gains more into 2027 than the risers he is about to join', () => {
+    // rookie -> sophomore is the steepest step on the curve. It used to read
+    // 1.10, BELOW yr2 and asc, which is what sank rookies on a future board.
+    expect(STAGE.rookie[1]).toBeGreaterThan(STAGE.yr2[1]);
+    expect(STAGE.rookie[1]).toBeGreaterThan(STAGE.asc[1]);
+    expect(GROWTH.rookie).toBeGreaterThan(GROWTH.yr2);
+  });
+
+  it('is still discounted for 2026 — year one is genuinely a risk', () => {
+    expect(STAGE.rookie[0]).toBeLessThan(1);
+    expect(STAGE.rookie[0]).toBeLessThan(STAGE.prime[0]);
+  });
+
+  it('a better-ADP rookie lands level on win-now and clear on future', () => {
+    // The Tate/Pearsall shape, as a property: a rookie taken ~40 picks earlier
+    // than an ascending vet should NOT trail him on a future board.
+    const rookie = row('Rook', 'WR', 71, 'rookie');
+    const riser = row('Riser', 'WR', 110, 'asc');
+    expect(windowVal(rookie, {}, 'winnow')).toBeLessThanOrEqual(windowVal(riser, {}, 'winnow') + 1);
+    expect(windowVal(rookie, {}, 'future')).toBeGreaterThan(windowVal(riser, {}, 'future'));
+    expect(windowVal(rookie, {}, 'balanced')).toBeGreaterThan(windowVal(riser, {}, 'balanced'));
+  });
+
+  it('does not flip the board: a same-ADP rookie still trails a prime vet on win-now', () => {
+    const rookie = row('Rook', 'WR', 71, 'rookie');
+    const vet = row('Vet', 'WR', 71, 'prime');
+    expect(windowVal(rookie, {}, 'winnow')).toBeLessThan(windowVal(vet, {}, 'winnow'));
+    expect(windowVal(rookie, {}, 'future')).toBeGreaterThan(windowVal(vet, {}, 'future'));
+  });
+
+  it('and ADP still outranks stage — a first-rounder beats a late rookie everywhere', () => {
+    const stud = row('Stud', 'WR', 6, 'prime');
+    const lateRook = row('Late', 'WR', 150, 'rookie');
+    for (const m of ['winnow', 'balanced', 'future']) {
+      expect(windowVal(stud, {}, m)).toBeGreaterThan(windowVal(lateRook, {}, m));
+    }
+  });
+});
+
