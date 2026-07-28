@@ -4,6 +4,7 @@
 import {
   PLAYERS, TEAMS, KEPT2025, STAGE, MODES, PTS_BASE, POSRANK, GROWTH,
   CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT, RYAN,
+  POS_DECAY, POS_DEV, POS_ROOKIE_Y1,
 } from './data.js';
 
 // ADP -> talent base. The anchor points are the tiers this board has always
@@ -45,19 +46,71 @@ export const isKept = (ks, name) => { const o = ownerOf(ks, name); return !!o &&
 export const isAvailable = (ks, name) => !isKept(ks, name);
 export const isFinalYr = (ks, n) => isKept(ks, n) && yearsLeft(n) === 1;
 
-export function r26(p) { return Math.round(tierFromADP(p[5]) * STAGE[p[6] || ''][0] + ELITE_BONUS(p[5])); }
+// ROOKIE YEAR-ONE RISK, SCALED BY DRAFT CAPITAL.
+//
+// A flat discount was the wrong shape. It charged a consensus top-25 rookie —
+// a first-round back walking into a starting job, already vetted hard by the
+// market to go that early — exactly as much as a 150th-pick dart throw who may
+// never see the field. That flat penalty could exceed the ADP gap it was
+// applied over, which is how a top-25 rookie ended up behind a mid-round
+// second-year player on a win-now board despite being 30 picks better.
+//
+// The market has already priced most of the risk into ADP; what's left to
+// charge is the part ADP can't express — a rookie's floor is lower and his
+// variance wider than a known quantity's, and a win-now roster is the one that
+// can least afford that. How MUCH is left scales with capital: the earlier the
+// consensus takes him, the more of the doubt it has already resolved.
+export const ROOKIE_Y1 = [[1, 0.88], [150, 0.62]];
+export function rookieYearOne(adp, pos) {
+  const [[a0, m0], [a1, m1]] = ROOKIE_Y1;
+  const n = Number(adp);
+  const x = Number.isFinite(n) ? Math.min(a1, Math.max(a0, n)) : a1;
+  const byCapital = m0 + ((x - a0) / (a1 - a0)) * (m1 - m0);
+  // A rookie back contributes on day one far more reliably than a rookie
+  // receiver does. Never let it reach 1 — year one is always a discount.
+  return Math.min(0.97, byCapital * (POS_ROOKIE_Y1[pos] ?? 1));
+}
+
+/**
+ * The 2027 multiplier, bent by position. A career phase does not move at the
+ * same speed for a back and a receiver: DECAY scales how much of a declining
+ * stage's loss actually lands, DEV scales how much of a developing stage's
+ * gain is still to come. Flat stages stay flat under both.
+ */
+export function stageYear2(stage, pos) {
+  const base = (STAGE[stage] || STAGE[''])[1];
+  if (base >= 1) return 1 + (base - 1) * (POS_DEV[pos] ?? 1);
+  return 1 - (1 - base) * (POS_DECAY[pos] ?? 1);
+}
+
+// [2026, 2027] multipliers for a player row.
+export function stageMult(p) {
+  const s = (p && p[6]) || '';
+  const pos = (p && p[2]) || '';
+  const y1 = s === 'rookie' ? rookieYearOne(p[5], pos) : (STAGE[s] || STAGE[''])[0];
+  return [y1, stageYear2(s, pos)];
+}
+
+export function r26(p) { return Math.round(tierFromADP(p[5]) * stageMult(p)[0] + ELITE_BONUS(p[5])); }
 export function r27(p, ks) {
   const years = isKept(ks, p[1]) ? yearsLeft(p[1]) : 2;
   if (years < 2) return REPLACEMENT;
-  return Math.round(tierFromADP(p[5]) * STAGE[p[6] || ''][1] + ELITE_BONUS(p[5]));
+  return Math.round(tierFromADP(p[5]) * stageMult(p)[1] + ELITE_BONUS(p[5]));
 }
 export function windowVal(p, ks, mode) { const w = MODES[mode]; return Math.round(r26(p) * w[0] + r27(p, ks) * w[1]); }
 
 export function pts26(p) { const b = PTS_BASE[p[2]]; return Math.round(b[0] * Math.pow(b[1], (POSRANK[p[1]] || 30) - 1)); }
+// The projected-POINTS growth gets the same positional lens as the value
+// multiplier, so the P27 column can't tell a different story from R27.
+export function growthYear2(stage, pos) {
+  const base = GROWTH[stage] ?? GROWTH[''];
+  if (base >= 1) return 1 + (base - 1) * (POS_DEV[pos] ?? 1);
+  return 1 - (1 - base) * (POS_DECAY[pos] ?? 1);
+}
 export function pts27(p, ks) {
   const years = isKept(ks, p[1]) ? yearsLeft(p[1]) : 2;
   if (years < 2) return 0;
-  return Math.round(pts26(p) * GROWTH[p[6] || '']);
+  return Math.round(pts26(p) * growthYear2(p[6] || '', p[2]));
 }
 
 export const warchest = h => { const c = CAPITAL[h] || [0, 0, 0]; return c[0] * 3 + c[1] * 1.5 + c[2]; };
