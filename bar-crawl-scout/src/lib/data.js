@@ -119,14 +119,26 @@ export const PROJ={
  ShaydenB:[["Jonathan Taylor","VL"],["Nico Collins","VL"],["Quinshon Judkins","L"],["DeVonta Smith","U"]],
  ImyHunter:[["Bijan Robinson","VL"],["Malik Nabers","VL"],["Emeka Egbuka","L"],["Cam Skattebo","U"]]
 };
-export const STAGE={rookie:[0.70,1.10],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,1.00],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,1.00]};
+// [2026 multiplier, 2027 multiplier] on the ADP talent base.
+// The 2027 column has to price the player he BECOMES, not the label he wears
+// now: a 2026 rookie is a 2027 second-year player, and rookie -> sophomore is
+// the steepest step on this curve. It previously read 1.10 — BELOW yr2 (1.20)
+// and asc (1.15) — which said a first-year player gains less into 2027 than an
+// established riser does. Backwards, and it's the reason rookies sank on a
+// future board instead of leading it. He also climbs off a 0.70-discounted
+// 2026 base, so the step out has to be bigger than yr2's to land in the same
+// place. This is the dial to turn if you want rookies pushed harder still.
+export const STAGE={rookie:[0.70,1.28],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,1.00],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,1.00]};
 export const REPLACEMENT=52;
 export const MODES={winnow:[1.0,0.15],balanced:[1.0,1.0],future:[0.4,1.0]};
 export const MODEHINT={winnow:"2026 is everything, 2027 only a tiebreak. The final-year studs (Chase, Gibbs, Bijan) rise to the top. A 100-and-gone beats a 55-that-stays here.",balanced:"Both seasons equal. Two-year risers (Jeanty, Bowers) win. A 55-that-stays can beat a 100-and-gone.",future:"2027 dominant, 2026 at 40%. Final-year players crater. This is how the rebuilders see the board."};
 export const PTS_BASE={QB:[395,0.974],RB:[322,0.957],WR:[300,0.962],TE:[232,0.93]};
 export const POSRANK={};
 (function(){const by={};PLAYERS.forEach(p=>{(by[p[2]]=by[p[2]]||[]).push(p);});for(const k in by){by[k].sort((a,b)=>a[5]-b[5]).forEach((p,i)=>POSRANK[p[1]]=i+1);}})();
-export const GROWTH={rookie:1.12,yr2:1.16,asc:1.10,prime:0.97,aging:0.80,fading:0.58,"":0.95};
+// 2027 PROJECTED-POINTS growth. Same correction as STAGE's 2027 column and for
+// the same reason — a rookie's second year is his biggest jump, so he can't
+// grow slower (1.12) than the second-year players (1.16) he's about to join.
+export const GROWTH={rookie:1.22,yr2:1.16,asc:1.10,prime:0.97,aging:0.80,fading:0.58,"":0.95};
 export const CAPITAL={Ryan:[2,0,3],joshleota:[0,0,1],WinzTheBrah:[1,1,1],JohnnyDuff:[0,0,0],jduddy9:[1,0,0],jpdonners:[0,0,0],ATorelli4:[2,3,1],JShrimp341:[0,1,0],ShaydenB:[2,2,2],ImyHunter:[2,3,2]};
 export const FIRSTROUND=[["ImyHunter",""],["Ryan","JShrimp slot"],["ShaydenB",""],["Ryan","own"],["ATorelli4",""],["ImyHunter","jpdonners slot"],["WinzTheBrah",""],["ShaydenB","joshleota slot"],["ATorelli4","Duff slot"],["jduddy9",""]];
 export const NEED_TGT={QB:1,RB:3,WR:3,TE:1};

@@ -6,7 +6,27 @@ import {
   CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT, RYAN,
 } from './data.js';
 
-export const tierFromADP = a => (a <= 12 ? 100 : a <= 30 ? 85 : a <= 60 ? 68 : a <= 110 ? 48 : a <= 160 ? 32 : 20);
+// ADP -> talent base. The anchor points are the tiers this board has always
+// used; what changed is that we INTERPOLATE between them instead of stepping.
+//
+// As a staircase, every player from ADP 61 to ADP 110 scored an identical 48 —
+// so a receiver going 71st and one going 110th were, to the model, the same
+// player, and a single pick either side of a boundary swung the value 15-20.
+// That flattening is what let a stage multiplier alone decide the order inside
+// a tier. Straight-line interpolation keeps every anchor exactly where it was
+// and just stops throwing away the resolution in between.
+export const ADP_ANCHORS = [[1, 100], [12, 100], [30, 85], [60, 68], [110, 48], [160, 32], [200, 20], [260, 12]];
+export function tierFromADP(a) {
+  // Missing ADP means undrafted, not pick zero — clamp those apart.
+  const n = Number(a);
+  const x = Number.isFinite(n) ? Math.max(1, n) : 260;
+  for (let i = 1; i < ADP_ANCHORS.length; i++) {
+    const [x0, y0] = ADP_ANCHORS[i - 1];
+    const [x1, y1] = ADP_ANCHORS[i];
+    if (x <= x1) return y0 + ((x - x0) / (x1 - x0)) * (y1 - y0);
+  }
+  return ADP_ANCHORS[ADP_ANCHORS.length - 1][1];
+}
 export const ELITE_BONUS = a => (a <= 4 ? 12 : a <= 8 ? 7 : a <= 12 ? 3 : 0);
 export const yearsLeft = n => (KEPT2025.has(n) ? 1 : 2);
 
