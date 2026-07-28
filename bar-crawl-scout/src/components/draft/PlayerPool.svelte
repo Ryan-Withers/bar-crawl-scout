@@ -1,35 +1,53 @@
 <script>
-  // THE POOL — position tabs, search, two sorts, and visible tier breaks so you
-  // can see the cliff coming. Star a player to queue him; DRAFT takes him now.
-  import { blendValue, tiersOf, slugify } from '../../lib/engine/mockdraft.ts';
+  // THE POOL — a focus dial, position buttons (FLX included), a needs filter,
+  // search, and visible tier breaks so you can see the cliff coming. Star a
+  // player to queue him; DRAFT takes him now.
+  import { blendValue, tiersOf, slugify, FOCUS_ORDER, FOCUS_LABEL } from '../../lib/engine/mockdraft.ts';
   import { posColor, POS_TABS } from './theme.js';
 
   export let pool = [];
   export let userTurn = false;
   export let queue = [];
   export let windowPref = 50;      // your persona's win-now/future dial
+  export let focus = 'balanced';   // which of the three is lit
+  export let onFocus = null;       // null while spectating — nothing to focus
+  export let flexPos = [];         // positions this league's flex seats accept
+  export let needs = [];           // positions that would fill a starting hole
   export let onPick = () => {};
   export let onStar = () => {};
   export let onAutoPick = () => {};
-  export let sortBy = 'me';        // 'me' = your board | 'balanced'
   export let posFilter = 'ALL';
+  export let onlyNeeds = false;
   export let q = '';
 
   let limit = 60;
-  $: if (posFilter || q || sortBy) limit = 60;   // any re-filter resets the window
+  // Any re-filter starts the window again from the top.
+  $: if (posFilter || q || onlyNeeds || windowPref != null) limit = 60;
 
-  const val = (p) => (sortBy === 'me' ? p.me : p.v.balanced);
+  // FLX only exists if the league actually starts a flex seat.
+  $: tabs = flexPos.length ? [...POS_TABS, 'FLX'] : POS_TABS;
+  $: flexSet = new Set(flexPos);
+  $: needSet = new Set(needs);
+  $: if (posFilter === 'FLX' && !flexPos.length) posFilter = 'ALL';
+  $: if (onlyNeeds && !needs.length) onlyNeeds = false;
+
+  const matchesPos = (p, f, flex) => (f === 'ALL' ? true : f === 'FLX' ? flex.has(p.pos) : p.pos === f);
+
+  const val = (p) => p.me;
   $: ranked = pool
     .map((p) => ({ ...p, me: Math.round(blendValue(p, windowPref)) }))
     .sort((a, b) => val(b) - val(a));
   $: needle = q.trim().toLowerCase();
   $: filtered = ranked.filter((p) =>
-    (posFilter === 'ALL' || p.pos === posFilter)
+    matchesPos(p, posFilter, flexSet)
+    && (!onlyNeeds || needSet.has(p.pos))
     && (!needle || p.name.toLowerCase().includes(needle) || p.team.toLowerCase() === needle || p.pos.toLowerCase() === needle));
   $: tiers = tiersOf(filtered.map(val));
   $: shown = filtered.slice(0, limit);
   $: queued = new Set(queue);
   $: counts = pool.reduce((a, p) => { a[p.pos] = (a[p.pos] || 0) + 1; return a; }, {});
+  $: flexCount = pool.reduce((n, p) => n + (flexSet.has(p.pos) ? 1 : 0), 0);
+  $: tabCount = (t) => (t === 'FLX' ? flexCount : counts[t] || 0);
 </script>
 
 <div class="pool" data-testid="pool">
@@ -40,22 +58,46 @@
     {/if}
   </div>
 
+  {#if onFocus}
+    <div class="focus" role="group" aria-label="Draft focus" data-testid="focus">
+      <span class="flbl">Focus</span>
+      {#each FOCUS_ORDER as f}
+        <button
+          class="fbtn" class:on={focus === f}
+          aria-pressed={focus === f}
+          data-testid={'focus-' + f}
+          on:click={() => onFocus(f)}
+        >{FOCUS_LABEL[f]}</button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="tabs" role="group" aria-label="Position filter">
-    {#each POS_TABS as t}
+    {#each tabs as t}
       <button
         class="tab" class:on={posFilter === t}
+        aria-pressed={posFilter === t}
+        title={t === 'FLX' ? 'Anyone who can fill your flex seat: ' + flexPos.join(', ') : undefined}
         data-testid={'pos-' + t.toLowerCase()}
         on:click={() => (posFilter = t)}
-      >{t}{#if t !== 'ALL'}<i>{counts[t] || 0}</i>{/if}</button>
+      >{t}{#if t !== 'ALL'}<i>{tabCount(t)}</i>{/if}</button>
     {/each}
   </div>
 
   <div class="poolbar">
-    <input class="search" placeholder="search name, team or pos…" aria-label="Search players" bind:value={q} data-testid="pool-search" />
-    <span class="sorts">
-      <button class="mini" class:on={sortBy === 'me'} on:click={() => (sortBy = 'me')} data-testid="sort-me">my board</button>
-      <button class="mini" class:on={sortBy === 'balanced'} on:click={() => (sortBy = 'balanced')} data-testid="sort-balanced">balanced</button>
-    </span>
+    <input class="search" placeholder="search name or team…" aria-label="Search players" bind:value={q} data-testid="pool-search" />
+    {#if needs.length}
+      <button
+        class="mini needs" class:on={onlyNeeds}
+        aria-pressed={onlyNeeds}
+        title="Only players who'd fill a starting seat you haven't filled: {needs.join(', ')}"
+        data-testid="only-needs"
+        on:click={() => (onlyNeeds = !onlyNeeds)}
+      >⚑ my needs<i>{needs.length}</i></button>
+    {/if}
+    {#if posFilter !== 'ALL' || onlyNeeds || needle}
+      <button class="mini clear" data-testid="clear-filters" on:click={() => { posFilter = 'ALL'; onlyNeeds = false; q = ''; }}>clear</button>
+    {/if}
   </div>
 
   <div class="rows">
@@ -69,7 +111,7 @@
           {p.name}
           <small>{p.team}{p.bye ? ' · bye ' + p.bye : ''}</small>
         </span>
-        <span class="pv" title="{sortBy === 'me' ? 'your board' : 'balanced board'} value">{val(p)}</span>
+        <span class="pv" title="value on your {FOCUS_LABEL[focus].toLowerCase()} board">{val(p)}</span>
         <button
           class="star" class:on={queued.has(p.name)}
           aria-pressed={queued.has(p.name)}
@@ -82,7 +124,11 @@
         {/if}
       </div>
     {:else}
-      <p class="none">Nobody left matching that. Clear the search.</p>
+      <p class="none">
+        {#if onlyNeeds && posFilter !== 'ALL'}No {posFilter} left who'd fill a starting seat — drop the needs filter or try another position.
+        {:else if onlyNeeds}Every starting seat is filled. Turn off <b>my needs</b> to draft depth.
+        {:else}Nobody left matching that. Clear the filters.{/if}
+      </p>
     {/each}
     {#if filtered.length > shown.length}
       <button class="more" on:click={() => (limit += 60)}>show {Math.min(60, filtered.length - shown.length)} more · {filtered.length - shown.length} left</button>
@@ -98,19 +144,37 @@
   .auto { margin-left: auto; font-family: var(--mono); font-size: 10.5px; background: var(--field-3); border: 1px solid var(--line); color: var(--chalk); border-radius: 7px; padding: 6px 10px; cursor: pointer; min-height: 34px; }
   .auto:hover { border-color: var(--blue); color: var(--blue-deep); }
 
+  /* THE FOCUS DIAL — the one control you'll actually reach for mid-draft, so
+     it sits above the positions and stays put all draft long. */
+  .focus { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+  .flbl {
+    font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); flex: none; margin-right: 2px;
+  }
+  .fbtn {
+    flex: 1; font-family: var(--display); font-weight: 800; font-size: 10.5px; letter-spacing: .02em;
+    text-transform: uppercase; background: #fff; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 7px; padding: 7px 4px; cursor: pointer; min-height: 36px;
+  }
+  .fbtn:hover { border-color: var(--blue); color: var(--blue-deep); }
+  .fbtn.on { background: var(--blue-wash); border-color: var(--blue); color: var(--blue-deep); box-shadow: inset 0 0 0 1px var(--blue); }
+
   .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
   .tab {
-    flex: 1; font-family: var(--mono); font-size: 11px; font-weight: 700; background: var(--field-3);
-    border: 1px solid var(--line); color: var(--muted); border-radius: 7px; padding: 7px 4px; cursor: pointer; min-height: 36px;
+    flex: 1; min-width: 0; font-family: var(--mono); font-size: 11px; font-weight: 700; background: var(--field-3);
+    border: 1px solid var(--line); color: var(--muted); border-radius: 7px; padding: 7px 2px; cursor: pointer; min-height: 36px;
   }
   .tab i { font-style: normal; display: block; font-size: 8px; font-weight: 400; opacity: .8; }
   .tab.on { background: var(--blue); border-color: var(--blue); color: #fff; }
 
   .poolbar { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
   .poolbar .search { flex: 1 1 150px; min-width: 0; }
-  .sorts { display: flex; gap: 4px; }
   .mini { font-family: var(--mono); font-size: 10px; background: var(--field-3); border: 1px solid var(--line); color: var(--chalk); border-radius: 6px; padding: 4px 9px; cursor: pointer; min-height: 32px; }
   .mini.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .needs { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .needs i { font-style: normal; font-size: 9px; background: var(--line); color: var(--chalk); border-radius: 8px; padding: 1px 5px; }
+  .needs.on i { background: rgba(255,255,255,.28); color: #fff; }
+  .clear { flex: none; color: var(--muted); }
 
   .rows { max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .prow { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; }
