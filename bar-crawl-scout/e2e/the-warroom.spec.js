@@ -58,7 +58,9 @@ test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to en
   await page.getByTestId('sim-to-end').click();
 
   // THE DEBRIEF: your grade first and enormous, then the room and the board.
-  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  // sim-to-end really does sim every remaining pick — ~90 of them, each with a
+  // shrinking but real delay. On a loaded CI box that outran a 30s wait.
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('my-grade')).toContainText(/Your draft grade/i);
   await expect(page.getByTestId('my-grade')).toContainText(/[A-D][+-]?/);
   await expect(page.getByTestId('grade-board').locator('.grow')).toHaveCount(10);
@@ -137,7 +139,7 @@ test('spectate mode with the clock off sims all ten and lands on grades', async 
   await expect(page.getByTestId('clock')).toBeVisible();
   await expect(page.getByTestId('pickclock')).toHaveCount(0);
   await page.getByTestId('sim-to-end').click();
-  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('my-grade')).toContainText(/Best draft in the room/i);
   await expect(page.getByTestId('draft-board')).toBeVisible();
   expect(errors, errors.join('\n')).toHaveLength(0);
@@ -148,7 +150,7 @@ test('mock history persists a finished draft', async ({ page }) => {
   await page.getByTestId('spectate').check();
   await page.getByTestId('start').click();
   await page.getByTestId('sim-to-end').click();
-  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('new-setup').click();
   await expect(page.getByText(/Past mocks/i)).toBeVisible();
 });
@@ -193,7 +195,7 @@ test('copy for the group chat puts the recap on the clipboard', async ({ browser
   await page.getByTestId('spectate').check();
   await page.getByTestId('start').click();
   await page.getByTestId('sim-to-end').click();
-  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 60_000 });
 
   await page.getByTestId('copy-recap').click();
   await expect(page.getByText(/copied — go stir the pot/i)).toBeVisible();
@@ -248,7 +250,7 @@ test('phone 375px: tabs, no overflow, and the draft button under your thumb', as
 
   // …and the debrief fits too.
   await page.getByTestId('sim-to-end').click();
-  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('debrief')).toBeVisible({ timeout: 60_000 });
   expect(await overflow(page), 'the debrief overflows sideways').toBeLessThanOrEqual(2);
   expect(errors, errors.join('\n')).toHaveLength(0);
   await ctx.close();
@@ -359,4 +361,75 @@ test('spectating hides the focus dial — no seat, nothing to focus', async ({ p
   await expect(page.getByTestId('pool')).toBeVisible();
   await expect(page.getByTestId('focus')).toHaveCount(0);
   await expect(page.getByTestId('only-needs')).toHaveCount(0);
+});
+
+test('rookies are marked on the board and can be filtered to on their own', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('./mock');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('pool')).toBeVisible();
+
+  // The chip says how many are left, and there are some.
+  const rook = page.getByTestId('only-rookies');
+  await expect(rook).toBeVisible();
+  const total = Number(await rook.locator('i').innerText());
+  expect(total).toBeGreaterThan(0);
+
+  // Filtering to rookies: every row shown carries the R mark.
+  await rook.click();
+  await expect(rook).toHaveAttribute('aria-pressed', 'true');
+  const rows = page.locator('[data-testid="pool"] .prow');
+  const shown = await rows.count();
+  expect(shown).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="pool"] .prow .rk')).toHaveCount(shown);
+
+  // And the count on the chip is the real number on the board, not the page size.
+  await expect(page.locator('[data-testid="pool"] .hd b')).toHaveText(String(total));
+
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
+
+test('the rookie filter composes with position — rookie RBs, not all RBs', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('pool')).toBeVisible();
+
+  await page.getByTestId('pos-rb').click();
+  const allRB = await page.locator('[data-testid="pool"] .prow').count();
+
+  await page.getByTestId('only-rookies').click();
+  const rookieRB = await page.locator('[data-testid="pool"] .prow').count();
+
+  expect(rookieRB).toBeGreaterThan(0);
+  expect(rookieRB).toBeLessThan(allRB);
+  // Everything left is an RB AND a rookie.
+  const pos = new Set((await page.locator('[data-testid="pool"] .prow .pos').allInnerTexts()).map((t) => t.trim()));
+  expect(pos).toEqual(new Set(['RB']));
+  await expect(page.locator('[data-testid="pool"] .prow .rk')).toHaveCount(rookieRB);
+
+  // Clear drops both filters at once.
+  await page.getByTestId('clear-filters').click();
+  await expect(page.getByTestId('only-rookies')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('pos-all')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a future focus lifts rookies up the board — the reason to reach', async ({ page }) => {
+  await page.goto('./mock');
+  await page.getByTestId('lobby-focus-winnow').click();
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('pool')).toBeVisible();
+
+  // How far down the board the best rookie sits, on each focus.
+  const bestRookieRank = async () => {
+    const marks = await page.locator('[data-testid="pool"] .prow').evaluateAll((rows) =>
+      rows.findIndex((r) => r.querySelector('.rk')));
+    return marks;
+  };
+  const winnowRank = await bestRookieRank();
+  await page.getByTestId('focus-future').click();
+  const futureRank = await bestRookieRank();
+
+  expect(winnowRank).toBeGreaterThanOrEqual(0);
+  expect(futureRank).toBeGreaterThanOrEqual(0);
+  expect(futureRank).toBeLessThan(winnowRank); // rookies climb when you draft for 2027
 });

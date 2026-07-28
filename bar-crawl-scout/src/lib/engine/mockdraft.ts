@@ -13,6 +13,7 @@ export interface MockPlayer {
   team: string;
   bye: number;
   v: { winnow: number; balanced: number; future: number };
+  stage?: string;              // rookie | yr2 | asc | prime | aging | fading | ''
 }
 export interface Persona { window: number; chaos: number }
 export interface MockTeam {
@@ -466,6 +467,43 @@ export function flexPositions(slots: string[]): string[] {
   const hit = new Set<string>();
   for (const s of slots || []) for (const p of FLEX_ELIG[s] || []) hit.add(p);
   return ['QB', 'RB', 'WR', 'TE'].filter((p) => hit.has(p));
+}
+
+/**
+ * A first-year player. The board already stages every player (rookie/yr2/asc/
+ * prime/aging/fading) and prices them off it — a rookie is marked 0.70 on 2026
+ * and 1.10 on 2027, which is exactly why they sit low on a win-now board and
+ * climb on a future one. This is the single place that decides what counts.
+ */
+export const isRookie = (p: MockPlayer): boolean => p?.stage === 'rookie';
+
+export interface PoolFilter {
+  pos?: string;            // 'ALL' | a position | 'FLX'
+  flex?: string[];         // what FLX accepts in this league
+  needs?: string[];        // positions that would fill a starting seat
+  onlyNeeds?: boolean;
+  rookiesOnly?: boolean;
+  q?: string;              // name or team
+}
+
+/**
+ * Every pool filter in one place, ANDed together, so "rookie RBs who'd fill a
+ * starting seat" is a thing you can actually ask for. Search deliberately does
+ * NOT match position any more — that's what the buttons are for.
+ */
+export function filterPool(pool: MockPlayer[], f: PoolFilter = {}): MockPlayer[] {
+  const pos = f.pos || 'ALL';
+  const flex = new Set(f.flex || []);
+  const needs = new Set(f.needs || []);
+  const needle = (f.q || '').trim().toLowerCase();
+  return (pool || []).filter((p) => {
+    if (pos === 'FLX') { if (!flex.has(p.pos)) return false; }
+    else if (pos !== 'ALL' && p.pos !== pos) return false;
+    if (f.onlyNeeds && !needs.has(p.pos)) return false;
+    if (f.rookiesOnly && !isRookie(p)) return false;
+    if (needle && !p.name.toLowerCase().includes(needle) && p.team.toLowerCase() !== needle) return false;
+    return true;
+  });
 }
 
 /**
