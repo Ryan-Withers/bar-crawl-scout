@@ -1,8 +1,17 @@
-# Bar Crawl Scout - Vite + Svelte SPA. Netlify runs the build in CI; the target
-# device only ever loads the finished static bundle in dist/.
+# Bar Crawl Scout is NOT deployed by Netlify. The live site is GitHub Pages —
+# .github/workflows/deploy.yml builds and publishes it, and the smoke test in
+# inspector.yml checks that URL. Netlify is still connected to this repo and
+# would otherwise rebuild the whole app on every push and pull request, burning
+# free-tier build minutes to publish a site nobody opens.
+#
+# `ignore` decides whether a build is needed: exit 0 means "nothing changed,
+# stop", any non-zero means "go". Hardcoding `exit 0` cancels every build
+# before it installs or compiles anything.
+#   https://docs.netlify.com/build/configure-builds/ignore-builds/
+#
+# Delete this file once the site is disconnected in the Netlify UI
+# (Site configuration -> Build & deploy -> Manage repository -> Unlink).
+# Deleting it BEFORE that would hand the builds back to the dashboard's own
+# settings and start the spend again.
 [build]
-  command = "npm run build"
-  publish = "dist"
-
-[build.environment]
-  NODE_VERSION = "20"
+  ignore = "exit 0"
