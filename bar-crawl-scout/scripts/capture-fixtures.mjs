@@ -118,7 +118,11 @@ async function main() {
   const trimmed = {};
   for (const id of keep) {
     const v = all[id]; if (!v) continue;
-    trimmed[id] = { player_id: id, full_name: v.full_name, first_name: v.first_name, last_name: v.last_name, position: v.position, team: v.team, search_rank: v.search_rank, fantasy_positions: v.fantasy_positions };
+    // years_exp + age are what make the career-stage tags in data.js auditable
+    // instead of a matter of memory: years_exp 0 IS a rookie, 1 IS a second-year
+    // player, and no amount of confident recall beats the field. See
+    // scripts/stage-check.mjs.
+    trimmed[id] = { player_id: id, full_name: v.full_name, first_name: v.first_name, last_name: v.last_name, position: v.position, team: v.team, search_rank: v.search_rank, fantasy_positions: v.fantasy_positions, years_exp: v.years_exp ?? null, age: v.age ?? null };
   }
   await save('players-trimmed.json', trimmed);
 

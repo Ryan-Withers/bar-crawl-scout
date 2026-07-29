@@ -32,7 +32,7 @@ export const PLAYERS=[
  [53,"Bucky Irving","RB","TB",10,54.3,"asc"],[54,"Terry McLaurin","WR","WAS",7,54.3,"prime"],
  [55,"Davante Adams","WR","LAR",11,54.3,"fading"],[56,"Drake Maye","QB","NE",11,54.7,"asc"],
  [57,"Jameson Williams","WR","DET",6,55.0,"asc"],[58,"D'Andre Swift","RB","CHI",10,55.3,"prime"],
- [59,"Jaylen Waddle","WR","DEN",10,55.7,"prime"],[60,"Jadarian Price","RB","SEA",11,57.7,"yr2"],
+ [59,"Jaylen Waddle","WR","DEN",10,55.7,"prime"],[60,"Jadarian Price","RB","SEA",11,57.7,"rookie"],
  [61,"Jayden Daniels","QB","WAS",7,59.0,"asc"],[62,"Bhayshul Tuten","RB","JAC",7,60.7,"yr2"],
  [63,"Rome Odunze","WR","CHI",10,63.0,"asc"],[64,"Caleb Williams","QB","CHI",10,65.7,"asc"],
  [65,"Christian Watson","WR","GB",11,68.3,"prime"],[66,"Jalen Hurts","QB","PHI",10,68.3,"prime"],
@@ -46,7 +46,7 @@ export const PLAYERS=[
  [81,"Sam LaPorta","TE","DET",6,81.3,"asc"],[82,"Justin Herbert","QB","LAC",7,81.3,"prime"],
  [83,"Alec Pierce","WR","IND",13,81.7,""],[84,"Tony Pollard","RB","TEN",9,81.7,"prime"],
  [85,"Courtland Sutton","WR","DEN",10,85.0,"prime"],[86,"DK Metcalf","WR","PIT",9,85.7,"prime"],
- [87,"Jaxson Dart","QB","NYG",8,85.7,"rookie"],[88,"Rico Dowdle","RB","PIT",9,86.0,"prime"],
+ [87,"Jaxson Dart","QB","NYG",8,85.7,"yr2"],[88,"Rico Dowdle","RB","PIT",9,86.0,"prime"],
  [89,"Matthew Stafford","QB","LAR",11,89.3,"fading"],[90,"Kyle Monangai","RB","CHI",10,89.3,"yr2"],
  [91,"Michael Wilson","WR","ARI",14,89.3,""],[92,"Patrick Mahomes II","QB","KC",5,91.7,"prime"],
  [93,"Chris Godwin Jr.","WR","TB",10,91.7,"prime"],[94,"Makai Lemon","WR","PHI",10,92.7,"rookie"],
@@ -120,15 +120,24 @@ export const PROJ={
  ImyHunter:[["Bijan Robinson","VL"],["Malik Nabers","VL"],["Emeka Egbuka","L"],["Cam Skattebo","U"]]
 };
 // [2026 multiplier, 2027 multiplier] on the ADP talent base.
-// The 2027 column has to price the player he BECOMES, not the label he wears
-// now: a 2026 rookie is a 2027 second-year player, and rookie -> sophomore is
-// the steepest step on this curve. It previously read 1.10 — BELOW yr2 (1.20)
-// and asc (1.15) — which said a first-year player gains less into 2027 than an
-// established riser does. Backwards, and it's the reason rookies sank on a
-// future board instead of leading it. He also climbs off a 0.70-discounted
-// 2026 base, so the step out has to be bigger than yr2's to land in the same
-// place. This is the dial to turn if you want rookies pushed harder still.
-export const STAGE={rookie:[0.70,1.28],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,0.90],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,0.90]};
+//
+// The 2027 column prices the player he BECOMES, not the label he wears now: a
+// 2026 rookie is a 2027 second-year player, and rookie -> sophomore is the
+// steepest step on this curve. It once read 1.10 — BELOW yr2 (1.20) and asc
+// (1.15) — which said a first-year player gains less into 2027 than an
+// established riser. Backwards, and the reason rookies sank on a future board.
+//
+// Set at 1.42 rather than parity-plus-a-bit, for a reason the two-year window
+// can't express on its own: this league keeps three players EVERY year, so a
+// 22-year-old is still an asset in 2028 and a 29-year-old is not. That residual
+// sits entirely outside the horizon the board prices, and rookies are the only
+// cohort whose 2026 is actively discounted — so their two-year total
+// under-represents their asset value by more than any other stage's does.
+// Booking the residual in the 2027 column is the honest place for it.
+//
+// This is still the dial. Raise it if rookies should go earlier; drop it toward
+// 1.20 to price them as a strict two-season asset and nothing beyond.
+export const STAGE={rookie:[0.70,1.42],yr2:[1.00,1.20],asc:[1.00,1.15],prime:[1.00,0.90],aging:[1.00,0.70],fading:[0.85,0.45],"":[1.00,0.90]};
 
 // POSITIONAL AGE CURVES — how fast a career phase actually moves, by position.
 // The stage tags above are position-blind: "prime" meant [1.00, 1.00] whether
