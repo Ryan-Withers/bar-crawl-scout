@@ -16,7 +16,8 @@
     "bundle-budget": "node scripts/bundle-budget.mjs",
     "drift": "tsx scripts/drift-check.ts",
     "smoke": "playwright test --config playwright.smoke.config.js",
-    "capture": "node scripts/capture-fixtures.mjs"
+    "capture": "node scripts/capture-fixtures.mjs",
+    "stage-check": "node scripts/stage-check.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
