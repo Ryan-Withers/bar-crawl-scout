@@ -27,7 +27,7 @@ test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to en
   await expect(page.getByText(/THE WAR ROOM/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /the league/i })).toHaveCount(0); // hub chrome hidden
   await expect(page.getByTestId('gm-list').locator('li')).toHaveCount(10);
-  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Balanced · keeps you guessing/);
+  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Balanced · mostly disciplined/);
   await expect(page.getByTestId('customise-gms').locator('input[type=range]')).toHaveCount(20);
 
   await page.getByTestId('start').click();

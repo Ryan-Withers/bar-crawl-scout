@@ -4,7 +4,7 @@ import {
   needFactor, unfilledStarters, buildSequence, sequenceFromSlots, currentHandle, shuffle, shortName, recapText,
   pickCode, slugify, queueTop, autoPickName, toggleQueued, moveQueued, pruneQueue,
   pushSnapshot, undoLast, rewindToHandle, tierBreaks, tiersOf, clockPhase, fmtClock,
-  personaPhrase, picksUntil, nextPickOverall, fillSlots,
+  personaPhrase, picksUntil, nextPickOverall, fillSlots, chaosResponse, botChoice,
   focusWindow, focusOf, flexPositions, needPositions, FOCUS_ORDER,
   isRookie, filterPool,
 } from '../src/lib/engine/mockdraft';
@@ -405,12 +405,15 @@ describe('draft room — the pick clock', () => {
 
 describe('draft room — GM personality in plain English', () => {
   it('turns two dials into a phrase a human reads', () => {
-    expect(personaPhrase({ window: 50, chaos: 50 })).toBe('Balanced · keeps you guessing');
+    // A GM on the middle of the chaos dial really is mostly disciplined now —
+    // the response curve made 50 behave like a quarter-turn used to.
+    expect(personaPhrase({ window: 50, chaos: 50 })).toBe('Balanced · mostly disciplined');
+    expect(personaPhrase({ window: 50, chaos: 70 })).toBe('Balanced · keeps you guessing');
     expect(personaPhrase({ window: 0, chaos: 0 })).toBe('Win-now · by the book');
     expect(personaPhrase({ window: 100, chaos: 100 })).toBe('Future-first · total chaos');
-    expect(personaPhrase({ window: 30, chaos: 20 })).toBe('Lean win-now · mostly disciplined');
+    expect(personaPhrase({ window: 30, chaos: 20 })).toBe('Lean win-now · by the book');
     expect(personaPhrase({ window: 75, chaos: 80 })).toBe('Lean future · unpredictable');
-    expect(personaPhrase({})).toBe('Balanced · keeps you guessing'); // defaults
+    expect(personaPhrase({})).toBe('Balanced · mostly disciplined'); // defaults
   });
 });
 
@@ -634,6 +637,59 @@ describe('filterPool', () => {
   it('survives an empty or missing pool', () => {
     expect(filterPool([], { pos: 'RB' })).toEqual([]);
     expect(filterPool(undefined, { pos: 'RB' })).toEqual([]);
+  });
+});
+
+describe('the chaos dial response curve', () => {
+  it('puts the middle of the dial where a quarter-turn used to be', () => {
+    // The whole point: 50 should now behave like 25 did.
+    expect(chaosResponse(50)).toBe(25);
+  });
+
+  it('pins both ends exactly where they were', () => {
+    expect(chaosResponse(0)).toBe(0);
+    expect(chaosResponse(100)).toBe(100);
+  });
+
+  it('is calmer than the raw dial everywhere in between, and never above it', () => {
+    for (let c = 0; c <= 100; c++) expect(chaosResponse(c)).toBeLessThanOrEqual(c);
+    for (let c = 1; c < 100; c++) expect(chaosResponse(c)).toBeLessThan(c);
+  });
+
+  it('still rises all the way — calmer is not flatter', () => {
+    for (let c = 0; c < 100; c++) expect(chaosResponse(c + 1)).toBeGreaterThan(chaosResponse(c));
+  });
+
+  it('clamps junk instead of producing junk', () => {
+    expect(chaosResponse(-20)).toBe(0);
+    expect(chaosResponse(500)).toBe(100);
+    expect(chaosResponse(undefined)).toBe(0);
+    expect(chaosResponse(NaN)).toBe(0);
+  });
+
+  it('a mid-dial room really does draft closer to its own board than a wild one', () => {
+    // Behavioural, not arithmetic: run the same seeded room at three settings
+    // and count how often the bot takes the top-scored player available.
+    const teamsAt = (chaos) => Array.from({ length: 4 }, (_, i) =>
+      ({ handle: 'gm' + i, team: 'gm' + i, persona: { window: 50, chaos }, keepers: [], isUser: false }));
+    const takesBest = (chaos) => {
+      let hits = 0; let n = 0;
+      for (let seed = 0; seed < 6; seed++) {
+        let st = createMock({ teams: teamsAt(chaos), order: ['gm0', 'gm1', 'gm2', 'gm3'], slots: SLOTS, rosterSize: 8, seed, pool });
+        for (let k = 0; k < 12 && !st.done; k++) {
+          const top = st.pool.slice().sort((a, b) => b.v.balanced - a.v.balanced)[0];
+          if (botChoice(st).name === top.name) hits++;
+          n++;
+          st = makePick(st);
+        }
+      }
+      return hits / n;
+    };
+    const byTheBook = takesBest(0);
+    const middle = takesBest(50);
+    const wild = takesBest(100);
+    expect(byTheBook).toBeGreaterThan(middle);
+    expect(middle).toBeGreaterThan(wild);
   });
 });
 

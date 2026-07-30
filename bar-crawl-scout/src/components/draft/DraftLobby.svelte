@@ -144,7 +144,7 @@
   <details class="tweak" data-testid="customise-gms">
     <summary>⚙ Customise GMs — two dials each</summary>
     <p class="meta">
-      <b>Window</b> slides a GM from win-now to future value. <b>Chaos</b> is how far off the top of their own board they'll stray — 0 always takes the best man, 100 can do something genuinely stupid.
+      <b>Window</b> slides a GM from win-now to future value. <b>Chaos</b> is how far off the top of their own board they'll stray — 0 always takes the best man, 100 can do something genuinely stupid. The dial is deliberately calm through the middle: half way along, a GM still takes the best available roughly one pick in four.
     </p>
     <div class="personas">
       {#each teams as [h, t]}

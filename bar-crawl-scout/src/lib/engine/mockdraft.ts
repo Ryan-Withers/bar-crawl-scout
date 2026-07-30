@@ -178,12 +178,32 @@ export const currentHandle = (s: MockState): string | null => (s.done ? null : s
 export const roundOf = (s: MockState, cursor = s.cursor): number =>
   Math.floor(cursor / s.cfg.order.length) + 1;
 
+/**
+ * THE CHAOS DIAL'S RESPONSE CURVE.
+ *
+ * The slider reads 0-100, but its FEEL was front-loaded: by the halfway mark a
+ * GM already took the best available player only ~17% of the time and reached
+ * five names down the board on an average pick, so a room left on the defaults
+ * drafted like a wild one. Squaring the input pulls the middle down to what a
+ * quarter-turn used to do (50 -> 25) while pinning both ends exactly where they
+ * were — 0 is still strictly by the book, 100 is still total chaos.
+ *
+ * Applied at the point of USE rather than to the stored persona, so nobody's
+ * saved GMs get rewritten underneath them.
+ */
+export const chaosResponse = (chaos: number): number => {
+  const n = Number(chaos);
+  const c = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+  return (c * c) / 100;
+};
+
 // The bot's choice for the team on the clock (does not mutate state).
 export function botChoice(s: MockState): MockPlayer {
   const h = currentHandle(s);
   const team = s.cfg.teams.find((t) => t.handle === h)!;
   const roster = s.rosters[h!];
-  const { window, chaos } = team.persona;
+  const { window } = team.persona;
+  const chaos = chaosResponse(team.persona.chaos);
 
   // Endgame guard: if remaining picks are only just enough to fill dedicated
   // starting holes, restrict to those positions (even a maniac fields a full team).
@@ -528,7 +548,10 @@ export function personaPhrase(p: Persona): string {
   const w = Math.max(0, Math.min(100, p?.window ?? 50));
   const c = Math.max(0, Math.min(100, p?.chaos ?? 50));
   const win = w <= 15 ? 'Win-now' : w <= 40 ? 'Lean win-now' : w <= 60 ? 'Balanced' : w <= 85 ? 'Lean future' : 'Future-first';
-  const cha = c <= 10 ? 'by the book' : c <= 35 ? 'mostly disciplined' : c <= 65 ? 'keeps you guessing' : c <= 85 ? 'unpredictable' : 'total chaos';
+  // Banded to the dial's real behaviour, not its raw number. Since the response
+  // curve calmed the middle, a GM sitting on 50 genuinely IS mostly disciplined
+  // now — the words have to move with him or the lobby misdescribes the room.
+  const cha = c <= 20 ? 'by the book' : c <= 50 ? 'mostly disciplined' : c <= 75 ? 'keeps you guessing' : c <= 90 ? 'unpredictable' : 'total chaos';
   return `${win} · ${cha}`;
 }
 
