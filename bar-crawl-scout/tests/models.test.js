@@ -18,14 +18,17 @@ function initKS() {
 }
 const KS = initKS();
 
-// Authoritative 2026 keepers (mirrors the legacy suite).
+// Authoritative 2026 keepers (mirrors the legacy suite). Deliberately a SECOND,
+// independent copy of the map — if PROJ is edited by hand and this isn't, the
+// test fails, which is the point. Last moved by the Gibbs <-> Henderson trade
+// (joshleota -> ATorelli4 / ATorelli4 -> joshleota).
 const EXPECT = {
-  joshleota: { 'Jahmyr Gibbs': 'VL', 'Puka Nacua': 'VL', 'Drake London': 'VL', 'Justin Jefferson': 'U' },
+  joshleota: { 'TreVeyon Henderson': 'VL', 'Puka Nacua': 'VL', 'Drake London': 'VL', 'Justin Jefferson': 'U' },
   WinzTheBrah: { 'James Cook': 'VL', 'Breece Hall': 'VL', 'A.J. Brown': 'L', 'Garrett Wilson': 'U' },
   JohnnyDuff: { 'Ashton Jeanty': 'VL', "De'Von Achane": 'VL', 'Jaxon Smith-Njigba': 'VL', 'Trey McBride': 'U' },
   jduddy9: { 'Omarion Hampton': 'VL', 'Christian McCaffrey': 'VL', 'Rashee Rice': 'L', 'Derrick Henry': 'U' },
   jpdonners: { 'CeeDee Lamb': 'VL', 'Josh Jacobs': 'VL', 'Travis Etienne Jr.': 'L', 'Jordan Addison': 'U' },
-  ATorelli4: { 'Amon-Ra St. Brown': 'VL', 'TreVeyon Henderson': 'VL', 'Kenneth Walker III': 'L', 'Drake Maye': 'U' },
+  ATorelli4: { 'Amon-Ra St. Brown': 'VL', 'Jahmyr Gibbs': 'VL', 'Kenneth Walker III': 'L', 'Drake Maye': 'U' },
   JShrimp341: { 'Saquon Barkley': 'VL', 'Chase Brown': 'VL', 'Kyren Williams': 'VL', 'Tyler Warren': 'U' },
   ShaydenB: { 'Jonathan Taylor': 'VL', 'Nico Collins': 'VL', 'Quinshon Judkins': 'L', 'DeVonta Smith': 'U' },
   ImyHunter: { 'Bijan Robinson': 'VL', 'Malik Nabers': 'VL', 'Emeka Egbuka': 'L', 'Cam Skattebo': 'U' },

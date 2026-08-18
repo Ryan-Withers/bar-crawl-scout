@@ -109,12 +109,12 @@ export const KEPT2025=new Set(["Jahmyr Gibbs","Saquon Barkley","Garrett Wilson",
 export const TEAMS=[["Ryan","Big Tettys on Bo-nly fans (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
 export const PROJ={
  Ryan:[["Tetairoa McMillan","VL"],["Ja'Marr Chase","VL"],["Brock Bowers","VL"],["",""]],
- joshleota:[["Jahmyr Gibbs","VL"],["Puka Nacua","VL"],["Drake London","VL"],["Justin Jefferson","U"]],
+ joshleota:[["TreVeyon Henderson","VL"],["Puka Nacua","VL"],["Drake London","VL"],["Justin Jefferson","U"]],
  WinzTheBrah:[["James Cook","VL"],["Breece Hall","VL"],["A.J. Brown","L"],["Garrett Wilson","U"]],
  JohnnyDuff:[["Ashton Jeanty","VL"],["De'Von Achane","VL"],["Jaxon Smith-Njigba","VL"],["Trey McBride","U"]],
  jduddy9:[["Omarion Hampton","VL"],["Christian McCaffrey","VL"],["Rashee Rice","L"],["Derrick Henry","U"]],
  jpdonners:[["CeeDee Lamb","VL"],["Josh Jacobs","VL"],["Travis Etienne Jr.","L"],["Jordan Addison","U"]],
- ATorelli4:[["Amon-Ra St. Brown","VL"],["TreVeyon Henderson","VL"],["Kenneth Walker III","L"],["Drake Maye","U"]],
+ ATorelli4:[["Amon-Ra St. Brown","VL"],["Jahmyr Gibbs","VL"],["Kenneth Walker III","L"],["Drake Maye","U"]],
  JShrimp341:[["Saquon Barkley","VL"],["Chase Brown","VL"],["Kyren Williams","VL"],["Tyler Warren","U"]],
  ShaydenB:[["Jonathan Taylor","VL"],["Nico Collins","VL"],["Quinshon Judkins","L"],["DeVonta Smith","U"]],
  ImyHunter:[["Bijan Robinson","VL"],["Malik Nabers","VL"],["Emeka Egbuka","L"],["Cam Skattebo","U"]]
