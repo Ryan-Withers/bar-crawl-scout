@@ -35,6 +35,7 @@
   import TheBook from './components/TheBook.svelte';
   import MockDraft from './components/MockDraft.svelte';
   import Vault from './components/Vault.svelte';
+  import Sheet from './components/Sheet.svelte';
   import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
@@ -65,6 +66,9 @@
     '/power': PowerRankings,
     '/mock': MockDraft,
     '/vault': Vault,
+    // Hidden on purpose: a real route, deliberately absent from nav.js so the
+    // app never links to it. Security by obscurity — the repo is public.
+    '/sheet': Sheet,
     '/book': TheBook,
     '/leaderboard': BetLedger,
     '/history': Wall,
@@ -89,8 +93,9 @@
   const MODE_ROUTES = ['/myteam', '/board', '/keepers', '/managers', '/trade', '/player', '/compare', '/waivers', '/players', '/intel'];
   $: showMode = MODE_ROUTES.some((r) => $location.startsWith(r));
 
-  // The draft room takes the whole screen, like a real one.
-  $: focusMode = $location.startsWith('/mock');
+  // The draft room takes the whole screen, like a real one. So does the hidden
+  // sheet, which is all table and wants every pixel.
+  $: focusMode = $location.startsWith('/mock') || $location.startsWith('/sheet');
 
   let drawerOpen = false;
   const closeDrawer = () => (drawerOpen = false);
