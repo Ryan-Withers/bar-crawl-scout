@@ -5,10 +5,17 @@
   //
   // The premise: a stock ranking is misleading here. Our league pays SIX for a
   // passing TD (stock is four), half a point per rushing AND receiving first
-  // down, stacks fum on fum_lost, and starts an IDP_FLEX with full IDP scoring
-  // that nothing else in this app models. So every player is scored per game
-  // under the league's own scoring_settings — pulled live, never transcribed —
-  // and shown against a stock half-PPR baseline so you can see how far he moves.
+  // down, and stacks fum on fum_lost. So every player is scored per game under
+  // the league's own scoring_settings — pulled live, never transcribed — and
+  // shown against a stock half-PPR baseline so you can see how far he moves.
+  //
+  // OFFENCE ONLY, deliberately. The league does start an IDP_FLEX, but it's a
+  // last-round filler that gets picked after the draft is decided, so modelling
+  // it earns nothing and costs plenty: defenders would need their own shared
+  // replacement level (a DE and an LB compete for that one seat, so four
+  // separate levels is simply the wrong maths) and every IDP scoring rule would
+  // ride along in the coverage check as noise. The engine still handles IDP in
+  // full — the scope call lives here, in one Set and one filter.
   //
   // Refresh re-pulls everything. Your own order is yours, saved locally, and
   // one button puts the standard board back.
@@ -61,7 +68,13 @@
     return m;
   })();
 
-  const FANTASY = new Set(['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'DB', 'DE', 'DT', 'NT', 'ILB', 'OLB', 'CB', 'S', 'SS', 'FS']);
+  const FANTASY = new Set(['QB', 'RB', 'WR', 'TE']);
+  // Slots only a defender can fill are dropped before the replacement fill, so
+  // an unmodelled IDP_FLEX can't report its pool as having "run dry".
+  const IDP_SLOTS = new Set(['IDP_FLEX', 'DL', 'LB', 'DB', 'IDP']);
+  // Likewise their scoring rules: they're real, they're just out of scope here,
+  // and listing them as unbacked would bury the one line that matters.
+  const OUT_OF_SCOPE = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
 
   $: inputs = (() => {
     if (!raw?.proj || !blob) return [];
@@ -85,14 +98,15 @@
   })();
 
   $: built = inputs.length
-    ? buildSheet(inputs, scoring, rosterPos, teams)
+    ? buildSheet(inputs, scoring, offenceSlots, teams)
     : { rows: [], levels: {}, dry: [], medBoost: 0 };
-  $: cov = inputs.length ? coverage(scoring, built.rows.map((r) => r.line)) : { scoredKeys: [], missing: [] };
-  $: demand = rosterPos.length ? slotDemand(rosterPos, teams) : { dedicated: {}, flexes: [] };
+  $: offenceScoring = Object.fromEntries(Object.entries(scoring).filter(([k]) => !OUT_OF_SCOPE.test(k)));
+  $: cov = inputs.length ? coverage(offenceScoring, built.rows.map((r) => r.line)) : { scoredKeys: [], missing: [] };
+  $: offenceSlots = (rosterPos || []).filter((p) => !IDP_SLOTS.has(p));
+  $: demand = offenceSlots.length ? slotDemand(offenceSlots, teams) : { dedicated: {}, flexes: [] };
 
   // ---- filters + sort ----
-  const POS_TABS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'IDP'];
-  const IDP = new Set(['DL', 'LB', 'DB', 'DE', 'DT', 'NT', 'ILB', 'OLB', 'CB', 'S', 'SS', 'FS']);
+  const POS_TABS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
   let posf = 'ALL';
   let q = '';
   let hideOwned = false;
@@ -104,7 +118,7 @@
 
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
-    if (posf === 'IDP' ? !IDP.has(r.pos) : posf !== 'ALL' && r.pos !== posf) return false;
+    if (posf !== 'ALL' && r.pos !== posf) return false;
     if (hideOwned && ownerById[r.id]) return false;
     if (hidePartial && r.partial) return false;
     const n = q.trim().toLowerCase();
@@ -175,13 +189,14 @@
       <div class="strip">
         <div class="sh">The lineup ({teams} teams)</div>
         <p>{(rosterPos || []).filter((p) => !['BN', 'IR', 'TAXI'].includes(p)).join(' · ')}</p>
+        <p class="muted">Offence only — the IDP_FLEX is a last-round filler and isn't modelled, so it sets no replacement level and takes nothing off this board.</p>
         <p class="muted">
           League-wide starts:
           {#each Object.entries(demand.dedicated) as [p, n]}<span>{p} {n} · </span>{/each}
           {#each demand.flexes as f}<span>{f.slot} {f.n} · </span>{/each}
         </p>
       </div>
-      <div class="strip">
+      <div class="strip" data-testid="sheet-replacement">
         <div class="sh">Replacement (ppg)</div>
         <p>
           {#each Object.entries(built.levels).sort((a, b) => b[1] - a[1]).slice(0, 8) as [p, v]}

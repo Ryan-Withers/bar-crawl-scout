@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test';
 import { mockSleeper, trackErrors } from './support/mock-sleeper.js';
 
 // Our league's real distortions: 6-point passing TDs, half a point per first
-// down either way, fum stacked on fum_lost, and a live IDP_FLEX.
+// down either way, and fum stacked on fum_lost. The IDP_FLEX is real but
+// deliberately unmodelled — a last-round filler — so defenders must not appear.
 const SCORING = {
   pass_yd: 0.04, pass_td: 6, pass_int: -2,
   rush_yd: 0.1, rush_td: 6, rush_fd: 0.5,
@@ -88,34 +89,68 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
 
-test('a defender is scored for real, with no invented stock baseline', async ({ page }) => {
+test('defenders are off the board entirely, and it says why', async ({ page }) => {
   await mockSheet(page);
   await page.goto('./sheet');
-  const OURS = 8; const STOCK = 9; const BOOST = 11;
-  // (130*0.5 + 8*2 + 2*2 + 6*1) / 17 = 5.35
-  await expect(cell(page, 'Head Hunter', OURS)).toHaveText('5.35');
-  await expect(cell(page, 'Head Hunter', STOCK)).toHaveText('—');   // stated, never invented
-  await expect(cell(page, 'Head Hunter', BOOST)).toHaveText('—');
-  // And the IDP_FLEX is in the lineup the page reports.
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  // Head Hunter is a projected LB in the feed and must not reach the board.
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Head Hunter' })).toHaveCount(0);
+  await expect(page.getByTestId('sheet')).not.toContainText('Head Hunter');
+  // No IDP filter tab either.
+  await expect(page.getByTestId('sheet-pos-idp')).toHaveCount(0);
+
+  // The lineup is still reported honestly, with the exclusion stated once.
   await expect(page.getByTestId('sheet')).toContainText('IDP_FLEX');
+  await expect(page.getByTestId('sheet')).toContainText("isn't modelled");
 });
 
-test('it says out loud which scored rules had no data behind them', async ({ page }) => {
-  // Drop the defender: now every IDP rule is scored but unprojected.
-  const noIdp = { ...PROJ }; delete noIdp.p5;
-  await mockSheet(page, { proj: noIdp });
+test('the unmodelled IDP_FLEX sets no replacement level of its own', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  // By testid, not by text: the lineup strip also says 'no replacement level'.
+  const repl = page.getByTestId('sheet-replacement');
+  await expect(repl).toContainText('QB');          // offence is levelled
+  await expect(repl).not.toContainText('LB');      // the LB in the feed sets nothing
+  // The IDP_FLEX is dropped before the fill, so it can never report its own
+  // (necessarily empty) pool as having run dry. Thin offence still can, and
+  // does here — that warning must be about offence only.
+  const strip = await repl.innerText();
+  if (/ran dry/.test(strip)) {
+    expect(strip).not.toMatch(/ran dry[^\n]*\b(LB|DL|DB|IDP)/);
+  }
+});
+
+test('the coverage panel judges only the rules this board actually scores', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  // Every IDP rule is scored by the league and unprojected on this board, but
+  // they're out of scope by choice — reporting them would bury a real gap under
+  // ten lines of noise. (fum IS reported: nobody in this feed has one projected.)
+  const missing = page.getByTestId('sheet-missing');
+  await expect(missing).toBeVisible();
+  await expect(missing).not.toContainText('idp_');
+  await expect(missing).toContainText('fum');
+});
+
+test('a genuinely unbacked offensive rule IS called out', async ({ page }) => {
+  // Nobody in the feed has a 2-point conversion projected.
+  const thin = { p1: { gp: 17, rush_yd: 1700, rush_td: 17, rush_fd: 102 } };
+  await mockSheet(page, { proj: thin });
   await page.goto('./sheet');
   const missing = page.getByTestId('sheet-missing');
   await expect(missing).toBeVisible();
-  await expect(missing).toContainText('idp_tkl');
+  await expect(missing).toContainText('rec');
   await expect(missing).toContainText('missing from every row');
+  await expect(missing).not.toContainText('idp_');
 });
 
 test('you can reorder, keep your list, and put the standard board back', async ({ page }) => {
   await mockSheet(page);
   await page.goto('./sheet');
   const rows = page.locator('[data-testid="sheet-table"] tbody tr');
-  await expect(rows).toHaveCount(Object.keys(PROJ).length);   // settled board first
+  const OFFENCE = Object.keys(PROJ).length - 1;   // the LB is filtered off the board
+  await expect(rows).toHaveCount(OFFENCE);   // settled board first
 
   // Read the id off the row itself — never map a name back to an id by hand.
   const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
@@ -129,7 +164,7 @@ test('you can reorder, keep your list, and put the standard board back', async (
 
   // It survives a reload — it's your list, not the run's.
   await page.reload();
-  await expect(rows).toHaveCount(Object.keys(PROJ).length);
+  await expect(rows).toHaveCount(OFFENCE);
   await expect.poll(() => idAt(0)).toBe(second);
 
   // And one button hands the standard board back.
