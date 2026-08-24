@@ -4,10 +4,11 @@ import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { getRawPlayers } from './sleeper';
 import type { SleeperPlayer, PlayerLite, IndexedPlayers } from './types';
 
-const KEY = 'bcs_players_v1';
+// v2: the tuple gained age + years_exp, so a v1 cache would starve them.
+const KEY = 'bcs_players_v2';
 const DAY = 86_400_000;
 
-// Pure: raw Sleeper player map -> compact { id: [name, pos, team] }. Unit-tested.
+// Pure: raw Sleeper player map -> compact { id: [name, pos, team, age, exp] }.
 export function indexPlayers(raw: Record<string, SleeperPlayer>): Record<string, PlayerLite> {
   const byId: Record<string, PlayerLite> = {};
   for (const id in raw) {
@@ -15,7 +16,7 @@ export function indexPlayers(raw: Record<string, SleeperPlayer>): Record<string,
     if (!v) continue;
     const nm = v.full_name || `${v.first_name || ''} ${v.last_name || ''}`.trim() || v.last_name || '';
     if (!nm) continue;
-    byId[id] = [nm, v.position || '', v.team || 'FA'];
+    byId[id] = [nm, v.position || '', v.team || 'FA', v.age ?? null, v.years_exp ?? null];
   }
   return byId;
 }

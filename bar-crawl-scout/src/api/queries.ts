@@ -104,3 +104,30 @@ export const draftVaultQuery = () => ({
     }>;
   },
 });
+
+// THE DRAFT SHEET — everything it needs, in one refreshable shot. Season
+// projections carry the IDP lines the weekly endpoint doesn't; prior-season
+// stats backfill what Sleeper leaves out; the league object supplies the
+// scoring rules and the real lineup, never transcribed.
+// staleTime 0 on purpose: the Refresh button must actually re-pull.
+export const draftSheetQuery = () => ({
+  queryKey: ['draftsheet'] as const,
+  staleTime: 0,
+  gcTime: 10 * MIN,
+  // Refresh is the only thing that moves this board. A silent refetch on window
+  // focus would reorder the sheet under your finger in the middle of a draft.
+  refetchOnWindowFocus: false,
+  queryFn: async () => {
+    const state = await S.getState().catch(() => null);
+    const season = (state && state.season) || String(new Date().getFullYear());
+    const prior = String(Number(season) - 1);
+    const [league, proj, priorStats, rosters, users] = await Promise.all([
+      S.getLeague(),
+      S.getSeasonProjections(season),
+      S.getSeasonStats(prior).catch(() => ({} as Record<string, Record<string, number>>)),
+      S.getRosters().catch(() => []),
+      S.getUsers().catch(() => []),
+    ]);
+    return { season, prior, league, proj, priorStats, rosters, users, pulledAt: Date.now() };
+  },
+});

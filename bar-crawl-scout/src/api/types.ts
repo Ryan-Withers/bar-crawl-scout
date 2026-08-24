@@ -73,6 +73,8 @@ export interface SleeperPlayer {
   last_name?: string;
   position?: string;
   team?: string | null;
+  age?: number | null;
+  years_exp?: number | null;
 }
 
 export interface TrendingPlayer {
@@ -81,7 +83,10 @@ export interface TrendingPlayer {
 }
 
 // Compact player record we actually keep: [name, position, team].
-export type PlayerLite = [name: string, pos: string, team: string];
+// Age and years of experience ride along at the end: the draft sheet needs
+// both, and years_exp is what makes the career-stage tags auditable. Appended
+// rather than inserted so every existing [0][1][2] read is untouched.
+export type PlayerLite = [name: string, pos: string, team: string, age?: number | null, exp?: number | null];
 
 export interface IndexedPlayers {
   t: number;

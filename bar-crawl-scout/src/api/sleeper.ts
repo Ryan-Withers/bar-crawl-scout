@@ -64,6 +64,11 @@ export const getSeasonStats = (season: string) =>
   get<Record<string, Record<string, number>>>(`/stats/nfl/regular/${season}`);
 export const getWeekProjections = (season: string, week: number) =>
   get<Record<string, Record<string, number>>>(`/projections/nfl/regular/${season}/${week}`);
+// SEASON-level projections — whole-season stat lines rather than one week. This
+// is the set that carries IDP, which the weekly endpoint does not, and it's what
+// the draft sheet re-scores under the league's own rulebook.
+export const getSeasonProjections = (season: string) =>
+  get<Record<string, Record<string, number>>>(`/projections/nfl/regular/${season}`);
 // Sleeper-wide ownership: { player_id: { owned, started } }.
 export const getResearch = (season: string, week: number) =>
   get<Record<string, { owned: number; started: number }>>(`/players/nfl/research/regular/${season}/${week}`);
