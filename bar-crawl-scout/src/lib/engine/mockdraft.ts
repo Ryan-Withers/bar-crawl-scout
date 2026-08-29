@@ -31,9 +31,24 @@ export interface MockConfig {
   seed: number;
   pool: MockPlayer[];          // available players (keepers are excluded again defensively)
   sequence?: string[];         // explicit pick sequence (real slot ownership incl. traded picks)
+  // Where each entry of `sequence` actually SITS on the real board. The live
+  // draft is ragged — keepers eat part of round 12 and most of 13 — so a board
+  // cannot recover round and column from the sequence index. When this is
+  // present it is authoritative; without it the board falls back to a uniform
+  // snake grid, which is right for a mock with no traded keeper picks.
+  sequenceMeta?: Array<{ round: number; slot: number; pickNo: number }>;
 }
 export interface MockPick {
-  overall: number;
+  overall: number;              // 1-based position in the LIVE sequence
+  /**
+   * Where this pick actually sits on the board, when the config carries real
+   * coordinates. On the ragged live board these diverge from `overall` the
+   * moment a keeper cell is skipped: live pick 115 is board pick 116, and the
+   * gap widens. The clock, the feed, the reveal cards and the recap all print
+   * board codes, so they need the board number, not the counter.
+   */
+  boardPick?: number;
+  boardRound?: number;
   round: number;
   handle: string;
   player: MockPlayer;
@@ -171,12 +186,32 @@ export function createMock(cfg: MockConfig): MockState {
   const pool = cfg.pool.filter((p) => !kept.has(p.name)); // keepers NEVER draftable
   const rosters: Record<string, MockPlayer[]> = {};
   for (const t of cfg.teams) rosters[t.handle] = t.keepers.slice();
-  return { cfg, pool, rosters, log: [], seq: buildSequence(cfg), cursor: 0, rng: cfg.seed | 0, done: false };
+  // cfg.pool is REPLACED by the keeper-free pool, not merely shadowed by it.
+  // Board ranks are measured against cfg.pool, so leaving thirty kept men in it
+  // shifts every rank by up to thirty: with the real keeper set, pick 1.01 came
+  // back rank 24 — the best player available libelled as a 23-slot reach, and
+  // the steal detector made structurally unreachable. One pool, already filtered.
+  const seq = buildSequence(cfg);
+  return { cfg: { ...cfg, pool }, pool, rosters, log: [], seq, cursor: 0, rng: cfg.seed | 0, done: false };
 }
 
 export const currentHandle = (s: MockState): string | null => (s.done ? null : s.seq[s.cursor] ?? null);
-export const roundOf = (s: MockState, cursor = s.cursor): number =>
-  Math.floor(cursor / s.cfg.order.length) + 1;
+export const roundOf = (s: MockState, cursor = s.cursor): number => {
+  // On a real board the rounds are ragged — keepers eat part of round 12 and
+  // most of 13 — so dividing the cursor by the team count runs out at 12 and
+  // announces two round-13 picks as round 12. The coordinates know better.
+  const meta = s.cfg.sequenceMeta?.[cursor];
+  if (meta) return meta.round;
+  return Math.floor(cursor / s.cfg.order.length) + 1;
+};
+
+/**
+ * The board pick number for the cursor — what belongs on the clock and in the
+ * recap. Falls back to the live counter for a mock with no real coordinates,
+ * where the two are the same thing.
+ */
+export const boardPickAt = (s: MockState, cursor = s.cursor): number =>
+  s.cfg.sequenceMeta?.[cursor]?.pickNo ?? cursor + 1;
 
 /**
  * THE CHAOS DIAL'S RESPONSE CURVE.
@@ -200,8 +235,13 @@ export const chaosResponse = (chaos: number): number => {
 // The bot's choice for the team on the clock (does not mutate state).
 export function botChoice(s: MockState): MockPlayer {
   const h = currentHandle(s);
-  const team = s.cfg.teams.find((t) => t.handle === h)!;
-  const roster = s.rosters[h!];
+  // A sequence can name a handle the config has never heard of — draftSlotBoard
+  // builds override handles from Sleeper display names, and one manager renaming
+  // himself used to take the whole room down with a TypeError on his pick. An
+  // unknown GM drafts by the book rather than crashing the draft.
+  const team = s.cfg.teams.find((t) => t.handle === h)
+    || { handle: h, team: h, persona: { window: 50, chaos: 0 }, keepers: [] as MockPlayer[] };
+  const roster = s.rosters[h!] || [];
   const { window } = team.persona;
   const chaos = chaosResponse(team.persona.chaos);
 
@@ -259,12 +299,19 @@ export function makePick(s: MockState, playerName?: string): MockState {
     .slice()
     .sort((a, b) => b.v.balanced - a.v.balanced)
     .findIndex((p) => p.name === player.name) + 1;
-  const pick: MockPick = { overall: s.log.length + 1, round: roundOf(s), handle: h, player, boardRank };
+  const meta = s.cfg.sequenceMeta?.[s.cursor];
+  const pick: MockPick = {
+    overall: s.log.length + 1,
+    round: meta ? meta.round : roundOf(s),
+    boardPick: meta ? meta.pickNo : undefined,
+    boardRound: meta ? meta.round : undefined,
+    handle: h, player, boardRank,
+  };
   const next: MockState = {
     ...s,
     rng,
     pool: s.pool.filter((p) => p.name !== player.name),
-    rosters: { ...s.rosters, [h]: [...s.rosters[h], player] },
+    rosters: { ...s.rosters, [h]: [...(s.rosters[h] || []), player] },
     log: [...s.log, pick],
     cursor: s.cursor + 1,
   };
@@ -306,8 +353,8 @@ export function recapText(
     const haul = s.log.filter((p) => p.handle === opts.seat).slice(0, 5).map((p) => shortName(p.player.name));
     if (mine) lines.push(`MY HAUL (${nm(opts.seat)} · ${mine.grade}): ${haul.join(', ')}${s.log.filter((p) => p.handle === opts.seat).length > 5 ? '…' : ''}`);
   }
-  if (g.steals[0]) lines.push(`💎 Steal of the draft: ${g.steals[0].player.name} to ${nm(g.steals[0].handle)} @ pick ${g.steals[0].overall} (board #${g.steals[0].boardRank})`);
-  if (g.reaches[0]) lines.push(`🚨 Reach of the draft: ${g.reaches[0].player.name} by ${nm(g.reaches[0].handle)} @ pick ${g.reaches[0].overall} (board #${g.reaches[0].boardRank})`);
+  if (g.steals[0]) lines.push(`💎 Steal of the draft: ${g.steals[0].player.name} to ${nm(g.steals[0].handle)} @ pick ${g.steals[0].boardPick ?? g.steals[0].overall} (board #${g.steals[0].boardRank})`);
+  if (g.reaches[0]) lines.push(`🚨 Reach of the draft: ${g.reaches[0].player.name} by ${nm(g.reaches[0].handle)} @ pick ${g.reaches[0].boardPick ?? g.reaches[0].overall} (board #${g.reaches[0].boardRank})`);
   if (opts.url) lines.push(`Run yours: ${opts.url}`);
   return lines.join('\n');
 }
@@ -320,27 +367,63 @@ export interface GradeRow {
   winnow: number;
   future: number;
   lean: 'WIN-NOW' | 'FUTURE' | 'BALANCED';
-  posCounts: Record<string, number>;
+  posCounts: Record<string, number>;   // keepers AND draftees — the actual squad
   grade: string;
+  picks: number;        // how many selections he actually had
+  kept: number;         // balanced value he walked in holding
+  squad: number;        // kept + drafted: what he owns when the dust settles
+  surplus: number;      // total slots his men fell past their board rank
+  perPick: number;      // surplus / picks — the number the grade is cut on
+  overCap: number;      // men beyond the roster limit; he must cut this many
 }
 const GRADES = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D'];
 
+// THE GRADE — average board-rank surplus, not raw drafted total.
+//
+// The old grader summed the balanced value of everything a team drafted and
+// then handed out A+ down to D strictly by rank. That broke twice over here.
+// Picks get traded in this league — 47 of them in 2026 alone — so one manager
+// holds nineteen live selections and another six, and the sum crowns the hoarder
+// no matter who picked better. And because the scale was forced, a board where
+// first and last were 0.8% apart still told the man statistically tied for first
+// that he had a D draft.
+//
+// So grade on the same number the debrief already uses to flag steals and
+// reaches: overall pick minus board rank. Take the best man available and you
+// score 0. Let one fall to you and you score positive. Reach and you score
+// negative. Averaged over your picks, it does not care how many you had.
+const GRADE_CUTS: Array<[number, string]> = [
+  [3, 'A+'], [2, 'A'], [1, 'A-'], [0.3, 'B+'], [-0.3, 'B'],
+  [-1, 'B-'], [-2, 'C+'], [-3, 'C'], [-5, 'C-'],
+];
+export const gradeFor = (perPick: number): string =>
+  (GRADE_CUTS.find(([cut]) => perPick >= cut) || [0, 'D'])[1];
+
 export function gradeMock(s: MockState): { rows: GradeRow[]; steals: MockPick[]; reaches: MockPick[] } {
   const rows: GradeRow[] = s.cfg.teams.map((t) => {
-    const drafted = s.log.filter((p) => p.handle === t.handle).map((p) => p.player);
+    const picks = s.log.filter((p) => p.handle === t.handle);
+    const drafted = picks.map((p) => p.player);
     const total = Math.round(drafted.reduce((a, p) => a + p.v.balanced, 0));
     const winnow = Math.round(drafted.reduce((a, p) => a + p.v.winnow, 0));
     const future = Math.round(drafted.reduce((a, p) => a + p.v.future, 0));
     const leanPct = winnow + future > 0 ? winnow / (winnow + future) : 0.5;
     const posCounts: Record<string, number> = {};
-    for (const p of drafted) posCounts[p.pos] = (posCounts[p.pos] || 0) + 1;
+    // The roster is keepers PLUS the haul — a team that kept its quarterback was
+    // being shown 'QB: 0' in the positional breakdown of its own squad.
+    for (const p of [...t.keepers, ...drafted]) posCounts[p.pos] = (posCounts[p.pos] || 0) + 1;
+    const kept = Math.round(t.keepers.reduce((a, p) => a + p.v.balanced, 0));
+    const surplus = picks.reduce((a, p) => a + (p.overall - p.boardRank), 0);
+    const perPick = picks.length ? surplus / picks.length : 0;
     return {
       handle: t.handle, team: t.team, total, winnow, future,
-      lean: leanPct > 0.56 ? 'WIN-NOW' : leanPct < 0.44 ? 'FUTURE' : 'BALANCED',
+      lean: (leanPct > 0.56 ? 'WIN-NOW' : leanPct < 0.44 ? 'FUTURE' : 'BALANCED') as GradeRow['lean'],
       posCounts, grade: '',
+      picks: picks.length, kept, squad: total + kept,
+      surplus: Math.round(surplus), perPick: Math.round(perPick * 10) / 10,
+      overCap: Math.max(0, t.keepers.length + picks.length - s.cfg.rosterSize),
     };
-  }).sort((a, b) => b.total - a.total);
-  rows.forEach((r, i) => { r.grade = GRADES[Math.min(GRADES.length - 1, Math.floor((i / rows.length) * GRADES.length))]; });
+  }).sort((a, b) => b.perPick - a.perPick || b.squad - a.squad);
+  rows.forEach((r) => { r.grade = gradeFor(r.perPick); });
 
   // Steal = drafted far later than his board rank; reach = far earlier.
   const withDelta = s.log.map((p) => ({ ...p, delta: p.overall - p.boardRank }));

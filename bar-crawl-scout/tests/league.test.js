@@ -34,3 +34,33 @@ describe('league mapping', () => {
     expect(m.joshleota.user_id).toBe('u1');
   });
 });
+
+describe('a roster that has not played has no record', () => {
+  const users = [{ user_id: 'u1', display_name: 'joshleota' }, { user_id: 'u2', display_name: 'ShaydenB' }];
+  const uh = userHandleMap(users);
+
+  it('omits the zeroed rosters Sleeper creates for a new season', () => {
+    // Pre-draft, every roster comes back 0-0 with 0 points. Reporting that as a
+    // live record put a league that has played no football on the Standings.
+    const fresh = [
+      { roster_id: 1, owner_id: 'u1', settings: { wins: 0, losses: 0, ties: 0, fpts: 0, fpts_against: 0 } },
+      { roster_id: 2, owner_id: 'u2', settings: {} },
+    ];
+    expect(recordsFromRosters(fresh, uh)).toEqual({});
+  });
+
+  it('keeps a roster the moment it has a win, a loss or a point', () => {
+    const played = [
+      { roster_id: 1, owner_id: 'u1', settings: { wins: 1, losses: 0, ties: 0, fpts: 0 } },
+      { roster_id: 2, owner_id: 'u2', settings: { wins: 0, losses: 0, ties: 0, fpts: 88, fpts_decimal: 50 } },
+    ];
+    const out = recordsFromRosters(played, uh);
+    expect(Object.keys(out).sort()).toEqual(['ShaydenB', 'joshleota']);
+    expect(out.ShaydenB.pf).toBeCloseTo(88.5);
+  });
+
+  it('still degrades on junk', () => {
+    expect(recordsFromRosters(null, uh)).toEqual({});
+    expect(recordsFromRosters([{ roster_id: 9, owner_id: 'nobody', settings: { wins: 3 } }], uh)).toEqual({});
+  });
+});

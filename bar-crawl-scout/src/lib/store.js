@@ -29,7 +29,63 @@ function initKS(existing) {
   return ks;
 }
 
-export const keepers = persisted('hq_keepers_v6', initKS(readJSON('hq_keepers_v6')));
+// THE KEEPER STORE — two layers, and Sleeper wins.
+//
+// This used to be a single writable seeded from PROJ, a hand-guessed table, and
+// persisted. That was right while keepers were a guess. They are locked now:
+// Sleeper carries the answer on each roster and there is nothing left to guess.
+//
+// So the store keeps its SHAPE — { handle: [[name, conf], ...] }, which twenty-
+// one components read — and swaps its SOURCE. The live layer, when present,
+// overrides everything; the local layer stays underneath as the offline fallback
+// and as somewhere the old sync path can still write without fighting the truth.
+//
+// Persistence is the reason this matters. Anyone who opened the app before the
+// lock has a stale guess frozen in localStorage, and correcting data.js would
+// never have reached them: initKS prefers the saved copy. The live layer is not
+// persisted at all, so it cannot go stale — it is either fresh from Sleeper this
+// session or it is not there.
+function keeperStore() {
+  const local = persisted('hq_keepers_v6', initKS(readJSON('hq_keepers_v6')));
+  const live = writable(null);
+  // Per-manager merge rather than a wholesale swap: Sleeper's answer wins for
+  // everyone who has declared, and the projection is left standing only for
+  // anyone who hasn't. Throwing away nine known answers to avoid admitting one
+  // unknown was the wrong trade.
+  const view = derived([live, local], ([$live, $local]) => {
+    if (!$live) return $local;
+    const out = { ...$local };
+    for (const [h, rows] of Object.entries($live)) if (rows[0] && rows[0][0]) out[h] = rows;
+    return out;
+  });
+  return {
+    subscribe: view.subscribe,
+    set: local.set,
+    update: local.update,
+    /** Sleeper's answer. Pass null to fall back to the local layer. */
+    setLive: live.set,
+    live: { subscribe: live.subscribe },
+  };
+}
+export const keepers = keeperStore();
+
+// 'live' when every manager's keepers came off Sleeper, 'mixed' when some are
+// still projections, 'projection' when none arrived. The UI says which, rather
+// than presenting a guess as a fact.
+export const keepersSource = derived(keepers.live, ($l) => {
+  if (!$l) return 'projection';
+  const declared = Object.values($l).filter((rows) => rows[0] && rows[0][0]).length;
+  return declared >= TEAMS.length ? 'live' : 'mixed';
+});
+
+// PICK CAPITAL, live. Same argument as the keepers: data.js hand-counts who
+// holds which early picks, and it had gone stale for four of the ten managers
+// without anything noticing — Ryan is written down as holding two 2026 firsts
+// and holds one. Sleeper's traded_picks settles it, for next year as well as
+// this one. Shape: { '2026': { handle: Capital }, '2027': {...} }.
+// Null until it arrives; every reader falls back to the hand-written CAPITAL.
+export const capital = writable(null);
+export const capitalSource = derived(capital, ($c) => ($c ? 'live' : 'hand-written'));
 
 // Window mode is not persisted in the original app; it defaults to win-now.
 export const mode = writable('winnow');

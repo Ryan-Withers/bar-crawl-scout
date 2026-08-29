@@ -1,6 +1,28 @@
 <script>
   import { link } from '../lib/router.js';
   import { PLAYERS, FIRSTROUND, TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
+  import { createQuery } from '@tanstack/svelte-query';
+  import { usersQuery, rostersQuery, realDraftQuery } from '../api/queries';
+  import { userHandleMap, draftSlotBoard } from '../api/league';
+  import { capitalFor, firstRound } from '../lib/engine/picks';
+
+  // Round one, derived from Sleeper rather than read off the hand-written
+  // FIRSTROUND — which had Ryan holding slot 2, a pick he has since sold on.
+  const usersQ = createQuery(usersQuery());
+  const rostersQ = createQuery(rostersQuery());
+  const realQ = createQuery(realDraftQuery());
+  $: rosterHandle = Object.fromEntries(($rostersQ.data || []).map((r) => [r.roster_id, userHandleMap($usersQ.data || [])[r.owner_id]]));
+  $: slotBoard = draftSlotBoard($realQ.data?.draft, $realQ.data?.traded, $usersQ.data || [], $rostersQ.data || []);
+  $: round1 = (() => {
+    if (!slotBoard || !$realQ.data) return FIRSTROUND;
+    const season = $realQ.data.draft?.season || '2026';
+    const rounds = $realQ.data.draft?.settings?.rounds || 15;
+    const cap = capitalFor(season, rounds, $realQ.data.traded, rosterHandle);
+    const rows = firstRound(cap, slotBoard.slotHandles, rosterHandle, $realQ.data.traded, season);
+    return rows.length === FIRSTROUND.length
+      ? rows.map((r) => [r.handle, r.via ? `${r.via} slot` : ''])
+      : FIRSTROUND;
+  })();
   import { isAvailable, windowVal, warchest, chestTag } from '../lib/models.js';
   import { keepers, mode } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
@@ -20,13 +42,13 @@
   <div class="ipanels">
     <div class="ipanel">
       <h3 class="sec">2026 first round (real owners)</h3>
-      {#each FIRSTROUND as f, i}
+      {#each round1 as f, i}
         <div class="pickrow">
           1.{pad(i + 1)}
           {#if f[0] === RYAN}
             <b>🔒 Classified</b>
           {:else}
-            <b><a href={'/managers/' + f[0]} use:link class="mgrlink">{TEAMSHORT[f[0]]}</a></b>{#if f[1]}<span class="via">&nbsp;({f[1]})</span>{/if}
+            <b><a href={'/managers/' + f[0]} use:link class="mgrlink">{TEAMSHORT[f[0]] || f[0]}</a></b>{#if f[1]}<span class="via">&nbsp;({f[1]})</span>{/if}
           {/if}
         </div>
       {/each}

@@ -7,7 +7,7 @@ import { mockSleeper, trackErrors } from './support/mock-sleeper.js';
 
 const ROUTES = [
   'myteam', 'matchup', 'byes',
-  'board', 'keepers', 'trade', 'intel', 'vault',
+  'board', 'keepers', 'trade', 'intel', 'vault', 'draftboard',
   'sheet',   // unlinked, so the link crawl can't reach it — named here on purpose
   'standings', 'power', 'playoffs', 'matchups', 'managers', 'history',
   'players', 'waivers',

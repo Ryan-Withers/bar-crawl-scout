@@ -19,7 +19,7 @@
         <div class="banner">
           <span class="av" aria-hidden="true">{initials(nm(pick.handle))}</span>
           <span class="btxt">
-            <i>With pick {pickCode(pick.overall, teams)}</i>
+            <i>With pick {pickCode(pick.boardPick ?? pick.overall, teams)}</i>
             <b>{nm(pick.handle)} {mine ? 'take' : 'takes'}</b>
           </span>
           <button class="skip" on:click={onSkip} aria-label="Dismiss pick announcement" data-testid="reveal-skip">✕</button>

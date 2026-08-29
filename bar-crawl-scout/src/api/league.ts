@@ -58,6 +58,15 @@ export interface SlotBoard {
   overrides: Array<{ round: number; slot: number; handle: string }>;
   type: 'snake' | 'linear';
   season: string;
+  /**
+   * How many teams the DRAFT says it has. Not the same as slotHandles.length:
+   * this league's own 2025 draft_order carries nine entries for a ten-team
+   * draft, and a missing TOP slot shortens the array without leaving a hole, so
+   * nothing downstream can tell. Anything doing snake arithmetic must use this.
+   */
+  teams: number;
+  /** Set when the order is short or malformed — the board is a best effort. */
+  incomplete: boolean;
 }
 
 // Live draft + traded picks + users/rosters -> who is actually on the clock at
@@ -78,6 +87,11 @@ export function draftSlotBoard(
     slotHandles[slot - 1] = uh[uid] || uid;
   }
   if (!slotHandles.length || slotHandles.some((s) => !s)) return null;
+  // The draft knows its own size; the order may not carry every seat.
+  const declared = Number((draft as { settings?: { teams?: number } }).settings?.teams)
+    || (Array.isArray(rosters) ? rosters.length : 0)
+    || slotHandles.length;
+  const incomplete = declared !== slotHandles.length;
   const rosterUser: Record<number, string> = {};
   for (const r of rosters) rosterUser[r.roster_id] = r.owner_id;
   const overrides: SlotBoard['overrides'] = [];
@@ -88,7 +102,10 @@ export function draftSlotBoard(
     if (!slot || !handle) continue;
     overrides.push({ round: t.round, slot, handle });
   }
-  return { slotHandles, overrides, type: draft.type === 'linear' ? 'linear' : 'snake', season: draft.season };
+  return {
+    slotHandles, overrides, teams: declared, incomplete,
+    type: draft.type === 'linear' ? 'linear' : 'snake', season: draft.season,
+  };
 }
 
 export interface ManagerRecord {
@@ -111,6 +128,17 @@ export function recordsFromRosters(
     const h = userHandle[r.owner_id];
     if (!h) continue;
     const s = r.settings || ({} as SleeperRoster['settings']);
+    // A roster that has not played is not a 0-0 record, it is NO record.
+    //
+    // Sleeper zeroes every roster the moment a new league season is created, so
+    // in the pre-draft window this returned ten rows of 0-0, .000, 0 PF — and
+    // because the callers only checked "did any rows come back", the Standings,
+    // Power Rankings, Playoff picture and the championship odds on The Book all
+    // rendered a league that had played no football, hiding last season's real
+    // records that the static fallback holds correctly.
+    const played = (s.wins || 0) + (s.losses || 0) + (s.ties || 0) > 0
+      || (s.fpts || 0) > 0 || (s.fpts_against || 0) > 0;
+    if (!played) continue;
     out[h] = {
       wins: s.wins || 0,
       losses: s.losses || 0,

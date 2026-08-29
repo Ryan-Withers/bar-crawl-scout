@@ -57,14 +57,28 @@
       </div>
       <div class="rright">
         <b class="who">{nm(heroRow.handle)}</b>
-        <span class="rank">#{heroRank} of {rows.length} · {heroRow.total} value · {heroRow.lean}</span>
+        <span class="rank">
+          #{heroRank} of {rows.length} · {heroRow.picks} pick{heroRow.picks === 1 ? '' : 's'} ·
+          {heroRow.perPick > 0 ? '+' : ''}{heroRow.perPick} per pick vs the board · {heroRow.lean}
+        </span>
         <span class="verdict">{verdict(heroRank, rows.length, !!myRow)}</span>
-        <span class="pos">{Object.entries(heroRow.posCounts).map(([p, n]) => `${n}${p}`).join(' · ')}</span>
+        <span class="pos">
+          squad {heroRow.squad} ({heroRow.kept} kept + {heroRow.total} drafted) ·
+          {Object.entries(heroRow.posCounts).map(([p, n]) => `${n}${p}`).join(' · ')}
+        </span>
+        {#if heroRow.overCap > 0}
+          <span class="cap">{heroRow.overCap} over the roster limit — that many get cut</span>
+        {/if}
       </div>
     </div>
   {/if}
 
   <div class="sethd big">The room</div>
+  <p class="gradenote">
+    Ranked on value taken per pick against what the board said each slot was worth —
+    not on the raw haul. Picks get traded here, so the biggest haul usually just
+    means the most picks.
+  </p>
   <div class="gradeboard" data-testid="grade-board">
     {#each rows as r, i}
       <div class="grow" class:you={!spectate && r.handle === seat}>
@@ -72,7 +86,9 @@
         <span class="gnm">{nm(r.handle)}</span>
         <span class="glean">{r.lean}</span>
         <span class="gpos">{Object.entries(r.posCounts).map(([p, n]) => `${n}${p}`).join(' ')}</span>
-        <span class="gtot">{r.total}</span>
+        <span class="gpicks">{r.picks}p{#if r.overCap > 0}<i title="over the roster limit">+{r.overCap}</i>{/if}</span>
+        <span class="gtot" title="kept {r.kept} + drafted {r.total}">{r.squad}</span>
+        <span class="gper">{r.perPick > 0 ? '+' : ''}{r.perPick}</span>
         <span class="ggr">{r.grade}</span>
       </div>
     {/each}
@@ -82,7 +98,7 @@
     <div>
       <div class="sethd big">💎 Steals</div>
       {#each grades.steals as p}
-        <div class="srow">{p.player.name} <small>to {nm(p.handle)} — {pickCode(p.overall, teamsN)}, board #{p.boardRank}</small></div>
+        <div class="srow">{p.player.name} <small>to {nm(p.handle)} — {pickCode(p.boardPick ?? p.overall, teamsN)}, board #{p.boardRank}</small></div>
       {:else}
         <div class="srow muted">None — a disciplined room.</div>
       {/each}
@@ -90,7 +106,7 @@
     <div>
       <div class="sethd big">🚨 Reaches</div>
       {#each grades.reaches as p}
-        <div class="srow">{p.player.name} <small>by {nm(p.handle)} — {pickCode(p.overall, teamsN)}, board #{p.boardRank}</small></div>
+        <div class="srow">{p.player.name} <small>by {nm(p.handle)} — {pickCode(p.boardPick ?? p.overall, teamsN)}, board #{p.boardRank}</small></div>
       {:else}
         <div class="srow muted">None flagged.</div>
       {/each}
@@ -103,7 +119,7 @@
       <div class="focus">
         {#each myPicks as p}
           <div class="hrow">
-            <span class="code">{pickCode(p.overall, teamsN)}</span>
+            <span class="code">{pickCode(p.boardPick ?? p.overall, teamsN)}</span>
             <span class="posb" style="--pc:{posColor(p.player.pos)}">{p.player.pos}</span>
             <PlayerChip name={p.player.name} />
             <span class="rank">board #{p.boardRank}</span>
@@ -153,12 +169,17 @@
   .sethd .sub { font-family: var(--mono); font-size: 10px; font-weight: 400; text-transform: none; color: var(--muted); }
 
   .gradeboard { background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 12px; padding: 6px 12px; }
-  .grow { display: grid; grid-template-columns: 34px 1fr auto auto 56px 40px; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; }
+  .grow { display: grid; grid-template-columns: 34px 1fr auto auto 44px 56px 46px 40px; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; }
   .grow:last-child { border-bottom: none; }
   .grow.you { background: var(--blue-wash); border-radius: 6px; }
   .grk { color: var(--muted); font-weight: 700; }
   .gnm { font-family: var(--body); font-weight: 700; color: var(--chalk); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .glean, .gpos { color: var(--muted); font-size: 10px; }
+  .gpicks { color: var(--muted); font-size: 10px; text-align: right; }
+  .gpicks i { font-style: normal; color: var(--stamp-red); }
+  .gper { text-align: right; font-size: 11px; color: var(--muted); }
+  .gradenote { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 8px; max-width: 72ch; }
+  .cap { font-family: var(--mono); font-size: 11px; color: var(--stamp-red); }
   .gtot { text-align: right; font-weight: 700; color: var(--chalk); }
   .ggr { font-family: var(--display); font-weight: 800; font-size: 16px; color: var(--blue); text-align: center; }
 
@@ -174,8 +195,8 @@
 
   @media (max-width: 860px) {
     .twocol { grid-template-columns: 1fr; }
-    .grow { grid-template-columns: 28px 1fr 46px 34px; }
-    .glean, .gpos { display: none; }
+    .grow { grid-template-columns: 28px 1fr 42px 40px 34px; }
+    .glean, .gpos, .gpicks { display: none; }
     .dacts { margin-left: 0; width: 100%; }
     .dacts .ghost { flex: 1; }
   }

@@ -22,7 +22,7 @@
     <div class="rows">
       {#each feed as p (p.overall)}
         <div class="frow" class:mine={!spectate && p.handle === seat}>
-          <span class="code">{pickCode(p.overall, teams)}</span>
+          <span class="code">{pickCode(p.boardPick ?? p.overall, teams)}</span>
           <span class="pos" style="--pc:{posColor(p.player.pos)}">{p.player.pos}</span>
           <span class="body">
             <b>{p.player.name}</b>

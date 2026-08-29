@@ -17,6 +17,15 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run token-lint  # THE ART CRITIC — anti-AI floor
+      - run: npm run typecheck   # tsconfig is strict; nothing ran it until now.
+                                 # vite build is esbuild transpile-only, so every
+                                 # type in the app was documentation, not a check.
+      - run: npm run stage-check # years_exp settles rookie/yr2 — a wrong tag
+                                 # mis-prices a player in every mode, silently.
+      - run: npm run adp-check   # report-only: ADP is the model's only real
+                                 # input, so a drifted one mis-prices a player
+                                 # everywhere. Two honest sources may legitimately
+                                 # disagree, so this prints rather than fails.
       - run: npm run coverage    # THE AUDITOR + THE BOUNCER + coverage gate
       - run: npm run build
       - run: npm run bundle-budget  # THE STOPWATCH — JS stays small, no 5MB blob
@@ -34,6 +43,10 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e   # THE REGULARS — E2E on a mocked preview build
+      # THE INSPECTOR'S CRAWL — the only gate that sweeps every route. It ran
+      # nightly, so a change that killed a whole page went green on the PR and
+      # was caught up to a day later by a job whose failure opens no issue.
+      - run: npm run e2e:crawl
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -67,6 +67,20 @@
     }
     return m;
   })();
+  // ...but ROSTERED is not KEPT, and in this league that difference is the whole
+  // draft. Everyone keeps three and redrafts the rest, so of the 144 rostered
+  // men only 30 are actually off the board. Treating "rostered" as "taken" hid
+  // Josh Allen — the best draftable player on it — along with Drake London,
+  // Trey McBride, Pickens, Etienne and three dozen more.
+  $: keptById = (() => {
+    const m = {};
+    for (const r of raw?.rosters || []) {
+      const h = uh[r.owner_id];
+      for (const pid of r.keepers || []) m[String(pid)] = h || ('roster ' + r.roster_id);
+    }
+    return m;
+  })();
+  $: anyKept = Object.keys(keptById).length > 0;
 
   const FANTASY = new Set(['QB', 'RB', 'WR', 'TE']);
   // Slots only a defender can fill are dropped before the replacement fill, so
@@ -97,10 +111,16 @@
     return out;
   })();
 
-  $: built = inputs.length
-    ? buildSheet(inputs, scoring, offenceSlots, teams)
-    : { rows: [], levels: {}, dry: [], medBoost: 0 };
   $: offenceScoring = Object.fromEntries(Object.entries(scoring).filter(([k]) => !OUT_OF_SCOPE.test(k)));
+  // Score on the OFFENCE rules, not the full rulebook. Receivers and backs do
+  // record the odd tackle after an interception, and return men score st_td, so
+  // handing buildSheet all thirty rules quietly credited 145 of 470 offensive
+  // rows with defensive and special-teams points on a board that says in its own
+  // header that it does not model them. It also made the coverage panel a lie:
+  // it judged the offence rules against lines built from everything.
+  $: built = inputs.length
+    ? buildSheet(inputs, offenceScoring, offenceSlots, teams)
+    : { rows: [], levels: {}, dry: [], medBoost: 0 };
   $: cov = inputs.length ? coverage(offenceScoring, built.rows.map((r) => r.line)) : { scoredKeys: [], missing: [] };
   $: offenceSlots = (rosterPos || []).filter((p) => !IDP_SLOTS.has(p));
   $: demand = offenceSlots.length ? slotDemand(offenceSlots, teams) : { dedicated: {}, flexes: [] };
@@ -119,7 +139,7 @@
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
     if (posf !== 'ALL' && r.pos !== posf) return false;
-    if (hideOwned && ownerById[r.id]) return false;
+    if (hideOwned && (anyKept ? keptById[r.id] : ownerById[r.id])) return false;
     if (hidePartial && r.partial) return false;
     const n = q.trim().toLowerCase();
     if (n && !r.name.toLowerCase().includes(n) && r.team.toLowerCase() !== n) return false;
@@ -226,7 +246,7 @@
         {/each}
       </span>
       <input class="srch" placeholder="search name or team…" bind:value={q} data-testid="sheet-search" />
-      <label class="chk"><input type="checkbox" bind:checked={hideOwned} /> hide rostered</label>
+      <label class="chk"><input type="checkbox" bind:checked={hideOwned} /> {anyKept ? 'hide kept' : 'hide rostered'}</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
       <button class="chip" class:on={useMine} data-testid="sheet-mine" on:click={() => (useMine = !useMine)} disabled={!order.length}>
@@ -254,7 +274,7 @@
         </thead>
         <tbody>
           {#each shown as r, i (r.id)}
-            <tr class:owned={!!ownerById[r.id]} class:part={r.partial}>
+            <tr class:owned={!!(anyKept ? keptById[r.id] : ownerById[r.id])} class:part={r.partial}>
               <td class="nrw muted">{i + 1}</td>
               <td class="nrw mv">
                 <button on:click={() => bump(r.id, -1)} aria-label="Move {r.name} up" data-testid={'up-' + r.id}>▲</button>
@@ -274,7 +294,9 @@
               <td class="big">{n1(r.vorp)}</td>
               <td class="muted">{r.pos}{r.posRank}</td>
               <td class="muted">{r.ovRank}</td>
-              <td class="l muted">{TEAMSHORT[ownerById[r.id]] || ownerById[r.id] || ''}</td>
+              <td class="l muted" class:kept={!!keptById[r.id]}>
+                {TEAMSHORT[ownerById[r.id]] || ownerById[r.id] || ''}{#if keptById[r.id]} · KEPT{/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -335,6 +357,7 @@
   tbody td.l { text-align: left; }
   tbody tr:hover { background: var(--blue-wash); }
   tr.owned { opacity: .5; }
+  td.kept { color: var(--blue-deep); font-weight: 700; }
   tr.part .nm { font-style: italic; }
   .nm { font-family: var(--body); font-weight: 600; color: var(--chalk); max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
   .tag { font-style: normal; font-size: 8.5px; background: var(--brass); color: #fff; border-radius: 3px; padding: 0 3px; margin-left: 5px; }

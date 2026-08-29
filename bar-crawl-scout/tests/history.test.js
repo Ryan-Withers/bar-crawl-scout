@@ -74,3 +74,30 @@ describe('history resolver', () => {
     expect(rows[0]).toMatchObject({ opponent: 'Trevor', avg: 20 });
   });
 });
+
+// ---------------------------------------------------------------------------
+import realPicks from '../src/lib/api/fixtures/draft-picks-2026.json';
+
+describe('pick numbers are within the round, not overall', () => {
+  it('renders a 14th-round keeper as R14.07, not R14.137', () => {
+    // Sleeper's pick_no is the OVERALL number. DraftPick.pick means the position
+    // within the round, which is what the custody chain prints. Handing pick_no
+    // straight over showed Brock Bowers as "Kept · R14.137".
+    const rosterHandle = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i + 1, `m${i + 1}`]));
+    const season = buildSeasonData('2026', rosterHandle, realPicks, []);
+    for (const p of season.picks) {
+      expect(p.pick, `pick ${p.player_id} sits inside its round`).toBeGreaterThanOrEqual(1);
+      expect(p.pick).toBeLessThanOrEqual(10);
+    }
+    const bowers = season.picks.find((p) => p.player_id === '11604');
+    expect(bowers.round).toBe(14);
+    expect(bowers.pick).toBe(4);        // Ryan drafts from slot 4
+    expect(bowers.is_keeper).toBe(true);
+  });
+
+  it('derives the position when Sleeper sends no draft_slot', () => {
+    const rosterHandle = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i + 1, `m${i + 1}`]));
+    const bare = [{ player_id: 'x', round: 2, pick_no: 13, roster_id: 1 }];
+    expect(buildSeasonData('2026', rosterHandle, bare, []).picks[0].pick).toBe(3);
+  });
+});

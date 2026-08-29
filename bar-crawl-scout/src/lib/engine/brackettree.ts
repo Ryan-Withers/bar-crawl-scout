@@ -49,7 +49,7 @@ export function buildBracketTree(bracket: BracketSeed[]): TreeRound[] {
         t2: b.t2 ?? null,
         winner: b.w ?? null,
         loser: b.l ?? null,
-        place: b.p === 1 ? 'Final' : b.p === 3 ? 'Third' : null,
+        place: (b.p === 1 ? 'Final' : b.p === 3 ? 'Third' : null) as TreeMatch['place'],
       }))
       // Final before Third place before the rest; stable by match id within a tier.
       .sort((a, b) => placeRank(a.place) - placeRank(b.place) || a.m - b.m);

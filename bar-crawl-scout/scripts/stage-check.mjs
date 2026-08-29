@@ -27,7 +27,15 @@ const ROOT = join(HERE, '..');
 const LIVE = process.argv.includes('--live');
 const STRICT = process.argv.includes('--strict');
 
-const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// Must match src/lib/data.js's nameKey, or this audit inherits the very bug it
+// exists to catch: Sleeper says "Kenneth Walker", the board says "Kenneth Walker
+// III", and a stripped-punctuation compare leaves the suffix on, so eighteen of
+// the top 200 were never checked at all.
+const norm = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/[.'’]/g, '')
+  .replace(/\s+(jr|sr|ii|iii|iv|v)$/, '')
+  .replace(/[^a-z0-9]/g, '');
 
 async function loadPlayers() {
   if (LIVE) {

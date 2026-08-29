@@ -34,9 +34,24 @@ export const getLeagueDrafts = (id: string = LEAGUE_ID) =>
   get<Array<{ draft_id: string; season: string; type?: string; status?: string; draft_order?: Record<string, number> | null }>>(`/league/${id}/drafts`);
 export const getDraftPicks = (draftId: string) =>
   get<Array<Record<string, unknown>>>(`/draft/${draftId}/picks`);
+export interface TradedPickRow {
+  season: string; round: number;
+  roster_id: number; owner_id: number; previous_owner_id: number | null;
+}
 // Traded picks: who ACTUALLY owns each (round, original-roster) pick.
+//
+// Two endpoints exist and they are NOT the same set. The draft-scoped one covers
+// the picks of that one draft; the LEAGUE-scoped one covers every season the
+// league has traded into, which is where the 2027 futures live — eighteen of
+// them, including the four first-rounders joshleota has bought. The capture bot
+// has always read the league-scoped one, so the fixtures carry 2027 while the
+// app was asking the draft for it and would have shown an empty futures column
+// in production with every test green.
+export const getLeagueTradedPicks = (id: string = LEAGUE_ID) =>
+  get<TradedPickRow[]>(`/league/${id}/traded_picks`);
+/** Draft-scoped: that draft's season only. Prefer getLeagueTradedPicks. */
 export const getTradedPicks = (draftId: string) =>
-  get<Array<{ season: string; round: number; roster_id: number; owner_id: number; previous_owner_id: number | null }>>(`/draft/${draftId}/traded_picks`);
+  get<TradedPickRow[]>(`/draft/${draftId}/traded_picks`);
 
 // Playoff bracket — the final match's winner is that season's champion.
 export const getWinnersBracket = (id: string = LEAGUE_ID) =>

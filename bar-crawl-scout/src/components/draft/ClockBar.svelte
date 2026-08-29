@@ -2,7 +2,7 @@
   // ON THE CLOCK — the bar that runs the room. Names the drafter, counts the
   // clock down with real urgency, shows the bots visibly thinking, and holds
   // every transport control (pause / sim / undo / speed).
-  import { currentHandle, roundOf, pickCode, clockPhase, fmtClock, picksUntil } from '../../lib/engine/mockdraft.ts';
+  import { currentHandle, roundOf, pickCode, boardPickAt, clockPhase, fmtClock, picksUntil } from '../../lib/engine/mockdraft.ts';
   import { initials } from './theme.js';
 
   export let st;
@@ -28,7 +28,10 @@
 
   $: teams = st ? st.cfg.order.length : 0;
   $: onClock = st && !st.done ? currentHandle(st) : null;
-  $: overall = st ? st.log.length + 1 : 0;
+  // The BOARD pick, not the live-sequence counter. They part company the moment
+  // a keeper cell is skipped — live pick 115 is board pick 116 — and everything
+  // on screen quotes board codes.
+  $: overall = st ? boardPickAt(st) : 0;
   $: code = pickCode(overall, teams);
   $: phase = clockPhase(clockLeft, userTurn ? clockLen : 0);
   $: upIn = st && !spectate && seat && !userTurn ? picksUntil(st, seat) : -1;

@@ -22,14 +22,19 @@ describe('the real 2026 board', () => {
     expect(board.type).toBe('snake');
   });
 
-  it('Ryan holds his own slot 4 and JShrimp341\'s slot 2 via trade', () => {
+  it('Ryan picks ONCE in round one — at 1.04, his own slot', () => {
+    // This test used to assert he also held 1.02, bought from JShrimp341. He did,
+    // and then he sold it on to joshleota, and the capture caught it. data.js
+    // still hard-codes two first-rounders for him (CAPITAL Ryan:[2,0,3]), which
+    // is the argument for deriving pick capital instead of typing it.
     const board = draftSlotBoard(draft, traded, users, rosters);
     expect(board.slotHandles[3]).toBe('Ryan');       // base slot 4
     expect(board.slotHandles[1]).toBe('JShrimp341'); // slot 2's ORIGINAL owner
     const seq = sequenceFromSlots(board.slotHandles, board.overrides, 11, board.type);
-    expect(seq[1]).toBe('Ryan');  // pick 1.02 — traded to Ryan
-    expect(seq[3]).toBe('Ryan');  // pick 1.04 — his own
-    expect(seq).toHaveLength(110); // 11 uniform rounds of 10 slots
+    expect(seq[3]).toBe('Ryan');       // 1.04 — his own
+    expect(seq[1]).toBe('joshleota');  // 1.02 — JShrimp's, went through Ryan, now Josh's
+    expect(seq.slice(0, 10).filter((h) => h === 'Ryan')).toHaveLength(1);
+    expect(seq).toHaveLength(110);     // 11 uniform rounds of 10 slots
   });
 
   it('only same-season trades apply, and round 2 snakes', () => {
@@ -53,5 +58,32 @@ describe('the real 2026 board', () => {
     expect(draftSlotBoard({ draft_order: null }, traded, users, rosters)).toBeNull();
     expect(draftSlotBoard(draft, traded, {}, rosters)).toBeNull();
     expect(draftSlotBoard(draft, 'nonsense', users, rosters)).not.toBeNull(); // bad trades -> just no overrides
+  });
+});
+
+describe('a short draft order is flagged, not swallowed', () => {
+  it('reports the DRAFT\'s team count and marks the order incomplete', () => {
+    // The 2025 draft really does carry nine entries for ten teams.
+    // Drop the TOP slot specifically: that shortens the array without leaving a
+    // hole, which is exactly why nothing downstream could tell.
+    const nine = {
+      ...draft,
+      draft_order: Object.fromEntries(Object.entries(draft.draft_order).filter(([, slot]) => slot !== 10)),
+    };
+    const board = draftSlotBoard(nine, traded, users, rosters);
+    expect(board.slotHandles).toHaveLength(9);
+    expect(board.teams).toBe(10);          // from draft.settings.teams
+    expect(board.incomplete).toBe(true);
+  });
+
+  it('a complete order is not flagged', () => {
+    const board = draftSlotBoard(draft, traded, users, rosters);
+    expect(board.teams).toBe(10);
+    expect(board.incomplete).toBe(false);
+  });
+
+  it('falls back to the roster count when the draft omits settings.teams', () => {
+    const bare = { ...draft, settings: undefined };
+    expect(draftSlotBoard(bare, traded, users, rosters).teams).toBe(10);
   });
 });

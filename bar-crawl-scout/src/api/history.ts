@@ -42,10 +42,18 @@ export function buildSeasonData(
   rawPicks: RawPick[],
   rawTxns: RawTxn[],
 ): SeasonData {
+  const teams = Object.keys(rosterHandle || {}).length || 10;
   const picks: DraftPick[] = (rawPicks || []).map((p) => ({
     player_id: p.player_id,
     round: p.round,
-    pick: p.pick_no != null ? p.pick_no : (p.draft_slot || 0), // pick-within-round; fall back to slot
+    // pick-within-round, which is what DraftPick.pick means and what the custody
+    // chain renders as "R2.03". Sleeper's pick_no is the OVERALL number, so
+    // handing it straight over printed Brock Bowers as "Kept · R14.137" and
+    // every 2025 second-rounder as "R2.13". draft_slot is already the
+    // within-round position, so prefer it and derive from pick_no otherwise.
+    pick: p.draft_slot != null
+      ? p.draft_slot
+      : (p.pick_no != null && p.round ? ((p.pick_no - 1) % Math.max(1, teams)) + 1 : (p.pick_no || 0)),
     roster_id: p.roster_id != null ? p.roster_id : 0,
     is_keeper: !!p.is_keeper,
   }));

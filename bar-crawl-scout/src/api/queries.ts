@@ -55,17 +55,41 @@ export const seasonTransactionsQuery = () => ({
   ),
 });
 
-// The league's current draft + its traded picks, in one shot (for the War Room's
-// real slot board). Null when there's no draft with an assigned order yet.
+// The league's current draft, its traded picks AND its picks-so-far, in one shot
+// (for the War Room's real slot board and the keeper board). Null when there's
+// no draft with an assigned order yet.
+//
+// The picks are what carry the KEEPERS: once the commissioner assigns them they
+// appear here with is_keeper set, sitting in the last picks each manager still
+// owns. Before that the endpoint returns [] and the keeper board derives the
+// placement instead — so an empty array is a normal state, not a failure.
 export const realDraftQuery = () => ({
   queryKey: ['realdraft'] as const,
   staleTime: 30 * MIN,
   queryFn: async () => {
-    const drafts = await S.getLeagueDrafts();
-    const draft = (Array.isArray(drafts) ? drafts : []).find((d) => d && d.draft_order) || null;
+    // The league object names its own draft. Take that one rather than the first
+    // with an order: this league's settings carry draft_rounds 3 as well as the
+    // draft's own rounds 15, which is Sleeper's marker for a second, rookie
+    // draft — and `.find` would take whichever came back first.
+    const [drafts, league] = await Promise.all([
+      S.getLeagueDrafts(),
+      S.getLeague().catch(() => null as Awaited<ReturnType<typeof S.getLeague>> | null),
+    ]);
+    const list = Array.isArray(drafts) ? drafts : [];
+    const named = league && (league as { draft_id?: string }).draft_id;
+    const draft = (named && list.find((d) => d && d.draft_id === named && d.draft_order))
+      || list.find((d) => d && d.draft_order && (!league || d.season === league.season))
+      || list.find((d) => d && d.draft_order)
+      || null;
     if (!draft) return null;
-    const traded = await S.getTradedPicks(draft.draft_id).catch(() => []);
-    return { draft, traded };
+    // League-scoped traded picks, not draft-scoped: the futures (2027) only
+    // exist on the league endpoint, and the fixtures this is tested against come
+    // from there. Fall back to the draft's own set if the league call fails.
+    const [traded, picks] = await Promise.all([
+      S.getLeagueTradedPicks().catch(() => S.getTradedPicks(draft.draft_id).catch(() => [])),
+      S.getDraftPicks(draft.draft_id).catch(() => []),
+    ]);
+    return { draft, traded, picks };
   },
 });
 

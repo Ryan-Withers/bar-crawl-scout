@@ -2,6 +2,7 @@
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
+  import { capital } from '../lib/store.js';
   import { chestTag, needScores } from '../lib/models.js';
   import { keepers, unlocked } from '../lib/store.js';
   import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
@@ -103,8 +104,13 @@
             </div>
           {/if}
 
-          {@const c = CAPITAL[m.h] || [0, 0, 0]}
-          <div class="cap">2026 capital: <b>{c[0]}</b>·1st <b>{c[1]}</b>·2nd <b>{c[2]}</b>·3rd</div>
+          {@const seasons = $capital ? Object.keys($capital).sort() : []}
+          {@const c = ($capital && seasons[0] && $capital[seasons[0]][m.h]?.top3) || CAPITAL[m.h] || [0, 0, 0]}
+          {@const f = $capital && seasons[1] ? $capital[seasons[1]][m.h]?.top3 : null}
+          <div class="cap">
+            {seasons[0] || 2026} capital: <b>{c[0]}</b>·1st <b>{c[1]}</b>·2nd <b>{c[2]}</b>·3rd
+            {#if f}<span class="fut">· {seasons[1]}: <b>{f[0]}</b>·1st <b>{f[1]}</b>·2nd <b>{f[2]}</b>·3rd</span>{/if}
+          </div>
           <p class="blurb">{m.note}</p>
         {/if}
         <a class="openfile" href={'/managers/' + m.h} use:link>Open full file ↗</a>
@@ -114,6 +120,7 @@
 </section>
 
 <style>
+  .cap .fut { color: var(--muted); }
   .files { padding-top: 2px; }
   .filenote { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.6; margin: 0 0 18px; max-width: 76ch; }
 

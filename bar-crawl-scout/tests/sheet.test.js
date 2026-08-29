@@ -239,3 +239,97 @@ describe('the stock baseline itself', () => {
     expect(STOCK_SCORING.idp_tkl).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// THE INVARIANT: keepers come OUT of the display and stay IN the fill.
+//
+// This is the trap the next change to this file will walk into, so it is written
+// down as a test rather than as a comment. Thirty men are off the DRAFT. They are
+// not off the LEAGUE — Bijan Robinson still starts at running back for ImyHunter
+// in week one — so they still occupy a starting seat, and supply and demand fall
+// by the same thirty at each position. Replacement is therefore unmoved, and the
+// board must be built with them in it and merely hide them.
+//
+// Strip them from the pool while leaving demand at eighty seats and it is not a
+// harmless constant shift: measured against the captured fixtures it moves 401 of
+// 440 rows and turns the top thirty from 13 receivers into 16.
+import projections from '../src/lib/api/fixtures/season-projections-2026.json';
+import priorStats from '../src/lib/api/fixtures/season-stats-2025.json';
+import playersBlob from '../src/lib/api/fixtures/players-trimmed.json';
+import rosters2026 from '../src/lib/api/fixtures/rosters-2026.json';
+import leagueFixture from '../src/lib/api/fixtures/league.json';
+
+const OUT_OF_SCOPE = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+const OFFENCE_SCORING = Object.fromEntries(
+  Object.entries(leagueFixture.scoring_settings).filter(([k]) => !OUT_OF_SCOPE.test(k)),
+);
+const IDP_SLOTS = new Set(['IDP_FLEX', 'DL', 'LB', 'DB', 'IDP']);
+const OFFENCE_SLOTS = leagueFixture.roster_positions.filter((p) => !IDP_SLOTS.has(p));
+const FANTASY = new Set(['QB', 'RB', 'WR', 'TE']);
+
+const REAL_INPUTS = Object.keys(projections).flatMap((id) => {
+  const p = playersBlob[id];
+  if (!p || !FANTASY.has(p.position)) return [];
+  const proj = projections[id] || {};
+  const prior = priorStats[id] || null;
+  return [{
+    id, name: p.full_name, pos: p.position, team: p.team || 'FA',
+    games: Number(proj.gp) > 0 ? Number(proj.gp) : 17,
+    proj,
+    prior,
+    priorGames: prior && Number(prior.gp) > 0 ? Number(prior.gp) : 17,
+  }];
+});
+const KEPT = new Set(rosters2026.flatMap((r) => (r.keepers || []).map(String)));
+
+describe('keepers leave the draft, not the league', () => {
+  const teams = rosters2026.length;
+  const withKeepers = buildSheet(REAL_INPUTS, OFFENCE_SCORING, OFFENCE_SLOTS, teams);
+  const stripped = buildSheet(REAL_INPUTS.filter((i) => !KEPT.has(i.id)), OFFENCE_SCORING, OFFENCE_SLOTS, teams);
+
+  it('the fixture really does hold thirty kept men inside the scored pool', () => {
+    expect(KEPT.size).toBe(30);
+    expect(REAL_INPUTS.filter((i) => KEPT.has(i.id))).toHaveLength(30);
+  });
+
+  it('stripping them from the FILL moves replacement at every position', () => {
+    // Every one of them sits above the replacement line, so taking them out
+    // without also taking out the seats they fill drags replacement down.
+    for (const pos of ['QB', 'RB', 'WR', 'TE']) {
+      expect(stripped.levels[pos], `${pos} replacement drops`).toBeLessThan(withKeepers.levels[pos]);
+    }
+    // And not evenly — which is what makes it a re-ranking rather than a shift.
+    expect(withKeepers.levels.RB - stripped.levels.RB).toBeGreaterThan(1);
+    expect(withKeepers.levels.WR - stripped.levels.WR).toBeGreaterThan(1);
+    expect(withKeepers.levels.QB - stripped.levels.QB).toBeLessThan(0.5);
+  });
+
+  it('and re-orders almost the whole board', () => {
+    const rankOf = (rows) => new Map(
+      rows.slice().sort((a, b) => b.vorp - a.vorp).map((r, i) => [r.id, i + 1]),
+    );
+    const right = rankOf(withKeepers.rows.filter((r) => !KEPT.has(r.id)));
+    const wrong = rankOf(stripped.rows);
+    let moved = 0;
+    for (const [id, i] of right) if (wrong.has(id) && wrong.get(id) !== i) moved++;
+    expect(moved / right.size).toBeGreaterThan(0.8);
+  });
+
+  it('the top thirty change SHAPE, not just order — receivers eat the board', () => {
+    const top = (rows, skipKept) => rows.slice()
+      .filter((r) => (skipKept ? !KEPT.has(r.id) : true))
+      .sort((a, b) => b.vorp - a.vorp).slice(0, 30)
+      .reduce((o, r) => ((o[r.pos] = (o[r.pos] || 0) + 1), o), {});
+    const right = top(withKeepers.rows, true);
+    const wrong = top(stripped.rows, false);
+    expect(wrong.WR).toBeGreaterThan(right.WR);
+    expect(wrong.TE).toBeLessThan(right.TE);
+  });
+
+  it('so the board is built with everyone and hides the kept — never the reverse', () => {
+    // The contract in one line: buildSheet sees all 470, and the 30 are removed
+    // by a display filter afterwards.
+    expect(withKeepers.rows.length).toBeGreaterThan(stripped.rows.length);
+    expect(withKeepers.rows.filter((r) => KEPT.has(r.id))).toHaveLength(30);
+  });
+});

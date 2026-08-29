@@ -15,30 +15,40 @@
   import Board from './components/Board.svelte';
   import Keepers from './components/Keepers.svelte';
   import Managers from './components/Managers.svelte';
-  import ManagerDossier from './components/ManagerDossier.svelte';
   import Trade from './components/Trade.svelte';
   import Faab from './components/Faab.svelte';
   import Intel from './components/Intel.svelte';
-  import SyncPage from './components/Sync.svelte';
-  import PlayerFile from './components/PlayerFile.svelte';
-  import Compare from './components/Compare.svelte';
   import Standings from './components/Standings.svelte';
-  import Gameday from './components/Gameday.svelte';
-  import Wall from './components/Wall.svelte';
-  import Settings from './components/Settings.svelte';
   import MyTeam from './components/MyTeam.svelte';
   import ByeRadar from './components/ByeRadar.svelte';
   import Matchup from './components/Matchup.svelte';
   import Players from './components/Players.svelte';
-  import Playoffs from './components/Playoffs.svelte';
   import PowerRankings from './components/PowerRankings.svelte';
-  import TheBook from './components/TheBook.svelte';
-  import MockDraft from './components/MockDraft.svelte';
-  import Vault from './components/Vault.svelte';
-  import Sheet from './components/Sheet.svelte';
-  import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
+  import LiveKeepers from './components/LiveKeepers.svelte';
+
+  // LAZY ROUTES. Each of these is a whole screen of machinery most visits never
+  // open — the War Room alone is the biggest thing in the app — and shipping
+  // them in the entry chunk made every page, on every phone, wait for all of
+  // them. `__lazy` marks a loader for Router.svelte, because a Svelte component
+  // is itself a function and the two cannot otherwise be told apart.
+  const lazy = (loader) => Object.assign(loader, { __lazy: true });
+  const MockDraft = lazy(() => import('./components/MockDraft.svelte'));
+  const Vault = lazy(() => import('./components/Vault.svelte'));
+  const DraftRoom = lazy(() => import('./components/DraftRoom.svelte'));
+  const Sheet = lazy(() => import('./components/Sheet.svelte'));
+  const TheBook = lazy(() => import('./components/TheBook.svelte'));
+  const BetLedger = lazy(() => import('./components/BetLedger.svelte'));
+  const Wall = lazy(() => import('./components/Wall.svelte'));
+  const Gameday = lazy(() => import('./components/Gameday.svelte'));
+  const Playoffs = lazy(() => import('./components/Playoffs.svelte'));
+  const Compare = lazy(() => import('./components/Compare.svelte'));
+  const PlayerFile = lazy(() => import('./components/PlayerFile.svelte'));
+  const ManagerDossier = lazy(() => import('./components/ManagerDossier.svelte'));
+  const SyncPage = lazy(() => import('./components/Sync.svelte'));
+  const Settings = lazy(() => import('./components/Settings.svelte'));
+
   import Stub from './components/Stub.svelte';
 
   // Pull live rosters from the Worker on open (silent if offline/blocked).
@@ -66,6 +76,7 @@
     '/power': PowerRankings,
     '/mock': MockDraft,
     '/vault': Vault,
+    '/draftboard': DraftRoom,
     // Hidden on purpose: a real route, deliberately absent from nav.js so the
     // app never links to it. Security by obscurity — the repo is public.
     '/sheet': Sheet,
@@ -108,6 +119,9 @@
 <svelte:window on:keydown={(e) => e.key === 'Escape' && closeDrawer()} />
 
 <QueryClientProvider client={queryClient}>
+  <!-- Renders nothing; pulls the locked keepers and hands them to the store,
+       so every page that reads keepers reads Sleeper rather than a guess. -->
+  <LiveKeepers />
   <div class="app" class:focus={focusMode}>
     {#if !focusMode}
       <aside class="rail" data-testid="sidebar">

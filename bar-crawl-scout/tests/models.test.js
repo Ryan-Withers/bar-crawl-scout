@@ -18,43 +18,44 @@ function initKS() {
 }
 const KS = initKS();
 
-// Authoritative 2026 keepers (mirrors the legacy suite). Deliberately a SECOND,
-// independent copy of the map — if PROJ is edited by hand and this isn't, the
-// test fails, which is the point. Last moved by the Gibbs <-> Henderson trade
-// (joshleota -> ATorelli4 / ATorelli4 -> joshleota).
-const EXPECT = {
-  joshleota: { 'TreVeyon Henderson': 'VL', 'Puka Nacua': 'VL', 'Drake London': 'VL', 'Justin Jefferson': 'U' },
-  WinzTheBrah: { 'James Cook': 'VL', 'Breece Hall': 'VL', 'A.J. Brown': 'L', 'Garrett Wilson': 'U' },
-  JohnnyDuff: { 'Ashton Jeanty': 'VL', "De'Von Achane": 'VL', 'Jaxon Smith-Njigba': 'VL', 'Trey McBride': 'U' },
-  jduddy9: { 'Omarion Hampton': 'VL', 'Christian McCaffrey': 'VL', 'Rashee Rice': 'L', 'Derrick Henry': 'U' },
-  jpdonners: { 'CeeDee Lamb': 'VL', 'Josh Jacobs': 'VL', 'Travis Etienne Jr.': 'L', 'Jordan Addison': 'U' },
-  ATorelli4: { 'Amon-Ra St. Brown': 'VL', 'Jahmyr Gibbs': 'VL', 'Kenneth Walker III': 'L', 'Drake Maye': 'U' },
-  JShrimp341: { 'Saquon Barkley': 'VL', 'Chase Brown': 'VL', 'Kyren Williams': 'VL', 'Tyler Warren': 'U' },
-  ShaydenB: { 'Jonathan Taylor': 'VL', 'Nico Collins': 'VL', 'Quinshon Judkins': 'L', 'DeVonta Smith': 'U' },
-  ImyHunter: { 'Bijan Robinson': 'VL', 'Malik Nabers': 'VL', 'Emeka Egbuka': 'L', 'Cam Skattebo': 'U' },
-};
+// PROJ is the OFFLINE FALLBACK now, not the answer.
+//
+// This block used to assert PROJ's guesses as facts — that Justin Jefferson was
+// "only a watch, never a real keeper", that jpdonners kept Josh Jacobs. Sleeper
+// says otherwise: Jefferson is ShaydenB's locked keeper and jpdonners kept Lamar
+// Jackson, CeeDee Lamb and Zay Flowers. tests/keepers.test.js reads the captured
+// board and is the authority on WHO. Two files asserting opposite things with
+// equal authority is worse than one being silent, and the green tick made PROJ
+// look maintained — so this file now tests the SHAPE and the mechanism, and
+// leaves the roll call to the file that reads it off Sleeper.
 const RYAN_KEEPERS = ['Tetairoa McMillan', "Ja'Marr Chase", 'Brock Bowers'];
 const byName = nm => PLAYERS.find(p => p[1] === nm);
 
-describe('keeper integrity', () => {
-  it('every projected keeper resolves to the right owner and confidence', () => {
-    for (const h of Object.keys(EXPECT)) {
-      for (const nm of Object.keys(EXPECT[h])) {
-        const o = ownerOf(KS, nm);
-        expect(o, `${nm} should be owned`).toBeTruthy();
-        expect(o.owner, `${nm} owner`).toBe(h);
-        expect(o.conf, `${nm} confidence`).toBe(EXPECT[h][nm]);
-      }
+describe('the projection fallback', () => {
+  it('gives every team four slots, the last of them a watch', () => {
+    for (const t of TEAMS) {
+      expect(KS[t[0]], `${t[0]} has a row`).toHaveLength(4);
+      const watch = KS[t[0]][3];
+      if (watch[0]) expect(watch[1], `${t[0]}'s watch slot`).toBe('U');
     }
   });
 
-  it("Ryan's three keepers are his, and stay classified to Ryan", () => {
-    for (const nm of RYAN_KEEPERS) {
-      expect(ownerOf(KS, nm)?.owner).toBe('Ryan');
+  it('resolves a projected keeper to an owner and a confidence', () => {
+    const o = ownerOf(KS, 'Ashton Jeanty');
+    expect(o).toBeTruthy();
+    expect(['VL', 'L', 'U']).toContain(o.conf);
+  });
+
+  it('treats the watch slot as still in the pool, whoever is in it', () => {
+    for (const t of TEAMS) {
+      const watch = KS[t[0]][3];
+      if (!watch[0]) continue;
+      expect(isKept(KS, watch[0]), `${watch[0]} is a watch, not a keeper`).toBe(false);
+      expect(isAvailable(KS, watch[0])).toBe(true);
     }
   });
 
-  it('no player is a VL/L keeper for two teams', () => {
+  it('never has one man as a real keeper for two teams', () => {
     const seen = {};
     let dup = 0;
     for (const t of TEAMS) for (const s of (KS[t[0]] || [])) {
@@ -63,10 +64,15 @@ describe('keeper integrity', () => {
     expect(dup).toBe(0);
   });
 
-  it('Justin Jefferson is only a watch (U), never a real keeper, and stays in the pool', () => {
-    expect(isKept(KS, 'Justin Jefferson')).toBe(false);
-    expect(isAvailable(KS, 'Justin Jefferson')).toBe(true);
-    expect(ownerOf(KS, 'Justin Jefferson')).toEqual({ owner: 'joshleota', conf: 'U' });
+  it('keeps three per team at most — the league allows three', () => {
+    for (const t of TEAMS) {
+      const real = (KS[t[0]] || []).filter((s) => s[0] && s[1] !== 'U');
+      expect(real.length, `${t[0]} keeps at most three`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("Ryan's three are his, and stay classified to Ryan", () => {
+    for (const nm of RYAN_KEEPERS) expect(ownerOf(KS, nm)?.owner).toBe('Ryan');
   });
 });
 

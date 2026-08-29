@@ -4,7 +4,7 @@
 import {
   PLAYERS, TEAMS, KEPT2025, STAGE, MODES, PTS_BASE, POSRANK, GROWTH,
   CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT, RYAN,
-  POS_DECAY, POS_DEV, POS_ROOKIE_Y1,
+  POS_DECAY, POS_DEV, POS_ROOKIE_Y1, nameKey,
 } from './data.js';
 
 // ADP -> talent base. The anchor points are the tiers this board has always
@@ -29,14 +29,19 @@ export function tierFromADP(a) {
   return ADP_ANCHORS[ADP_ANCHORS.length - 1][1];
 }
 export const ELITE_BONUS = a => (a <= 4 ? 12 : a <= 8 ? 7 : a <= 12 ? 3 : 0);
-export const yearsLeft = n => (KEPT2025.has(n) ? 1 : 2);
+// KEPT2025 is spelled our way ("Marvin Harrison Jr."); a name reaching this
+// function may be spelled Sleeper's ("Marvin Harrison"). Match on the normalised
+// key so a suffix cannot quietly hand a final-year keeper a second year — which
+// is worth 60-odd points of 2027 value to him.
+const KEPT2025_KEYS = new Set([...KEPT2025].map(nameKey));
+export const yearsLeft = n => (KEPT2025.has(n) || KEPT2025_KEYS.has(nameKey(n)) ? 1 : 2);
 
 // ks is the keeper map: { handle: [[name, conf], ...] }, conf in {VL, L, U}.
 export function ownerOf(ks, name) {
-  const ln = name.toLowerCase();
+  const ln = nameKey(name);
   for (const t of TEAMS) {
     for (const s of (ks[t[0]] || [])) {
-      if (s[0] && s[0].toLowerCase() === ln) return { owner: t[0], conf: s[1] || 'L' };
+      if (s[0] && nameKey(s[0]) === ln) return { owner: t[0], conf: s[1] || 'L' };
     }
   }
   return null;
@@ -157,11 +162,11 @@ export function buildRosterOwn(rosterStore) {
   if (!rosterStore || !rosterStore.byHandle) return null;
   const m = {};
   for (const h in rosterStore.byHandle) {
-    (rosterStore.byHandle[h].players || []).forEach(pl => { if (pl && pl.n && !m[pl.n.toLowerCase()]) m[pl.n.toLowerCase()] = h; });
+    (rosterStore.byHandle[h].players || []).forEach(pl => { if (pl && pl.n && !m[nameKey(pl.n)]) m[nameKey(pl.n)] = h; });
   }
   return m;
 }
-export const rosterOwner = (own, name) => (own ? (own[name.toLowerCase()] || null) : null);
+export const rosterOwner = (own, name) => (own ? (own[nameKey(name)] || null) : null);
 
 // Redaction + trade helpers.
 export const isRyanPlayer = (ks, name) => { const o = ownerOf(ks, name); return !!o && o.owner === RYAN; };

@@ -1,6 +1,6 @@
 // Shared roster enrichment — your live Sleeper roster + board value + bye week.
 // Used by My Team, Bye Radar and the Matchup preview so the logic lives once.
-import { PLAYERS, BYUNAME, RYAN } from './data.js';
+import { PLAYERS, BYUNAME, RYAN, byName, nameKey } from './data.js';
 import { windowVal } from './models.js';
 
 // team -> bye, derived from the top-200 board (every teammate shares a bye).
@@ -17,9 +17,12 @@ const posDefault = (p) => ({ QB: 8, RB: 6, WR: 6, TE: 5, K: 3, DEF: 3, DST: 3 }[
 // `projByName` (optional): lowercase name -> live weekly projected points. When a
 // player has a live projection it wins; otherwise fall back to board value.
 export function enrichPlayer(pl, ks, md, projByName) {
+  // Sleeper spells him "Kenneth Walker"; the board says "Kenneth Walker III".
+  // byName tries both, so the eighteen suffixed men stop falling through to a
+  // flat positional guess and bye week 0.
   const key = (pl.n || '').toLowerCase();
-  const row = BYUNAME[key];
-  const live = projByName ? projByName[key] : undefined;
+  const row = byName(pl.n);
+  const live = projByName ? (projByName[key] ?? projByName[nameKey(pl.n)]) : undefined;
   const proj = live != null ? live : (row ? windowVal(row, ks, md) : posDefault(pl.p));
   const bye = row ? row[4] : (TEAM_BYE[pl.t] || 0);
   return { name: pl.n, pos: normPos(pl.p), team: pl.t, proj, bye, starter: pl.s, live: live != null };
