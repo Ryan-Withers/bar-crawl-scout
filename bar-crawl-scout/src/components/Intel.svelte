@@ -81,9 +81,11 @@
       <h3 class="sec">How the room drafts</h3>
       <p class="room">
         <b>jduddy</b> clears the RB tier fast. <b>jpdonners and JohnnyDuff</b> lean on quarterbacks.
-        <b>joshleota and Winz</b> are win-now contenders who spend on premium names.
-        <b>Imy and Shayden</b> are loaded rebuilders sitting on the most capital.
-        <b>ATorelli</b> is a balanced accumulator and a known bluffer on his stated keepers.
+        <b>Imy and Shayden</b> have just spent their futures on Lamb, Flowers and Jefferson — loaded
+        this year, empty next, and drafting to win now. <b>joshleota</b> went the other way: he sold
+        Jefferson and Nacua and sits on four 2027 firsts, so he is the seller in this room, not the buyer.
+        <b>ATorelli</b> is a balanced accumulator with twenty-two picks for fifteen spots, so expect him
+        to deal on the clock. <b>Winz</b> has not made a trade all off-season.
         Tap <b>Sync</b> in a browser to load each manager's real 2024 and 2025 draft mix. Full dossiers in the Managers tab.
       </p>
     </div>

@@ -34,6 +34,12 @@ test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to en
 
   // THE ROOM: the board is the hero, one cell is on the clock, and you're up.
   await expect(page.getByTestId('draft-board')).toBeVisible();
+  // ...and the room was built on Sleeper's LOCKED keepers, not on the old
+  // hand-written projections. The mock serves the captured league, so a
+  // regression that quietly drops back to the fallback fails here rather than
+  // in one spec at the far end of the suite.
+  await expect(page.getByTestId('roster')).toContainText("Ja'Marr Chase");
+  await expect(page.getByTestId('roster')).toContainText('Puka Nacua');   // bought in principle
   await expect(page.getByTestId('clock')).toBeVisible();
   await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('[data-testid="draft-board"] .cur')).toHaveCount(1);

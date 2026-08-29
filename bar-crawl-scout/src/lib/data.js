@@ -195,26 +195,48 @@ export const POSRANK={};
 // the same reason — a rookie's second year is his biggest jump, so he can't
 // grow slower (1.12) than the second-year players (1.16) he's about to join.
 export const GROWTH={rookie:1.22,yr2:1.16,asc:1.10,prime:0.97,aging:0.80,fading:0.58,"":0.95};
-export const CAPITAL={Ryan:[2,0,3],joshleota:[0,0,1],WinzTheBrah:[1,1,1],JohnnyDuff:[0,0,0],jduddy9:[1,0,0],jpdonners:[0,0,0],ATorelli4:[2,3,1],JShrimp341:[0,1,0],ShaydenB:[2,2,2],ImyHunter:[2,3,2]};
+// 2026 firsts, seconds and thirds each manager HOLDS. The offline fallback only:
+// the live `capital` store computes this from Sleeper's traded_picks and wins
+// whenever it has arrived. Four of the ten were wrong here and nothing noticed,
+// because the trades kept happening after the constant was written — Ryan is
+// down to one first (he sent JShrimp's to joshleota for Nacua), joshleota holds
+// that one, jpdonners was left a second and a third by the Lamb deal rather than
+// stripped, and ImyHunter spent down to [2,2,1] paying for it. Reconciled
+// against the captured fixtures by tests/leaguefacts.test.js, which fails the
+// day it drifts again rather than the day somebody notices.
+export const CAPITAL={Ryan:[1,0,3],joshleota:[1,0,1],WinzTheBrah:[1,1,1],JohnnyDuff:[0,0,0],jduddy9:[1,0,0],jpdonners:[0,1,1],ATorelli4:[2,3,1],JShrimp341:[0,1,0],ShaydenB:[2,2,2],ImyHunter:[2,2,1]};
 export const FIRSTROUND=[["ImyHunter",""],["Ryan","JShrimp slot"],["ShaydenB",""],["Ryan","own"],["ATorelli4",""],["ImyHunter","jpdonners slot"],["WinzTheBrah",""],["ShaydenB","joshleota slot"],["ATorelli4","Duff slot"],["jduddy9",""]];
 export const NEED_TGT={QB:1,RB:3,WR:3,TE:1};
 export const FAAB_HIST={ImyHunter:50,jduddy9:36,Ryan:22,jpdonners:11,joshleota:5,JohnnyDuff:5,JShrimp341:2,ShaydenB:3,WinzTheBrah:0,ATorelli4:0};
 export const ROSTER2025={1:"Ryan",2:"joshleota",3:"ImyHunter",4:"JohnnyDuff",5:"JShrimp341",6:"jduddy9",7:"WinzTheBrah",8:"ATorelli4",9:"ShaydenB",10:"jpdonners"};
 export const STAGE_FAAB={rookie:1.04,yr2:1.05,asc:1.05,prime:1.0,aging:0.92,fading:0.80,"":0.95};
 export const LEAN={Ryan:{RB:0,WR:1},joshleota:{RB:1,WR:1},WinzTheBrah:{WR:1,QB:1},JohnnyDuff:{RB:1,QB:1},jduddy9:{RB:2},jpdonners:{RB:1,QB:1},ATorelli4:{RB:1,WR:1},JShrimp341:{RB:1,WR:1},ShaydenB:{RB:1,WR:1,QB:1},ImyHunter:{RB:1,WR:1}};
-export const REBUILD=new Set(["ImyHunter","ShaydenB","ATorelli4"]);
-export const CONTEND=new Set(["joshleota","jduddy9","WinzTheBrah","JohnnyDuff"]);
+// WHO IS BUYING WHICH YEAR. Read off the 2027 chests, not off a memory of last
+// season: a manager who has sold future capital to buy production now is
+// contending, and one who has taken future capital for established players is
+// rebuilding. August turned this table upside down.
+//
+// joshleota sold Justin Jefferson AND Puka Nacua and sits on FOUR 2027 firsts —
+// he was written down here as the win-now buyer and he is the opposite.
+// jpdonners sold two of his three keepers for three 2027 seconds. ImyHunter and
+// ShaydenB paid for Lamb, Flowers and Jefferson with their futures and have
+// nothing left in 2027; they were written down as rebuilders.
+export const REBUILD=new Set(["joshleota","jpdonners"]);
+export const CONTEND=new Set(["ImyHunter","ShaydenB","ATorelli4","WinzTheBrah","jduddy9","JohnnyDuff"]);
+// THE ROOM, as it stands a week out — rewritten off the August trade log rather
+// than off last season's impression. Records and points are Sleeper's; the
+// capital claims are reconciled against traded_picks by tests/leaguefacts.test.js.
 export const MGRS=[
- {h:"joshleota",rec:"11-4",pf:"2,032 PF",tags:["Win-now All-In","FAAB Max"],tend:"Win-now contender who trades picks for proven studs and spends FAAB hard. Real pick-by-pick history loads on Sync.",note:"2025 points leader who moved his early 2026 capital out, so he is all-in on this year. Your prime buyer if you sell."},
- {h:"WinzTheBrah",rec:"11-4",pf:"1,856 PF",tags:["Efficient","Frugal FAAB"],tend:"Efficient contender who is hard to fleece and keeps his picks intact. Real draft history loads on Sync.",note:"Won 11 games without spending much FAAB. Disciplined, picks intact."},
- {h:"JohnnyDuff",rec:"10-5",pf:"1,879 PF",tags:["Pick Seller","QB Lean"],tend:"Best-available drafter who has dealt away his early 2026 capital. Real pick history loads on Sync.",note:"Now pick-light after selling 2026 capital. A friendly trade partner on picks."},
- {h:"jduddy9",rec:"9-6",pf:"1,942 PF",tags:["RB Lean","FAAB Max"],tend:"Aggressive contender who clears running backs and spends his full FAAB. Real pick history loads on Sync.",note:"Finished red hot and holds a 2026 first. Spends every FAAB dollar."},
- {h:"jpdonners",rec:"8-7",pf:"1,790 PF",tags:["Big Seller","QB Early"],tend:"Takes a quarterback early then stockpiles passers and depth. Real pick history loads on Sync.",note:"Fully stripped of early 2026 picks. Will deal almost anything."},
- {h:"ATorelli4",rec:"7-8",pf:"1,795 PF",tags:["Pick Accumulator","Wildcard"],tend:"Balanced accumulator of picks and bodies with no strong positional tunnel. Real pick history loads on Sync.",note:"Pick-rich rebuilder holding extra firsts and seconds. Known bluffer on his stated keepers."},
+ {h:"joshleota",rec:"11-4",pf:"2,032 PF",tags:["Selling the Present","Futures Hoard"],tend:"Sells established studs for picks and takes the future half of every deal. Real pick-by-pick history loads on Sync.",note:"2025 points leader who has spent August dismantling it — Justin Jefferson to ShaydenB, Puka Nacua to Ryan — and now holds FOUR 2027 firsts, the biggest futures pile in the league. He is not the buyer any more; he is the seller, and his price is next year."},
+ {h:"WinzTheBrah",rec:"11-4",pf:"1,856 PF",tags:["Efficient","Frugal FAAB"],tend:"Efficient contender who is hard to fleece and keeps his picks intact. Real draft history loads on Sync.",note:"Won 11 games without spending much FAAB and has not made a trade all off-season. One of each early pick in both years — the only manager whose board is exactly as it was drawn."},
+ {h:"JohnnyDuff",rec:"10-5",pf:"1,879 PF",tags:["Pick Seller","QB Lean"],tend:"Best-available drafter who has dealt away his early 2026 capital. Real pick history loads on Sync.",note:"No first, second or third this year — the only manager with nothing at the top of the board. His 2027 is intact, so picks are what he has left to sell."},
+ {h:"jduddy9",rec:"9-6",pf:"1,942 PF",tags:["RB Lean","FAAB Max"],tend:"Aggressive contender who clears running backs and spends his full FAAB. Real pick history loads on Sync.",note:"Finished red hot and holds his own 2026 first. Quiet in the trade market, loud on waivers — spends every FAAB dollar."},
+ {h:"jpdonners",rec:"8-7",pf:"1,790 PF",tags:["Big Seller","Futures Buyer"],tend:"Sold the present for next year's board and drafts to fill the hole. Real pick history loads on Sync.",note:"Sold TWO of his three keepers — CeeDee Lamb and Zay Flowers to ImyHunter — for three 2027 seconds and picks. Keeping Lamar alone, he comes to the draft six men short of a squad and will trade with anybody."},
+ {h:"ATorelli4",rec:"7-8",pf:"1,795 PF",tags:["Pick Accumulator","Over Cap"],tend:"Balanced accumulator of picks and bodies with no strong positional tunnel. Real pick history loads on Sync.",note:"Two firsts and three seconds, and twenty-two picks into fifteen roster spots — he will be drafting men he cannot fit and dealing on the clock. Bought Jahmyr Gibbs by sending a 2027 first out."},
  {h:"Ryan",rec:"5-10",pf:"1,811 PF",tags:["Redacted"],tend:"CLASSIFIED.",note:"CLASSIFIED."},
- {h:"JShrimp341",rec:"5-10",pf:"1,696 PF",tags:["Seller","RB Lean"],tend:"Running-back leaning when he drafts fresh, then fills receiver. Real pick history loads on Sync.",note:"Sold his 2026 first and third to Ryan, so he is pick-light. A seller you can keep buying from."},
- {h:"ShaydenB",rec:"5-10",pf:"1,765 PF",tags:["Aggressive Rebuilder"],tend:"Aggressive rebuilder who drafts balanced and swings on youth. Real pick history loads on Sync.",note:"Bought up a big 2026 war chest (two firsts, two seconds, two thirds). Dark-horse riser."},
- {h:"ImyHunter",rec:"4-11",pf:"1,551 PF",tags:["Rebuilder via Picks","FAAB Max"],tend:"Targets elite running backs when he holds capital, otherwise hoards youth and picks. Real pick history loads on Sync.",note:"Biggest war chest in the league and an all-in rebuild. Top FAAB spender."}
+ {h:"JShrimp341",rec:"5-10",pf:"1,696 PF",tags:["Seller","RB Lean"],tend:"Running-back leaning when he drafts fresh, then fills receiver. Real pick history loads on Sync.",note:"Sold his 2026 first and third to Ryan — the first has since gone on to joshleota — leaving him a second as his earliest pick. A seller you can keep buying from."},
+ {h:"ShaydenB",rec:"5-10",pf:"1,765 PF",tags:["Bought the Present"],tend:"Rebuilt through picks, then turned and spent them on a proven stud. Real pick history loads on Sync.",note:"Still holds the biggest 2026 chest (two firsts, two seconds, two thirds) but has just paid his 2027 first for Justin Jefferson. The rebuild is over; he is trying to win now on a young roster."},
+ {h:"ImyHunter",rec:"4-11",pf:"1,551 PF",tags:["All-In Now","FAAB Max"],tend:"Traded his whole future for elite receivers and will keep spending to catch up. Real pick history loads on Sync.",note:"Bought CeeDee Lamb AND Zay Flowers before the draft and paid in 2027 — his futures board is empty. Five keepers once those deals land, from a 4-11 season. Top FAAB spender, and nothing left to sell but this year."}
 ];
 export const NAMEOF={};TEAMS.forEach(t=>NAMEOF[t[0]]=t[1]);
 export const TEAMSHORT={};TEAMS.forEach(t=>TEAMSHORT[t[0]]=t[1].replace(" (YOU)",""));
