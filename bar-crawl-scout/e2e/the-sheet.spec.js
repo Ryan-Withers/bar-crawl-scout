@@ -34,13 +34,13 @@ const PLAYERS_BLOB = {
   p6: { player_id: 'p6', full_name: 'Half Season', position: 'RB', team: 'NYJ', search_rank: 6, fantasy_positions: ['RB'], years_exp: 1, age: 23 },
 };
 
-async function mockSheet(page, { proj = PROJ } = {}) {
+async function mockSheet(page, { proj = PROJ, picks = null } = {}) {
   await mockSleeper(page);
   await page.route(/api\.sleeper\.app/, (route) => {
     const url = route.request().url().split('?')[0];
     const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (url.endsWith('/state/nfl')) return json({ week: 1, season: '2026', season_type: 'regular' });
-    if (/\/league\/\w+$/.test(url)) return json({ league_id: '1', season: '2026', scoring_settings: SCORING, roster_positions: ROSTER_POSITIONS, previous_league_id: null });
+    if (/\/league\/\w+$/.test(url)) return json({ league_id: '1', season: '2026', draft_id: 'd1', scoring_settings: SCORING, roster_positions: ROSTER_POSITIONS, previous_league_id: null });
     if (url.endsWith('/users')) return json([{ user_id: '1', display_name: 'witherssssss' }, { user_id: '2', display_name: 'joshleota' }]);
     // Roster 1 holds two men but KEEPS only one. In this league that is the whole
     // point: everyone keeps three and redrafts the rest, so being on a roster is
@@ -52,6 +52,10 @@ async function mockSheet(page, { proj = PROJ } = {}) {
     if (/\/projections\/nfl\/regular\/\d+$/.test(url)) return json(proj);
     if (/\/stats\/nfl\/regular\/\d+$/.test(url)) return json({});
     if (url.includes('/players/nfl')) return json(PLAYERS_BLOB);
+    // The live draft feed. Null means "no draft yet", which is the state the
+    // board sits in for fifty-one weeks of the year.
+    if (url.endsWith('/drafts')) return json(picks ? [{ draft_id: 'd1', season: '2026' }] : []);
+    if (url.endsWith('/draft/d1/picks')) return json(picks || []);
     return json([]);
   });
 }
@@ -80,11 +84,13 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
-  // Columns: #, move, Player, Pos, Tm, Age, Exp, G, PPG ours, Stock, 1D pts...
-  const OURS = 8; const STOCK = 9; const FD = 10;
+  // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
+  const THEIRS = 6; const REAL = 7; const GAP = 8; const EDGE = 9; const OURS = 10; const FD = 11;
 
   // Identical yards and scores, so a stock board cannot separate them...
-  await expect(cell(page, 'Chain Mover', STOCK)).toHaveText(await cell(page, 'Big Play', STOCK).innerText());
+  // ...and the column the league is looking at cannot either: it is the same
+  // number for both, because a first down is worth nothing on a stock board.
+  await expect(cell(page, 'Chain Mover', THEIRS)).toHaveText(await cell(page, 'Big Play', THEIRS).innerText());
   // ...but ours can, by exactly the first-down difference: 51 * 0.5 / 17 = 1.5
   const chains = Number(await cell(page, 'Chain Mover', OURS).innerText());
   const boom = Number(await cell(page, 'Big Play', OURS).innerText());
@@ -185,12 +191,13 @@ test('refresh re-pulls, and the filters narrow the board', async ({ page }) => {
     const url = route.request().url().split('?')[0];
     const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (url.endsWith('/state/nfl')) return json({ week: 1, season: '2026', season_type: 'regular' });
-    if (/\/league\/\w+$/.test(url)) return json({ league_id: '1', season: '2026', scoring_settings: SCORING, roster_positions: ROSTER_POSITIONS, previous_league_id: null });
+    if (/\/league\/\w+$/.test(url)) return json({ league_id: '1', season: '2026', draft_id: 'd1', scoring_settings: SCORING, roster_positions: ROSTER_POSITIONS, previous_league_id: null });
     if (url.endsWith('/users')) return json([{ user_id: '1', display_name: 'witherssssss' }]);
     if (url.endsWith('/rosters')) return json([{ roster_id: 1, owner_id: '1', players: ['p2'] }]);
     if (/\/projections\/nfl\/regular\/\d+$/.test(url)) { pulls++; return json(PROJ); }
     if (/\/stats\/nfl\/regular\/\d+$/.test(url)) return json({});
     if (url.includes('/players/nfl')) return json(PLAYERS_BLOB);
+    if (url.endsWith('/drafts')) return json([]);
     return json([]);
   });
   await page.goto('./sheet');
@@ -231,7 +238,7 @@ test('a rostered man who was NOT kept stays on the board', async ({ page }) => {
   await expect(table).toContainText('Big Play');          // rostered AND kept
 
   // The toggle knows the difference, and says so.
-  const chk = page.locator('label.chk', { hasText: /hide kept/i });
+  const chk = page.locator('label.chk', { hasText: /hide gone/i });
   await expect(chk).toBeVisible();
   await chk.locator('input').check();
   await expect(table).toContainText('Chain Mover');       // still draftable
@@ -245,4 +252,120 @@ test('the kept man is marked as kept, not merely as owned', async ({ page }) => 
   await expect(kept).toContainText('KEPT');
   const notKept = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
   await expect(notKept).not.toContainText('KEPT');
+});
+
+
+// ---------------------------------------------------------------------------
+// WHAT THE LEAGUE SEES vs WHAT HE IS REALLY WORTH.
+//
+// The point of the whole page in three columns. Sleeper publishes its own
+// half-PPR season projection and that is the number the other nine managers are
+// looking at; ours is the same projected stats scored under our rulebook. The
+// board shows both, so the difference is arguable rather than asserted.
+
+test('the three columns are season totals, and the gap between them is the rulebook', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const THEIRS = 6; const REAL = 7; const GAP = 8; const G = 5;
+
+  const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
+  const they = await num('Gunslinger', THEIRS);
+  const real = await num('Gunslinger', REAL);
+  const gap = await num('Gunslinger', GAP);
+  const games = await num('Gunslinger', G);
+
+  // A season total, not a rate: 34 passing TDs at six rather than four is +68
+  // over a season, and it cannot be that big if the column were per game.
+  expect(games).toBe(17);
+  expect(they).toBeGreaterThan(200);
+  expect(real).toBeGreaterThan(they);
+  expect(gap).toBe(real - they);
+  // 34 TDs x 2 extra, minus 10 interceptions at one extra = +58.
+  expect(gap).toBe(58);
+});
+
+test('every column explains itself on hover', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  const edge = page.locator('thead th', { hasText: /^Edge/ });
+  await edge.hover();
+  const tip = page.locator('.tip');
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText('beats the average lift');
+
+  await page.locator('thead th', { hasText: /^They see/ }).hover();
+  await expect(tip).toContainText('Sleeper');
+  await expect(tip).toContainText('other nine managers');
+
+  // And it goes away again rather than following you around the page.
+  await page.locator('h2, .ttl, header').first().hover();
+  await expect(tip).toHaveCount(0);
+});
+
+test('hovering a column does not sort it — the explainer is not a click', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const before = await page.locator('[data-testid="sheet-table"] tbody tr').first().innerText();
+  await page.locator('thead th', { hasText: /^\+Pts/ }).hover();
+  await expect(page.locator('.tip')).toBeVisible();
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr').first()).toHaveText(before);
+});
+
+// ---------------------------------------------------------------------------
+// DRAFT NIGHT. Refresh, and the men who have gone strike themselves off.
+
+const PICKS = [
+  { player_id: 'p2', round: 12, draft_slot: 3, pick_no: 113, is_keeper: true, roster_id: 1, picked_by: '1' },
+  { player_id: 'p1', round: 1, draft_slot: 7, pick_no: 7, roster_id: 2, picked_by: '2' },
+];
+
+test('a drafted man is struck off with the pick he went at and who took him', async ({ page }) => {
+  await mockSheet(page, { picks: PICKS });
+  await page.goto('./sheet');
+  const table = page.getByTestId('sheet-table');
+  await expect(table).toBeVisible();
+
+  const taken = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
+  await expect(taken).toContainText('1.07');            // round 1, slot 7
+  await expect(taken).toContainText('Buckle Up!');       // joshleota's team
+  await expect(taken).toHaveClass(/owned/);             // greyed, not hidden
+
+  // A keeper is still a keeper, even though he arrives down the same feed.
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Big Play' })).toContainText('KEPT');
+
+  // Someone nobody has taken says nothing at all — the status cell is empty,
+  // which is what "still on the board" should look like.
+  const STATUS = 15;
+  expect((await cell(page, 'Gunslinger', STATUS).innerText()).trim()).toBe('');
+});
+
+test('the board counts what is gone, and hides it on request', async ({ page }) => {
+  await mockSheet(page, { picks: PICKS });
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-count')).toContainText('1 drafted');
+
+  await page.getByTestId('sheet-hidegone').check();
+  const table = page.getByTestId('sheet-table');
+  await expect(table).not.toContainText('Chain Mover');   // drafted
+  await expect(table).not.toContainText('Big Play');      // kept
+  await expect(table).toContainText('Gunslinger');        // still there to take
+});
+
+test('before a draft exists the board is simply the board', async ({ page }) => {
+  await mockSheet(page);                    // no picks feed at all
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-count')).not.toContainText('drafted');
+  await expect(page.getByTestId('sheet')).toContainText('Chain Mover');
+});
+
+test('the live toggle is off until you ask for it', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-live')).not.toBeChecked();
 });

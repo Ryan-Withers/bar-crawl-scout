@@ -17,9 +17,23 @@
 // Pure: no fetching, no DOM, no dates.
 import { scoreStats } from './scoring';
 
-/** A stock half-PPR rulebook, as the baseline every public ranking assumes. */
+/**
+ * A stock half-PPR rulebook — the baseline every public ranking assumes, and
+ * the one Sleeper's own published `pts_half_ppr` is computed under.
+ *
+ * pass_int is MINUS ONE and that is not a preference. It read -2 here, copied
+ * across from our own league, and the error was invisible because it only bites
+ * quarterbacks: every one of the forty-two projected QBs came out eight to
+ * fourteen points light against the number Sleeper puts on his card, which made
+ * their "boost" under our rules look bigger than it is. Solving Sleeper's
+ * published total for the interception weight gives exactly -1.000 for all
+ * forty-two, and with that one change this table reproduces their number to the
+ * decimal for 299 of the 300 players who have one. See sheet-vs-sleeper.test.js,
+ * which asserts that agreement against the captured projections rather than
+ * trusting this comment.
+ */
 export const STOCK_SCORING: Record<string, number> = {
-  pass_yd: 0.04, pass_td: 4, pass_int: -2, pass_2pt: 2,
+  pass_yd: 0.04, pass_td: 4, pass_int: -1, pass_2pt: 2,
   rush_yd: 0.1, rush_td: 6, rush_2pt: 2,
   rec: 0.5, rec_yd: 0.1, rec_td: 6, rec_2pt: 2,
   fum_lost: -2,
@@ -47,17 +61,47 @@ export interface SheetInput {
   proj: Record<string, number>;         // SEASON projected stat line
   prior?: Record<string, number> | null; // prior season ACTUAL stat line
   priorGames?: number;
+  /**
+   * Sleeper's OWN published half-PPR season total (`pts_half_ppr`), verbatim.
+   * This is the number on the player's card — what everyone else in the league
+   * is looking at — so it is carried through rather than re-derived. 0 or
+   * undefined when Sleeper publishes none (retired players, mostly).
+   */
+  sleeperPts?: number | null;
 }
 
 export interface SheetRow {
   id: string; name: string; pos: string; team: string;
   age: number | null; exp: number | null;
   games: number;
+
+  // ---- the three numbers the board is really about, all SEASON totals ----
+  /** What everyone else sees: Sleeper's own published half-PPR season total. */
+  theirs: number;
+  /** Where it came from — Sleeper's number, or ours when they publish none. */
+  theirsFrom: 'sleeper' | 'derived';
+  /** What he is really worth: season points under THIS league's rulebook. */
+  real: number;
+  /** real - theirs. The raw points this rulebook hands him. */
+  gap: number;
+  /**
+   * The part of that gap he does NOT share with everyone else. This rulebook
+   * inflates the whole board, so the raw gap is mostly tide; this is the points
+   * he beats the tide by, and it is the column worth sorting on.
+   */
+  edgePts: number;
+
+  // ---- per game, and the internals the three numbers are built from ----
   ours: number;   // ppg under the league's rules
   stock: number;  // ppg under the stock baseline (0 for defenders — no baseline exists)
-  boost: number;  // ours/stock - 1, or null-ish 0 when stock is 0
+  boost: number;  // real/theirs - 1, or 0 when there is no baseline
   edge: number;   // boost measured against the league-wide median boost
-  vorp: number;   // ours - replacement level for his position
+  vorp: number;   // ppg over replacement level for his position
+  vorpSeason: number; // that, across his projected games — the draft currency
+  /** True when our own half-PPR re-score reproduces Sleeper's published total. */
+  matchesSleeper: boolean;
+  /** How many scored rules Sleeper omitted and we filled from his prior season. */
+  filled: number;
   posRank: number;
   ovRank: number;
   partial: boolean; // projected for less than a full season
@@ -203,6 +247,19 @@ export function rulesEdge(ours: number, stock: number, medBoost: number): number
   return (ours / stock) / (1 + medBoost) - 1;
 }
 
+/**
+ * The same thing in POINTS, which is the form you can actually act on.
+ *
+ * Everyone gains from this rulebook, so `real - theirs` mostly measures the
+ * tide. Multiply what the league sees by the tide to get what he was always
+ * going to be worth here, and the remainder is what he beats the room by —
+ * in the same units as every other number on the row.
+ */
+export function edgePoints(real: number, theirs: number, tide: number): number {
+  if (!theirs || theirs <= 0) return 0;
+  return Math.round((real - theirs * tide) * 10) / 10;
+}
+
 /** Build the whole board. One pass, so every number on a row agrees. */
 export function buildSheet(
   inputs: SheetInput[],
@@ -210,41 +267,79 @@ export function buildSheet(
   rosterPositions: string[],
   teams: number,
   fullGames = 17,
-): { rows: SheetRow[]; levels: Record<string, number>; dry: string[]; medBoost: number } {
+): { rows: SheetRow[]; levels: Record<string, number>; dry: string[]; medBoost: number; tide: number } {
   const scored = inputs.map((p) => {
     const projPg = perGame(p.proj || {}, p.games);
     const priorPg = p.prior && p.priorGames ? perGame(p.prior, p.priorGames) : null;
-    const { line } = backfill(projPg, priorPg, scoring);
+    const { line, filled } = backfill(projPg, priorPg, scoring);
     const ours = scoreStats(line, scoring);
     const stock = scoreStats(line, STOCK_SCORING);
+    // The agreement check has to score the line Sleeper ACTUALLY scored — the
+    // raw projection, before we fill any gap from last season. Comparing the
+    // backfilled line instead measured our own backfill and reported a fifth of
+    // the board as disagreeing with Sleeper when the baseline is exact.
+    const stockRaw = scoreStats(projPg, STOCK_SCORING);
+
+    // WHAT THE ROOM SEES. Sleeper's own published half-PPR total, verbatim,
+    // because the whole point of the column is that it is THEIR number and not
+    // a re-derivation of it. When they publish none — retired men, almost
+    // always — fall back to our own half-PPR re-score and say so, rather than
+    // showing a blank where a comparison should be.
+    const published = Number(p.sleeperPts) > 0 ? Number(p.sleeperPts) : 0;
+    const derived = Math.round(stock * p.games * 10) / 10;
+    const theirs = published || derived;
+    const real = Math.round(ours * p.games * 10) / 10;
+
     return {
       id: p.id, name: p.name, pos: p.pos, team: p.team,
       age: p.age ?? null, exp: p.exp ?? null,
-      games: p.games, ours, stock, line,
+      games: p.games, ours, stock, line, real, theirs,
+      theirsFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
+      // Our baseline should BE their baseline. Where it isn't, the row says so
+      // rather than quietly reporting an edge that is really a disagreement.
+      matchesSleeper: !published || Math.abs(stockRaw * p.games - published) <= 0.5,
+      // Which of the league's scored rules Sleeper left out of his projection
+      // and we filled from his own prior season. It moves `real` and nothing
+      // else, and the page says how many rows it touched.
+      filled: filled.length,
       fd: Math.round(firstDownPoints(line, scoring) * 100) / 100,
       partial: p.games > 0 && p.games < fullGames * 0.75,
     };
   }).filter((r) => r.games > 0);
 
-  // Median boost across players who HAVE a stock baseline. Defenders don't —
-  // no public ranking scores them at all — so they can't set the tide.
-  const medBoost = median(scored.filter((r) => r.stock > 0).map((r) => r.ours / r.stock - 1));
+  // THE TIDE. Every player gains under this rulebook, so the median gain is the
+  // thing to measure against — an edge is beating it, not merely having one.
+  // Measured against what the league actually sees, so it is the same number
+  // the Edge column is derived from. Defenders have no published baseline and
+  // cannot set the tide.
+  const withBase = scored.filter((r) => r.theirs > 0);
+  const medBoost = median(withBase.map((r) => r.real / r.theirs - 1));
+  const tide = 1 + medBoost;
 
   const { levels, dry } = replacementLevels(scored, rosterPositions, teams);
 
-  const rows: SheetRow[] = scored.map((r) => ({
-    ...r,
-    boost: r.stock > 0 ? r.ours / r.stock - 1 : 0,
-    edge: rulesEdge(r.ours, r.stock, medBoost),
-    vorp: r.ours - (levels[r.pos] ?? 0),
-    posRank: 0, ovRank: 0,
-  }));
+  const rows: SheetRow[] = scored.map((r) => {
+    const vorp = r.ours - (levels[r.pos] ?? 0);
+    return {
+      ...r,
+      gap: Math.round((r.real - r.theirs) * 10) / 10,
+      edgePts: edgePoints(r.real, r.theirs, tide),
+      boost: r.theirs > 0 ? r.real / r.theirs - 1 : 0,
+      edge: rulesEdge(r.real, r.theirs, medBoost),
+      vorp,
+      // The draft currency. A man projected for nine games at a fine rate is
+      // worth nine games of it, and the board has to rank him that way or it
+      // sends you into round two chasing somebody who plays half a season.
+      vorpSeason: Math.round(vorp * r.games * 10) / 10,
+      posRank: 0, ovRank: 0,
+    };
+  });
 
-  rows.sort((a, b) => b.vorp - a.vorp);
+  rows.sort((a, b) => b.vorpSeason - a.vorpSeason);
   rows.forEach((r, i) => { r.ovRank = i + 1; });
   const seen: Record<string, number> = {};
   for (const r of rows) { seen[r.pos] = (seen[r.pos] || 0) + 1; r.posRank = seen[r.pos]; }
-  return { rows, levels, dry, medBoost };
+  return { rows, levels, dry, medBoost, tide };
 }
 
 // ---- YOUR OWN LIST -------------------------------------------------------

@@ -145,13 +145,27 @@ export const draftSheetQuery = () => ({
     const state = await S.getState().catch(() => null);
     const season = (state && state.season) || String(new Date().getFullYear());
     const prior = String(Number(season) - 1);
-    const [league, proj, priorStats, rosters, users] = await Promise.all([
+    const [league, proj, priorStats, rosters, users, drafts] = await Promise.all([
       S.getLeague(),
       S.getSeasonProjections(season),
       S.getSeasonStats(prior).catch(() => ({} as Record<string, Record<string, number>>)),
       S.getRosters().catch(() => []),
       S.getUsers().catch(() => []),
+      S.getLeagueDrafts().catch(() => []),
     ]);
-    return { season, prior, league, proj, priorStats, rosters, users, pulledAt: Date.now() };
+    // THE LIVE BOARD. On draft night the picks endpoint fills up as they happen,
+    // so pulling it here is what turns this page from a pre-draft ranking into
+    // the sheet you actually run the draft off: refresh, and everyone taken is
+    // struck off with the pick they went at.
+    //
+    // Before the draft it comes back holding only the keepers, or empty, and
+    // costs one request. Failure is not fatal — the board is still the board.
+    const named = (league as { draft_id?: string } | null)?.draft_id;
+    const list = Array.isArray(drafts) ? drafts : [];
+    const draft = (named && list.find((d) => d && d.draft_id === named))
+      || list.find((d) => d && d.season === season)
+      || list[0] || null;
+    const picks = draft ? await S.getDraftPicks(draft.draft_id).catch(() => []) : [];
+    return { season, prior, league, proj, priorStats, rosters, users, draft, picks, pulledAt: Date.now() };
   },
 });

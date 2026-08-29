@@ -95,8 +95,14 @@ export async function mockSleeper(page) {
     if (url.includes('/transactions/')) return json(route, read(`transactions-${yr}-${weekOf(url)}.json`));
     if (/\/league\/\d+$/.test(url)) return json(route, prev ? PREV : LEAGUE);
     if (/\/(projections|stats)\/nfl\//.test(url)) {
-      const m = url.match(/\/(projections|stats)\/nfl\/regular\/(\d+)\/(\d+)$/);
-      return json(route, m ? read(`${m[1] === 'stats' ? 'stats' : 'projections'}-${m[2]}-${m[3]}.json`) : []);
+      // Week-level first, then the SEASON-level set — whole-season stat lines,
+      // which is what The Sheet is built on and which the week regex silently
+      // swallowed, leaving that page reporting "no projections came back".
+      const wk = url.match(/\/(projections|stats)\/nfl\/regular\/(\d+)\/(\d+)$/);
+      if (wk) return json(route, read(`${wk[1]}-${wk[2]}-${wk[3]}.json`));
+      const yr = url.match(/\/(projections|stats)\/nfl\/regular\/(\d+)$/);
+      if (yr) return json(route, read(`season-${yr[1]}-${yr[2]}.json`) || {});
+      return json(route, []);
     }
     return json(route, []);
   });
