@@ -85,7 +85,8 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
   // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
-  const SLEEPER = 6; const MARKET = 7; const GAP = 8; const EDGE = 9; const FUM = 10; const OURS = 11; const FD = 12;
+  const SLEEPER = 6; const FUM = 7; const ACTUAL = 8; const ADP = 9; const VORP = 10;
+  const VALUE = 11; const GAIN = 12; const MARKET = 13; const OURS = 14; const FD = 15;
 
   // Identical yards and scores, so a stock board cannot separate them...
   // ...and the column the league is looking at cannot either: it is the same
@@ -267,12 +268,12 @@ test('the three columns are season totals, and the gap between them is the ruleb
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
-  const SLEEPER = 6; const MARKET = 7; const GAP = 8; const G = 5;
+  const SLEEPER = 6; const ACTUAL = 8; const MARKET = 13; const G = 5;
 
   const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
   const market = await num('Gunslinger', MARKET);
   const sleeper = await num('Gunslinger', SLEEPER);
-  const gap = await num('Gunslinger', GAP);
+  const actual = await num('Gunslinger', ACTUAL);
   const games = await num('Gunslinger', G);
 
   // A season total, not a rate: 34 passing TDs at six rather than four is +68
@@ -280,9 +281,12 @@ test('the three columns are season totals, and the gap between them is the ruleb
   expect(games).toBe(17);
   expect(market).toBeGreaterThan(200);
   expect(sleeper).toBeGreaterThan(market);
-  expect(gap).toBe(Math.round(sleeper - market));
-  // 34 TDs x 2 extra, minus 10 interceptions at one extra = +58.
-  expect(gap).toBe(58);
+  // No prior season in this feed, so nothing to estimate a fumble from and the
+  // real projection is their number unchanged.
+  expect(actual).toBe(sleeper);
+  // 34 TDs x 2 extra, minus 10 interceptions at one extra = +58 over the
+  // half-PPR the market prices him on.
+  expect(sleeper - market).toBe(58);
 });
 
 test('every column explains itself on hover', async ({ page }) => {
@@ -290,17 +294,22 @@ test('every column explains itself on hover', async ({ page }) => {
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
-  const edge = page.locator('thead th', { hasText: /^Edge/ });
-  await edge.hover();
+  const vorp = page.locator('thead th', { hasText: /^VORP/ });
+  await vorp.hover();
   const tip = page.locator('.tip');
   await expect(tip).toBeVisible();
-  await expect(tip).toContainText('beats that lift by');
+  await expect(tip).toContainText('replacement starter');
 
   await page.locator('thead th', { hasText: /^Sleeper/ }).hover();
   await expect(tip).toContainText('draft room');
 
   await page.locator('thead th', { hasText: /^Market/ }).hover();
   await expect(tip).toContainText('half-PPR');
+
+  await page.locator('thead th', { hasText: /^Value/ }).hover();
+  await expect(tip).toContainText('UNDERVALUED');
+  await page.locator('thead th', { hasText: /^Gain/ }).hover();
+  await expect(tip).toContainText('BY HOW MUCH');
 
   // And it goes away again rather than following you around the page.
   await page.locator('h2, .ttl, header').first().hover();
@@ -312,7 +321,7 @@ test('hovering a column does not sort it — the explainer is not a click', asyn
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
   const before = await page.locator('[data-testid="sheet-table"] tbody tr').first().innerText();
-  await page.locator('thead th', { hasText: /^\+Pts/ }).hover();
+  await page.locator('thead th', { hasText: /^ADP/ }).hover();
   await expect(page.locator('.tip')).toBeVisible();
   await expect(page.locator('[data-testid="sheet-table"] tbody tr').first()).toHaveText(before);
 });
@@ -341,7 +350,7 @@ test('a drafted man is struck off with the pick he went at and who took him', as
 
   // Someone nobody has taken says nothing at all — the status cell is empty,
   // which is what "still on the board" should look like.
-  const STATUS = 16;
+  const STATUS = 17;
   expect((await cell(page, 'Gunslinger', STATUS).innerText()).trim()).toBe('');
 });
 

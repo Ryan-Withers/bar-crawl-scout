@@ -50,6 +50,32 @@ export const SLOT_ELIGIBLE: Record<string, string[]> = {
 };
 const NON_SLOT = new Set(['BN', 'IR', 'TAXI']);
 
+/**
+ * WHICH ADP SLEEPER IS ACTUALLY SHOWING YOU.
+ *
+ * Sleeper publishes a dozen average-draft-position columns and serves the one
+ * that matches the league's FORMAT, so reading the wrong one shows a price no
+ * manager in the room has ever seen. Ours starts an IDP_FLEX and exactly one
+ * quarterback, and `adp_idp_1qb` reproduces the ADP column on our draft board
+ * for every player checked — `adp_half_ppr`, the obvious guess, is out by four
+ * to twenty places and would have invented a bargain on every row.
+ *
+ * Derived from the real roster_positions rather than hard-coded, so a format
+ * change moves it. Falls back through the ordinary scoring families.
+ */
+export function adpKeyFor(rosterPositions: string[], scoring?: Record<string, number>): string {
+  const slots = rosterPositions || [];
+  const idp = slots.some((p) => SLOT_ELIGIBLE.IDP_FLEX?.includes(p) || p === 'IDP_FLEX');
+  const superflex = slots.some((p) => p === 'SUPER_FLEX' || p === 'SUPERFLEX');
+  const qbs = slots.filter((p) => p === 'QB').length;
+  const twoQb = superflex || qbs > 1;
+  if (idp) return twoQb ? 'adp_idp' : 'adp_idp_1qb';
+  if (twoQb) return 'adp_2qb';
+  const rec = scoring?.rec ?? 0.5;
+  return rec >= 1 ? 'adp_ppr' : rec > 0 ? 'adp_half_ppr' : 'adp_std';
+}
+
+
 export interface SheetInput {
   id: string;
   name: string;
@@ -68,6 +94,12 @@ export interface SheetInput {
    * undefined when Sleeper publishes none (retired players, mostly).
    */
   sleeperPts?: number | null;
+  /**
+   * Where the market actually drafts him — Sleeper's `adp_half_ppr`. This is the
+   * PRICE, and it is set by every league in the world rather than by ours, which
+   * is the whole reason it can be wrong for us. Null/999 when unranked.
+   */
+  adp?: number | null;
 }
 
 export interface SheetRow {
@@ -108,6 +140,28 @@ export interface SheetRow {
   fumAdj: number;
   /** sleeper + fumAdj. The same board with that one rule put back. */
   adjusted: number;
+
+  // ---- WHAT THE MARKET PAYS vs WHAT HE IS WORTH HERE ----
+  /** Where he actually goes in drafts. Null when the market has no read on him. */
+  adp: number | null;
+  /** His rank by that price, among the men who have one. */
+  adpRank: number | null;
+  /** His rank by VORP, among the same men. */
+  valueRank: number | null;
+  /**
+   * adpRank - valueRank. Positive means the market lets him last longer than he
+   * is worth to us, which is the only kind of edge a draft board can actually
+   * hand you: not a better projection, a cheaper price for the same one.
+   */
+  slip: number | null;
+  /**
+   * BY HOW MUCH, in points. At his price you are paying for the man the market
+   * ranks alongside him; this is how much more VORP he actually gives you than
+   * that man does. Positive means the pick wins you points, and it is the honest
+   * size of the edge — a slip of forty places is worth nothing if the two men
+   * are worth the same.
+   */
+  surplus: number | null;
 
   // ---- per game, and the internals the three numbers are built from ----
   ours: number;   // sleeper, per game — the rate behind the season total
@@ -196,15 +250,25 @@ export function slotDemand(rosterPositions: string[], teams: number): {
  * is then a floor rather than a real number, and the page says so.
  */
 export function replacementLevels(
-  rows: Array<{ pos: string; ours: number; partial?: boolean }>,
+  rows: Array<{ id?: string; pos: string; ours: number; partial?: boolean }>,
   rosterPositions: string[],
   teams: number,
+  unavailable?: Set<string> | null,
 ): { levels: Record<string, number>; consumed: Record<string, number>; dry: string[] } {
   // Partial-season projections never set replacement — a 4-game line at a high
   // per-game rate would quietly move every VORP on the board.
+  //
+  // Neither do men who are already gone. This league keeps thirty, and they are
+  // overwhelmingly backs and receivers, so the pool you are actually drafting
+  // from is far thinner at those two positions than the world's is: RB and WR
+  // replacement drop about 1.6 a game, a full 28 points across a season, while
+  // QB and TE barely move because almost nobody keeps one. Filling the lineup
+  // with players nobody can pick sets the bar where it would be in somebody
+  // else's league and quietly understates every back and receiver on the board.
   const byPos: Record<string, number[]> = {};
   for (const r of rows) {
     if (r.partial) continue;
+    if (unavailable && r.id && unavailable.has(r.id)) continue;
     (byPos[r.pos] = byPos[r.pos] || []).push(r.ours);
   }
   for (const p in byPos) byPos[p].sort((a, b) => b - a);
@@ -283,6 +347,8 @@ export function buildSheet(
   rosterPositions: string[],
   teams: number,
   fullGames = 17,
+  unavailable?: Set<string> | null,
+  adpCap = 300,
 ): { rows: SheetRow[]; levels: Record<string, number>; dry: string[]; medBoost: number; tide: number } {
   const scored = inputs.map((p) => {
     // SCORE THE RAW PROJECTION, exactly as Sleeper does.
@@ -329,6 +395,13 @@ export function buildSheet(
       id: p.id, name: p.name, pos: p.pos, team: p.team,
       age: p.age ?? null, exp: p.exp ?? null,
       games: p.games, ours, stock, line: projPg, sleeper, market, fumAdj,
+      // A PRICE, or nothing. Beyond the men who plausibly get drafted, Sleeper
+      // fills the column with 600s, 700s and a flat 999 — placeholders, not
+      // market reads. Ranking those alongside real prices handed the top of the
+      // value list to players nobody has ever drafted: Rashod Bateman at "ADP
+      // 700" came out two hundred places underpriced. The cap is twice the picks
+      // in our own draft, which is past anywhere a real pick happens.
+      adp: Number.isFinite(p.adp) && Number(p.adp) > 0 && Number(p.adp) <= adpCap ? Number(p.adp) : null,
       adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
       marketFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
       // Our half-PPR re-score should BE Sleeper's published one. Where it isn't,
@@ -348,7 +421,7 @@ export function buildSheet(
   const medBoost = median(withBase.map((r) => r.sleeper / r.market - 1));
   const tide = 1 + medBoost;
 
-  const { levels, dry } = replacementLevels(scored, rosterPositions, teams);
+  const { levels, dry } = replacementLevels(scored, rosterPositions, teams, unavailable);
 
   const rows: SheetRow[] = scored.map((r) => {
     const vorp = r.ours - (levels[r.pos] ?? 0);
@@ -363,7 +436,7 @@ export function buildSheet(
       // worth nine games of it, and the board has to rank him that way or it
       // sends you into round two chasing somebody who plays half a season.
       vorpSeason: Math.round(vorp * r.games * 10) / 10,
-      posRank: 0, ovRank: 0,
+      posRank: 0, ovRank: 0, adpRank: null, valueRank: null, slip: null, surplus: null,
     };
   });
 
@@ -371,6 +444,24 @@ export function buildSheet(
   rows.forEach((r, i) => { r.ovRank = i + 1; });
   const seen: Record<string, number> = {};
   for (const r of rows) { seen[r.pos] = (seen[r.pos] || 0) + 1; r.posRank = seen[r.pos]; }
+
+  // PRICE AGAINST VALUE. Both ranks are taken over the SAME set — the men the
+  // market has a read on — because comparing a rank out of 300 with a rank out
+  // of 500 would invent a slip for everybody in the lower half.
+  const priced = rows.filter((r) => r.adp != null);
+  priced.slice().sort((a, b) => (a.adp as number) - (b.adp as number))
+    .forEach((r, i) => { r.adpRank = i + 1; });
+  priced.slice().sort((a, b) => b.vorpSeason - a.vorpSeason)
+    .forEach((r, i) => { r.valueRank = i + 1; });
+  // What the market's price actually buys at that slot, so the gap can be stated
+  // in points rather than in places.
+  const valueOrder = priced.slice().sort((a, b) => b.vorpSeason - a.vorpSeason);
+  for (const r of rows) {
+    if (r.adpRank == null || r.valueRank == null) { r.slip = null; r.surplus = null; continue; }
+    r.slip = r.adpRank - r.valueRank;
+    const paidFor = valueOrder[r.adpRank - 1];
+    r.surplus = paidFor ? Math.round((r.vorpSeason - paidFor.vorpSeason) * 10) / 10 : null;
+  }
   return { rows, levels, dry, medBoost, tide };
 }
 
