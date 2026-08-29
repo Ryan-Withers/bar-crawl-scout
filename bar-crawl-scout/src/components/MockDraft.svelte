@@ -7,7 +7,7 @@
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN, byName } from '../lib/data.js';
-  import { windowVal, isAvailable } from '../lib/models.js';
+  import { windowVal, isAvailable, keptRows } from '../lib/models.js';
   import { keepers } from '../lib/store.js';
   import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery } from '../api/queries';
   import { draftSlotBoard, userHandleMap } from '../api/league';
@@ -91,7 +91,10 @@
     if (!p || !SKILL.has(p[2])) return null;
     return { name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, stage: p[6] || '', v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') } };
   };
-  const keepersOf = (h) => ((ks[h] || []).slice(0, 3).map((s) => s && s[0]).filter(Boolean).map(toMockPlayer).filter(Boolean));
+  // The squad each manager will ACTUALLY have, keepers traded in principle
+  // already settled onto their new teams — so a mock starts Ryan on four men and
+  // jpdonners on one, which is what draft day will look like.
+  const keepersOf = (h) => keptRows(ks, h).map((s) => s[0]).map(toMockPlayer).filter(Boolean);
 
   // ---- the REAL board: Sleeper draft slots + traded picks -> pick ownership ----
   const HANDLESET = new Set(TEAMS.map(([h]) => h));

@@ -141,3 +141,53 @@ export function settledKeepers<T extends { playerId: string }>(
     arriving: inc.map((m) => lookup(m.playerId)).filter(Boolean) as T[],
   };
 }
+
+/**
+ * Apply the agreed deals to a keeper ledger: move each man to the roster that
+ * has bought him.
+ *
+ * The trades are not conditional — they cannot be backed out of, and the only
+ * reason the player is sitting on the wrong roster is the administrative one
+ * that Sleeper needs him there to accept the keeper declaration. So everything
+ * that reasons about SQUADS — the mock draft, roster needs, who owns whom —
+ * should treat him as already moved.
+ *
+ * What must NOT move is the draft board. joshleota declared Puka Nacua, so the
+ * keeper sits on joshleota's own pick at 14.03; that is whose pick it is and
+ * whose board round it costs. Ownership of the man and ownership of the pick are
+ * different things here, and this only changes the first.
+ *
+ * `handleOf` maps a roster id to the handle the ledger is keyed by.
+ */
+export function settleLedger<T extends { playerId: string }>(
+  ledger: Record<string, T[]>,
+  moves: PendingMove[],
+  handleOf: Record<number, string>,
+): Record<string, T[]> {
+  if (!moves || !moves.length) return ledger;
+  const out: Record<string, T[]> = {};
+  for (const [h, men] of Object.entries(ledger || {})) out[h] = men.slice();
+
+  for (const m of moves) {
+    const from = handleOf[m.fromRoster];
+    const to = handleOf[m.toRoster];
+    if (!from || !to || from === to) continue;
+    const src = out[from] || [];
+    const i = src.findIndex((k) => k.playerId === m.playerId);
+    if (i < 0) continue;                       // not declared as a keeper; nothing to move
+    const [man] = src.splice(i, 1);
+    out[from] = src;
+    out[to] = [...(out[to] || []), man];
+  }
+  return out;
+}
+
+/** playerId -> the handle he came FROM, for showing provenance after settling. */
+export function cameFrom(moves: PendingMove[], handleOf: Record<number, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of moves || []) {
+    const from = handleOf[m.fromRoster];
+    if (from) out[m.playerId] = from;
+  }
+  return out;
+}

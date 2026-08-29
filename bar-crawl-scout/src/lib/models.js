@@ -47,6 +47,24 @@ export function ownerOf(ks, name) {
   return null;
 }
 export const isKept = (ks, name) => { const o = ownerOf(ks, name); return !!o && o.conf !== 'U'; };
+
+// THE MEN A MANAGER IS ACTUALLY KEEPING, and the one he is merely watching.
+//
+// Every reader used to take `slice(0, 3)` for the keepers and index 3 for the
+// watch, because three was the rule and the store padded to four. Trades in
+// principle break that count: a keeper can be sold before the draft and land
+// afterwards, so once those deals are settled Ryan's squad is four men and
+// ImyHunter's is five, while jpdonners' is one. A fixed slice would have thrown
+// the fourth man away silently and shown him in the watch line instead.
+//
+// The confidence flag already carries the distinction — 'U' is the watch slot
+// and every reader of isKept has always treated it that way — so read the rows
+// by that marker rather than by where they happen to sit.
+export const keptRows = (ks, h) => (ks[h] || []).filter((s) => s && s[0] && s[1] !== 'U');
+export const watchName = (ks, h) => {
+  const w = (ks[h] || []).find((s) => s && s[0] && s[1] === 'U');
+  return w ? w[0] : null;
+};
 // Keeper-based pool: rostered non-keepers stay available for mocks; live ownership is display-only.
 export const isAvailable = (ks, name) => !isKept(ks, name);
 export const isFinalYr = (ks, n) => isKept(ks, n) && yearsLeft(n) === 1;
@@ -132,9 +150,8 @@ export const chestTag = h => { const w = warchest(h); return w >= 10 ? 'LOADED' 
  * silently failed to count eighteen of the top 200 toward anybody's need.
  */
 export function needScores(ks, h, targets = NEED_TGT) {
-  const arr = ks[h] || [];
   const have = { QB: 0, RB: 0, WR: 0, TE: 0 };
-  [0, 1, 2].forEach(i => { const s = arr[i]; if (s && s[0]) { const p = byName(s[0]); if (p && have[p[2]] != null) have[p[2]]++; } });
+  for (const s of keptRows(ks, h)) { const p = byName(s[0]); if (p && have[p[2]] != null) have[p[2]]++; }
   const o = {};
   const tgt = targets && Object.keys(targets).length ? targets : NEED_TGT;
   for (const k in tgt) {

@@ -52,10 +52,16 @@ function keeperStore() {
   // everyone who has declared, and the projection is left standing only for
   // anyone who hasn't. Throwing away nine known answers to avoid admitting one
   // unknown was the wrong trade.
+  //
+  // PRESENCE is the contract, not content. The merge used to require a name in
+  // the first row, which quietly meant a manager whose settled squad is empty —
+  // possible now that a keeper can be sold before the draft — would have fallen
+  // back to a projection saying he keeps three. The writer omits anyone who has
+  // not declared; anyone it does list is answered for.
   const view = derived([live, local], ([$live, $local]) => {
     if (!$live) return $local;
     const out = { ...$local };
-    for (const [h, rows] of Object.entries($live)) if (rows[0] && rows[0][0]) out[h] = rows;
+    for (const [h, rows] of Object.entries($live)) if (rows) out[h] = rows;
     return out;
   });
   return {
@@ -74,9 +80,22 @@ export const keepers = keeperStore();
 // than presenting a guess as a fact.
 export const keepersSource = derived(keepers.live, ($l) => {
   if (!$l) return 'projection';
-  const declared = Object.values($l).filter((rows) => rows[0] && rows[0][0]).length;
+  const declared = Object.keys($l).length;
   return declared >= TEAMS.length ? 'live' : 'mixed';
 });
+
+// WHERE A SETTLED KEEPER CAME FROM. { playerName: handleHeCameFrom }.
+//
+// The keeper store above carries SETTLED squads — a keeper traded in principle
+// is listed under the manager who bought him, because that deal cannot be backed
+// out of and the only reason he is on the seller's roster is that Sleeper needs
+// him there to accept the declaration. That is the right squad to draft around,
+// but it loses the fact that he was somebody else's declaration, so pages that
+// want to say "via joshleota" read it from here.
+//
+// Empty until the transaction log arrives, and empty for every man who was not
+// part of such a deal — which is 27 of the 30.
+export const keeperFrom = writable({});
 
 // PICK CAPITAL, live. Same argument as the keepers: data.js hand-counts who
 // holds which early picks, and it had gone stale for four of the ten managers
