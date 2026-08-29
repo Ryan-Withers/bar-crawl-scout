@@ -129,7 +129,7 @@ PLAYERS.forEach(p=>{BYUNAME[p[1].toLowerCase()]=p;const k=nameKey(p[1]);if(!(k i
 // Look a player up by any spelling of his name — ours or Sleeper's.
 export const byName = (n) => BYUNAME[String(n || '').toLowerCase()] || BYUNAME[nameKey(n)] || null;
 export const KEPT2025=new Set(["Jahmyr Gibbs","Saquon Barkley","Garrett Wilson","Rashee Rice","Chuba Hubbard","Breece Hall","Brian Thomas Jr.","Christian McCaffrey","Bijan Robinson","Ja'Marr Chase","Malik Nabers","Jaxon Smith-Njigba","Puka Nacua","De'Von Achane","Nico Collins","Josh Jacobs","James Cook","Justin Jefferson","Trey McBride","Xavier Worthy","Stefon Diggs","Marvin Harrison Jr.","Amon-Ra St. Brown","Tyreek Hill","Tee Higgins","Jonathan Taylor","Chase Brown","Drake London","Kyren Williams","CeeDee Lamb"]);
-export const TEAMS=[["Ryan","Big Tettys on Bo-nly fans (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
+export const TEAMS=[["Ryan","Hittin\u2019 the 2nd Bower (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
 export const PROJ={
  Ryan:[["Tetairoa McMillan","VL"],["Ja'Marr Chase","VL"],["Brock Bowers","VL"],["",""]],
  joshleota:[["TreVeyon Henderson","VL"],["Puka Nacua","VL"],["Drake London","VL"],["Justin Jefferson","U"]],
@@ -218,7 +218,13 @@ export const MGRS=[
 ];
 export const NAMEOF={};TEAMS.forEach(t=>NAMEOF[t[0]]=t[1]);
 export const TEAMSHORT={};TEAMS.forEach(t=>TEAMSHORT[t[0]]=t[1].replace(" (YOU)",""));
-export const PICKVAL={2026:{1:150,2:95,3:70,4:50,5:38,6:28,7:20,8:14,9:10,10:8},2027:{1:120,2:76,3:56,4:40,5:30,6:22,7:16}};
+// PICKVAL is gone. It was a hand-written pick-value curve covering 2026 rounds
+// 1-10 and 2027 rounds 1-7, and it was wrong in both directions at once: it
+// could not price rounds 11 or 12 — which are live, valuable and have actually
+// been traded in this league — while happily pricing rounds it did cover as if
+// every pick sat at the same seat. A pick is now priced by where it really
+// lands, at its own seat, on the snake. See models.pickValue and
+// lib/engine/pickvalue.ts.
 export const MYPICKS=[["2026",1],["2026",1],["2026",3],["2026",3],["2026",3]];
 
 // UI config carried over from the render layer.

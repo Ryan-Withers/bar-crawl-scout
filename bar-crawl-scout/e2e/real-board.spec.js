@@ -109,6 +109,37 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
   await expect(led).toContainText('Drake London');
   await page.screenshot({ path: 'shots/keepers.png', fullPage: true });
 
+  // THE TRADE DESK — a pick is offered per SEAT and priced on the snake.
+  await page.goto('./trade');
+  const pickSelect = page.getByTestId('pick-give');
+  await expect(pickSelect).toBeVisible();
+  const labels = await pickSelect.locator('option').allTextContents();
+
+  // Every manager's round is offered, not one anonymous "R2".
+  expect(labels.filter((l) => /^2026 R2 · /.test(l))).toHaveLength(10);
+  // Rounds 11 and 12 are live and tradeable — the old table stopped at 10, so
+  // this league's three round-11 trades could not be entered at all.
+  expect(labels.some((l) => /^2026 R11 · /.test(l))).toBe(true);
+  expect(labels.some((l) => /^2026 R12 · /.test(l))).toBe(true);
+  // ...and the keeper rounds are not offered, because nobody picks in them.
+  expect(labels.some((l) => /^2026 R1[345] · /.test(l))).toBe(false);
+  // Next year's picks too — the futures the app never used to price.
+  expect(labels.some((l) => /^2027 R1 · /.test(l))).toBe(true);
+
+  // The SAME round at two seats is not the same asset. Round 2 snakes back, so
+  // the slot-10 seat picks first and is worth more than the slot-1 seat.
+  const priceIn = (label) => {
+    const hit = labels.find((l) => l.startsWith(label));
+    return hit ? Number(hit.match(/~(\d+)/)[1]) : null;
+  };
+  const r2slot1 = priceIn('2026 R2 · Egbukakke');        // ImyHunter, slot 1
+  const r2slot10 = priceIn('2026 R2 · Nice like Rice');  // jduddy9, slot 10
+  expect(r2slot1, 'slot 1 round 2 is priced').not.toBeNull();
+  expect(r2slot10, 'slot 10 round 2 is priced').not.toBeNull();
+  expect(r2slot10).toBeGreaterThan(r2slot1);
+  // ...and round 1 runs the other way, which is the snake doing its job.
+  expect(priceIn('2026 R1 · Egbukakke')).toBeGreaterThan(priceIn('2026 R1 · Nice like Rice'));
+
   expect(errors, errors.join('\n')).toHaveLength(0);
 
   await page.setViewportSize({ width: 375, height: 812 });

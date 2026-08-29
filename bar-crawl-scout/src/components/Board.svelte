@@ -3,7 +3,7 @@
   import {
     windowVal, r26, r27, pts26, pts27, isAvailable, isFinalYr, ownerOf, rosterOwner,
   } from '../lib/models.js';
-  import { keepers, mode, board, rosterOwn, unlocked } from '../lib/store.js';
+  import { keepers, mode, board, rosterOwn, unlocked, keepersSource } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
   import SeasonNote from './SeasonNote.svelte';
 
@@ -46,11 +46,16 @@
     return ord;
   }
 
-  function status(name, unlockedVal) {
+  function status(name, unlockedVal, locked) {
     const k = ownerOf(ks, name);
     if (k) {
-      if (k.owner === RYAN && !unlockedVal) return { kind: 'classified' };
+      // The watch check comes FIRST. A man in the watch slot is available, so
+      // sealing him behind CLASSIFIED drew a row that claimed to be a sealed
+      // keeper while offering a working draft button beside it.
       if (k.conf === 'U') return { kind: 'watch', owner: k.owner };
+      if (k.owner === RYAN && !unlockedVal) return { kind: 'classified' };
+      // Once the keepers are off Sleeper there is no "likely" about it.
+      if (locked) return { kind: 'keeper', cls: 'b-vl', label: 'KEPT', owner: k.owner, yr: isFinalYr(ks, name) ? 'final' : '2yr' };
       return { kind: 'keeper', cls: k.conf === 'VL' ? 'b-vl' : 'b-l', label: k.conf === 'VL' ? 'VERY LIKELY' : 'LIKELY', owner: k.owner, yr: isFinalYr(ks, name) ? 'final' : '2yr' };
     }
     const ro = rosterOwner(own, name);
@@ -185,7 +190,7 @@
       </tr></thead>
       <tbody>
         {#each rows as row, i (row.p[1])}
-          {@const st = status(row.p[1], $unlocked)}
+          {@const st = status(row.p[1], $unlocked, $keepersSource !== 'projection')}
           <tr class:drafted={row.dr} class:tierrow={row.tier} class:editing={canOrder}>
             <td class="rk">
               {#if canOrder}<span class="ord"><button on:click={() => move(row.p[1], 'up')} title="Move up">▲</button><button on:click={() => move(row.p[1], 'top')} title="Send to top">⤒</button><button on:click={() => move(row.p[1], 'dn')} title="Move down">▼</button></span>{/if}
@@ -248,7 +253,11 @@
   thead th.activesort { color: var(--accent); }
   tbody td { padding: 9px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: right; white-space: nowrap; }
   tbody td:nth-child(2) { text-align: left; white-space: normal; }
-  tbody tr:nth-child(odd) { background: rgba(255,255,255,.014); }
+  /* A 1.4%-opacity WHITE stripe, written for the old near-black table and
+     completely invisible on a white one — which is worst at 375px, where the
+     table drops three columns and scrolls sideways with nothing left to track a
+     row across. A faint blue wash, the way a real ledger rules its paper. */
+  tbody tr:nth-child(odd) { background: rgba(47,127,184,.035); }
   tbody tr.drafted { opacity: .34; }
   tbody tr.drafted .pname { text-decoration: line-through; }
   tbody tr.tierrow td { border-top: 2px solid rgba(244,178,62,.4); }
@@ -265,10 +274,16 @@
   .win { font-family: var(--display); font-weight: 800; font-size: 17px; color: var(--accent); }
 
   .badge { display: inline-block; font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; border-radius: 4px; padding: 2px 5px; margin-left: 4px; }
-  .b-pool { background: rgba(79,178,134,.13); color: #7fcfa6; border: 1px solid rgba(79,178,134,.4); }
-  .b-u { background: rgba(244,178,62,.12); color: #e8c074; border: 1px solid rgba(244,178,62,.35); }
-  :global(.b-vl) { background: rgba(224,97,63,.16); color: #e89178; border: 1px solid rgba(224,97,63,.45); }
-  :global(.b-l) { background: rgba(169,143,214,.14); color: #c3aee6; border: 1px solid rgba(169,143,214,.4); }
+  /* STATUS BADGES. These were dark-theme pastels left on a white page and they
+     failed contrast badly — #7fcfa6 is 1.85:1 on white, #e8c074 is 1.72:1,
+     against the 4.5:1 that 9px bold text needs. The status column is the most
+     important column on this board and it was the least readable thing on it,
+     which is worst exactly where it matters most: a phone, in daylight, at a
+     draft. Same hues, dark enough to read. */
+  .b-pool { background: rgba(21,112,62,.10); color: #15703E; border: 1px solid rgba(21,112,62,.35); }   /* 6.14:1 */
+  .b-u { background: rgba(138,100,20,.10); color: #8A6414; border: 1px solid rgba(138,100,20,.35); }    /* 5.37:1 */
+  :global(.b-vl) { background: rgba(179,53,45,.10); color: #B3352D; border: 1px solid rgba(179,53,45,.38); } /* 6.06:1 */
+  :global(.b-l) { background: rgba(74,107,138,.10); color: #4A6B8A; border: 1px solid rgba(74,107,138,.38); } /* 5.58:1 */
 
   .t-pill { display: inline-block; font-family: var(--mono); font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
   :global(.t-riser) { background: rgba(244,178,62,.14); color: var(--accent); }

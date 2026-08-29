@@ -46,7 +46,14 @@
   $: positions = $leagueQ.data?.roster_positions || ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
   $: mockPositions = positions.filter((p) => !['K', 'DEF', 'IDP_FLEX', 'IR', 'TAXI'].includes(p));
   $: slots = mockPositions.filter((p) => p !== 'BN');
-  $: rosterSize = mockPositions.length;
+  // CAPACITY is the league's roster, not the mock's slot list.
+  //
+  // mockPositions strips the IDP_FLEX seat because this board does not model
+  // defenders — Ryan fills that one last and does not want it simulated. But the
+  // seat still EXISTS, so a team's capacity is 15, not 14. Using the trimmed
+  // count made the roster panel read "21/14", the lobby advertise "14 spots",
+  // and the over-the-cap arithmetic in the debrief count from the wrong number.
+  $: rosterSize = (positions || []).filter((p) => !['IR', 'TAXI'].includes(p)).length || mockPositions.length;
 
   // ---- THE LIVE BOARD ----
   //
@@ -391,7 +398,7 @@
 
     <div class="room">
       <section class="pane board" class:show={mobileTab === 'board'} aria-label="Draft board">
-        <DraftBoard bind:this={boardCmp} {st} {boardType} {seat} {spectate} {nm} />
+        <DraftBoard bind:this={boardCmp} {st} {boardType} {seat} {spectate} {nm} {userTurn} />
       </section>
 
       <div class="lower">

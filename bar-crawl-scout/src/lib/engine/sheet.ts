@@ -262,13 +262,37 @@ export function applyOrder<T extends { id: string }>(rows: T[], order: string[])
 }
 
 /** Move one id up (-1) or down (+1). Seeds the list from the shown order. */
-export function moveInOrder(order: string[], shown: string[], id: string, delta: number): string[] {
-  const base = order && order.length ? order.slice() : shown.slice();
+/**
+ * Nudge one man up or down YOUR order.
+ *
+ * `all` is the whole board in its current order; `shown` is what is on screen
+ * after the filters, in display order. Both are needed and for different reasons.
+ *
+ * Seeding the saved order from `shown` alone was the bug: tab to QB, nudge one
+ * quarterback, and the order became the 42 visible QB ids — so applyOrder then
+ * hoisted every quarterback above every back and receiver on the ALL board. The
+ * user asked to move one player one row and re-ranked the entire draft.
+ *
+ * And a move on a filtered view swaps him with his neighbour AMONG THE SHOWN —
+ * "up" on the QB tab means above the next quarterback, not above whoever happens
+ * to sit one row up on the unfiltered board.
+ */
+export function moveInOrder(order: string[], all: string[], shown: string[], id: string, delta: number): string[] {
+  const seed = order && order.length ? order.slice() : (all && all.length ? all.slice() : shown.slice());
+  const base = seed.slice();
+  for (const s of all || []) if (!base.includes(s)) base.push(s);
   for (const s of shown) if (!base.includes(s)) base.push(s);
+
+  // The neighbour is the next VISIBLE man in that direction.
+  const visible = shown.filter((x) => base.includes(x));
+  const vi = visible.indexOf(id);
+  if (vi < 0) return base;
+  const vj = vi + delta;
+  if (vj < 0 || vj >= visible.length) return base;
+
   const i = base.indexOf(id);
-  if (i < 0) return base;
-  const j = i + delta;
-  if (j < 0 || j >= base.length) return base;
+  const j = base.indexOf(visible[vj]);
+  if (i < 0 || j < 0) return base;
   [base[i], base[j]] = [base[j], base[i]];
   return base;
 }

@@ -124,3 +124,44 @@ describe('NFL team codes match Sleeper', () => {
     for (const p of jax) expect(p[4], `${p[1]} has a bye`).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+import users2026 from '../src/lib/api/fixtures/users-2026.json';
+import rosters2025 from '../src/lib/api/fixtures/rosters-2025.json';
+import users2025 from '../src/lib/api/fixtures/users-2025.json';
+import { TEAMS, MGRS } from '../src/lib/data.js';
+import { normHandle } from '../src/api/league';
+
+describe('the hand-written league facts still match Sleeper', () => {
+  it('every team name is the one the manager actually uses', () => {
+    // Ryan renamed his team and the constant kept the old one, so nine managers
+    // saw their real name and he saw a name he had stopped using.
+    const live = {};
+    for (const u of users2026) live[normHandle(u.display_name)] = u.metadata?.team_name;
+    for (const [h, name] of TEAMS) {
+      expect(live[h], `${h} is a live manager`).toBeTruthy();
+      expect(name.replace(' (YOU)', ''), `${h}'s team name`).toBe(live[h]);
+    }
+  });
+
+  it("last season's records and points match the rosters they came from", () => {
+    // Checked rather than assumed: the numbers ARE right, and the rounding is
+    // right too — fpts is truncated and fpts_decimal carries the rest, so
+    // comparing against fpts alone makes correct figures look drifted.
+    const byHandle = {};
+    const uh = Object.fromEntries(users2025.map((u) => [u.user_id, normHandle(u.display_name)]));
+    for (const r of rosters2025) {
+      const s = r.settings || {};
+      byHandle[uh[r.owner_id]] = {
+        rec: `${s.wins || 0}-${s.losses || 0}`,
+        pf: Math.round((s.fpts || 0) + (s.fpts_decimal || 0) / 100),
+      };
+    }
+    for (const m of MGRS) {
+      const live = byHandle[m.h];
+      expect(live, `${m.h} has a 2025 roster`).toBeTruthy();
+      expect(m.rec, `${m.h} record`).toBe(live.rec);
+      expect(Number(String(m.pf).replace(/[^0-9]/g, '')), `${m.h} points for`).toBe(live.pf);
+    }
+  });
+});

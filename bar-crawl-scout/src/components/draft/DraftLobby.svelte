@@ -50,7 +50,7 @@
       <li><i>Traded picks</i><b>{useReal ? `${tradeCount} honored` : 'n/a'}</b></li>
       <li><i>Your seat</i><b>{spectate ? 'Spectating' : nm(seat)}</b></li>
       <li><i>Pick clock</i><b>{clockLen ? `${clockLen}s` : 'off'}</b></li>
-      <li><i>Roster</i><b>{rosterSize} spots · keepers count</b></li>
+      <li><i>Roster</i><b>{rosterSize} spots · your 3 keepers included</b></li>
       <li><i>Pool</i><b>Skill positions only</b></li>
     </ul>
     <button class="go" data-testid="start" on:click={onStart}>
