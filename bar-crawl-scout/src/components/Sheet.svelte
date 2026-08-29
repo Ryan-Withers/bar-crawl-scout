@@ -19,6 +19,7 @@
   //
   // Refresh re-pulls everything. Your own order is yours, saved locally, and
   // one button puts the standard board back.
+  import { onDestroy } from 'svelte';
   import { link } from '../lib/router.js';
   import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { draftSheetQuery, playersQuery } from '../api/queries';
@@ -40,6 +41,18 @@
       await qc.refetchQueries({ queryKey: ['draftsheet'] });
     } finally { refreshing = false; }
   }
+
+  // DRAFT NIGHT. Off by default, because a board that reorders under your finger
+  // mid-thought is worse than a stale one — but with it on, the picks endpoint
+  // is re-read every thirty seconds and the men who have gone strike themselves
+  // off without you touching anything.
+  let liveMode = false;
+  let liveTimer = null;
+  $: {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (liveMode) liveTimer = setInterval(refresh, 30_000);
+  }
+  onDestroy(() => { if (liveTimer) clearInterval(liveTimer); });
 
   // ---- your own list (saved locally, standard board one click away) ----
   const LS = 'bcs_sheet_order_v1';
@@ -89,6 +102,30 @@
   })();
   $: anyKept = Object.keys(keptById).length > 0;
 
+  // OFF THE BOARD, LIVE. Before the draft this holds the thirty keepers; on the
+  // night it fills up pick by pick, so a refresh turns the sheet into the board
+  // you are actually drafting off — everyone taken struck out, with the pick he
+  // went at and who took him.
+  $: gone = (() => {
+    // TWO SOURCES, and both are needed. The keepers are declared on the roster
+    // and are off the board whatever the draft feed says; the picks endpoint is
+    // what fills up on the night. Reading only the picks endpoint worked for
+    // this league by luck — it happens to carry the keepers as is_keeper picks —
+    // and showed nothing at all for a league that declares them any other way.
+    const m = {};
+    for (const [id, h] of Object.entries(keptById)) m[id] = { keeper: true, by: h };
+    for (const p of raw?.picks || []) {
+      const id = String(p.player_id || '');
+      if (!id) continue;
+      const by = uh[p.picked_by] || rosterHandle[p.roster_id] || m[id]?.by || '';
+      m[id] = { round: p.round, slot: p.draft_slot, by, keeper: !!p.is_keeper || !!m[id]?.keeper };
+    }
+    return m;
+  })();
+  $: rosterHandle = Object.fromEntries((raw?.rosters || []).map((r) => [r.roster_id, uh[r.owner_id]]));
+  $: drafted = Object.values(gone).filter((g) => !g.keeper).length;
+  $: pickCodeOf = (g) => `${g.round}.${String(g.slot).padStart(2, '0')}`;
+
   const FANTASY = new Set(['QB', 'RB', 'WR', 'TE']);
   // Slots only a defender can fill are dropped before the replacement fill, so
   // an unmodelled IDP_FLEX can't report its pool as having "run dry".
@@ -113,6 +150,10 @@
         id: String(pid), name: info[0], pos, team: info[2] || 'FA',
         age: info[3] ?? null, exp: info[4] ?? null,
         games, proj: line, prior, priorGames,
+        // Sleeper's OWN published half-PPR season total — the number on the
+        // player's card in the app, which is what the other nine managers are
+        // looking at. Carried through verbatim rather than re-derived.
+        sleeperPts: Number(line.pts_half_ppr) || 0,
       });
     }
     return out;
@@ -128,6 +169,15 @@
   $: built = inputs.length
     ? buildSheet(inputs, offenceScoring, offenceSlots, teams)
     : { rows: [], levels: {}, dry: [], medBoost: 0 };
+  // How far our own half-PPR re-score agrees with Sleeper's published number.
+  // The Edge column is only worth anything if the baseline it is measured from
+  // is genuinely theirs, so the page reports the agreement rather than claiming it.
+  $: backfilled = built.rows.filter((r) => r.filled > 0).length;
+  $: agree = (() => {
+    const rows = built.rows.filter((r) => r.theirsFrom === 'sleeper');
+    const ok = rows.filter((r) => r.matchesSleeper).length;
+    return { checked: rows.length, ok, off: rows.length - ok };
+  })();
   $: cov = inputs.length ? coverage(offenceScoring, built.rows.map((r) => r.line)) : { scoredKeys: [], missing: [] };
   $: offenceSlots = (rosterPos || []).filter((p) => !IDP_SLOTS.has(p));
   $: demand = offenceSlots.length ? slotDemand(offenceSlots, teams) : { dedicated: {}, flexes: [] };
@@ -138,7 +188,7 @@
   let q = '';
   let hideOwned = false;
   let hidePartial = false;
-  let sortKey = 'vorp';
+  let sortKey = 'vorpSeason';
   let sortDir = -1;
   let limit = 300;
   function sortBy(k) { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } }
@@ -146,7 +196,7 @@
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
     if (posf !== 'ALL' && r.pos !== posf) return false;
-    if (hideOwned && (anyKept ? keptById[r.id] : ownerById[r.id])) return false;
+    if (hideOwned && (gone[r.id] || (anyKept ? keptById[r.id] : ownerById[r.id]))) return false;
     if (hidePartial && r.partial) return false;
     const n = q.trim().toLowerCase();
     if (n && !r.name.toLowerCase().includes(n) && r.team.toLowerCase() !== n) return false;
@@ -168,15 +218,43 @@
   $: pulled = raw?.pulledAt ? new Date(raw.pulledAt).toLocaleTimeString() : '';
 
   const pct = (x) => (x > 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
+  const n0 = (x) => (x == null ? '' : Math.round(x).toString());
   const n1 = (x) => (x == null ? '' : x.toFixed(1));
   const n2 = (x) => (x == null ? '' : x.toFixed(2));
+  const plus = (x) => (x == null ? '' : (x > 0 ? '+' : '') + x.toFixed(0));
+
+  // Every column says what it means, in one plain sentence. A board with
+  // sixteen numbers on it is worthless if you have to remember what nine of
+  // them are, and "Edge" in particular means something specific here that no
+  // other site's Edge column means.
   const COLS = [
-    ['name', 'Player', 'l'], ['pos', 'Pos', 'l'], ['team', 'Tm', 'l'],
-    ['age', 'Age', ''], ['exp', 'Exp', ''], ['games', 'G', ''],
-    ['ours', 'PPG ours', ''], ['stock', 'Stock', ''], ['fd', '1D pts', ''],
-    ['boost', 'Boost', ''], ['edge', 'Edge', ''], ['vorp', 'VORP', ''],
-    ['posRank', 'PosRk', ''], ['ovRank', 'OvRk', ''], ['owner', 'Rostered', 'l'],
+    ['name', 'Player', 'l', 'Who he is. Italic means Sleeper only projects him for part of the season.'],
+    ['pos', 'Pos', 'l', 'What he plays.'],
+    ['team', 'Tm', 'l', 'His NFL club.'],
+    ['games', 'G', '', 'Games Sleeper expects him to play. Everything to the right is over this many games.'],
+    ['theirs', 'They see', '', "Sleeper's own season projection — the number the other nine managers are looking at. Standard half-PPR, our rules ignored."],
+    ['real', 'Really worth', '', "The same projected stats, scored under OUR rulebook: 6-point passing TDs, half a point per first down, fumbles counted twice."],
+    ['gap', '+Pts', '', 'Really worth minus They see. The points this rulebook simply hands him.'],
+    ['edgePts', 'Edge', '', 'The bit of that gain nobody else gets. Our rules lift the whole board, so this is the points he beats the average lift by — the column to sort on.'],
+    ['ours', 'PPG', '', 'Really worth, per game.'],
+    ['fd', '1D', '', 'Points per game that come purely from first downs — the rule no public ranking can see.'],
+    ['vorpSeason', 'VORP', '', 'Points over a replacement-level starter across the season. What drafting him actually wins you versus taking the next man at his position.'],
+    ['posRank', 'PosRk', '', 'His rank at his own position on this board.'],
+    ['ovRank', 'OvRk', '', 'His rank on this board overall, by VORP.'],
+    ['owner', 'Status', 'l', 'Kept, or the pick he was drafted at and who took him. Blank means still on the board.'],
   ];
+
+  // THE COLUMN EXPLAINER. Rendered OUTSIDE the scrollport and positioned fixed,
+  // because the header is sticky inside an `overflow: auto` box and a tooltip
+  // drawn inside it gets clipped by its own container. Native `title` would not
+  // be clipped but takes a second to appear, and a second is too long when you
+  // are checking what a column means mid-draft.
+  let tip = null;
+  function showTip(e, text) {
+    const r = e.currentTarget.getBoundingClientRect();
+    tip = { text, x: Math.min(r.left, window.innerWidth - 300), y: r.bottom + 6 };
+  }
+  const hideTip = () => { tip = null; };
 </script>
 
 <section class="sheet" data-testid="sheet">
@@ -190,6 +268,9 @@
       <button class="btn go" data-testid="sheet-refresh" on:click={refresh} disabled={refreshing || $sheetQ.isFetching}>
         {refreshing || $sheetQ.isFetching ? '↻ pulling…' : '↻ Refresh'}
       </button>
+      <label class="chk live" title="Re-pull every 30 seconds. For draft night — leave it on and the board keeps itself current.">
+        <input type="checkbox" bind:checked={liveMode} data-testid="sheet-live" /> live
+      </label>
       {#if pulled}<span class="muted">pulled {pulled}</span>{/if}
     </div>
   </header>
@@ -211,7 +292,7 @@
           Rush 1D <b>{scoring.rush_fd ?? 0}</b> · Rec 1D <b>{scoring.rec_fd ?? 0}</b> ·
           Fum <b>{scoring.fum ?? 0}</b> + lost <b>{scoring.fum_lost ?? 0}</b>
         </p>
-        <p class="muted">Whole board inflated <b>{pct(built.medBoost)}</b> vs stock half-PPR. Edge is measured against that, so it shows who beats the tide.</p>
+        <p class="muted">Whole board inflated <b>{pct(built.medBoost)}</b> vs what Sleeper shows. <b>Edge</b> is measured against that tide, so it names who beats it rather than who rides it.</p>
       </div>
       <div class="strip">
         <div class="sh">The lineup ({teams} teams)</div>
@@ -233,8 +314,20 @@
         {#if built.dry.length}<p class="muted bad">Pool ran dry filling: {built.dry.join(', ')} — those are floors, not real levels.</p>{/if}
       </div>
       <div class="strip">
-        <div class="sh">Data honesty</div>
-        <p class="muted">{built.rows.length} players scored · {built.rows.filter((r) => r.partial).length} on a part-season projection (held out of replacement).</p>
+        <div class="sh">Do these numbers match Sleeper?</div>
+        <p class="muted" data-testid="sheet-agree">
+          {#if agree.checked}
+            Our half-PPR baseline reproduces <b>Sleeper's own published projection to the decimal for {agree.ok} of {agree.checked}</b> players.
+            {#if agree.off}<span class="bad">{agree.off} {agree.off === 1 ? 'does not' : 'do not'}</span>, and {agree.off === 1 ? 'is' : 'are'} marked.{/if}
+            So the <b>They see</b> column is their number, and the gap to <b>Really worth</b> is our rulebook and nothing else.
+          {:else}
+            Sleeper published no projections to check against.
+          {/if}
+        </p>
+        <p class="muted">
+          {built.rows.length} players scored · {built.rows.filter((r) => r.partial).length} on a part-season projection (held out of replacement)
+          {#if backfilled} · {backfilled} had a rule Sleeper leaves out filled from his own last season{/if}.
+        </p>
         {#if cov.missing.length}
           <p class="muted bad" data-testid="sheet-missing">
             {cov.missing.length} scored rule{cov.missing.length === 1 ? '' : 's'} had NO projected stat behind {cov.missing.length === 1 ? 'it' : 'them'}:
@@ -253,14 +346,16 @@
         {/each}
       </span>
       <input class="srch" placeholder="search name or team…" bind:value={q} data-testid="sheet-search" />
-      <label class="chk"><input type="checkbox" bind:checked={hideOwned} /> {anyKept ? 'hide kept' : 'hide rostered'}</label>
+      <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
       <button class="chip" class:on={useMine} data-testid="sheet-mine" on:click={() => (useMine = !useMine)} disabled={!order.length}>
         my list{order.length ? ` (${order.length})` : ''}
       </button>
       <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!order.length}>back to standard</button>
-      <span class="muted">{view.length} shown of {built.rows.length}</span>
+      <span class="muted" data-testid="sheet-count">
+        {view.length} shown of {built.rows.length}{#if drafted} · <b>{drafted} drafted</b>{/if}
+      </span>
       {#each [300, 800, 99999] as n}
         <button class="chip mini" class:on={limit === n} on:click={() => (limit = n)}>{n === 99999 ? 'all' : n}</button>
       {/each}
@@ -272,8 +367,17 @@
           <tr>
             <th class="nrw">#</th>
             <th class="nrw">move</th>
-            {#each COLS as [k, label, cls]}
-              <th class={cls} class:act={sortKey === k} on:click={() => sortBy(k)} title="sort by {label}">
+            {#each COLS as [k, label, cls, tipText]}
+              <th
+                class={cls} class:act={sortKey === k}
+                on:click={() => sortBy(k)}
+                on:mouseenter={(e) => showTip(e, tipText)}
+                on:mouseleave={hideTip}
+                on:focus={(e) => showTip(e, tipText)}
+                on:blur={hideTip}
+                tabindex="0"
+                title={tipText}
+              >
                 {label}{sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
               </th>
             {/each}
@@ -281,7 +385,7 @@
         </thead>
         <tbody>
           {#each shown as r, i (r.id)}
-            <tr class:owned={!!(anyKept ? keptById[r.id] : ownerById[r.id])} class:part={r.partial}>
+            <tr class:owned={!!gone[r.id]} class:part={r.partial}>
               <td class="nrw muted">{i + 1}</td>
               <td class="nrw mv">
                 <button on:click={() => bump(r.id, -1)} aria-label="Move {r.name} up" data-testid={'up-' + r.id}>▲</button>
@@ -290,25 +394,35 @@
               <td class="l nm">{r.name}{#if r.partial}<em class="tag" title="part-season projection">{r.games}G</em>{/if}</td>
               <td class="l"><span class="pos">{r.pos}</span></td>
               <td class="l muted">{r.team}</td>
-              <td class="muted">{r.age ?? ''}</td>
-              <td class="muted">{r.exp ?? ''}</td>
               <td class="muted">{r.games}</td>
-              <td class="big">{n2(r.ours)}</td>
-              <td class="muted">{r.stock ? n2(r.stock) : '—'}</td>
+              <td class="theirs" title={r.theirsFrom === 'derived' ? 'Sleeper publishes no projection for him — this is our own half-PPR score of the same stats' : 'Sleeper’s published half-PPR projection'}>
+                {n0(r.theirs)}{#if r.theirsFrom === 'derived'}<em class="q">?</em>{/if}
+              </td>
+              <td class="big">{n0(r.real)}</td>
+              <td class="gap">{plus(r.gap)}</td>
+              <td class="edge" class:up={r.edgePts > 3} class:dn={r.edgePts < -3}>{plus(r.edgePts)}</td>
+              <td class="muted">{n2(r.ours)}</td>
               <td class:pos-good={r.fd > 0}>{r.fd ? n2(r.fd) : ''}</td>
-              <td class="muted">{r.stock ? pct(r.boost) : '—'}</td>
-              <td class="edge" class:up={r.edge > 0.02} class:dn={r.edge < -0.02}>{r.stock ? pct(r.edge) : '—'}</td>
-              <td class="big">{n1(r.vorp)}</td>
+              <td class="big">{n0(r.vorpSeason)}</td>
               <td class="muted">{r.pos}{r.posRank}</td>
               <td class="muted">{r.ovRank}</td>
-              <td class="l muted" class:kept={!!keptById[r.id]}>
-                {TEAMSHORT[ownerById[r.id]] || ownerById[r.id] || ''}{#if keptById[r.id]} · KEPT{/if}
+              <td class="l muted stat" class:kept={!!gone[r.id]?.keeper}>
+                {#if gone[r.id]}
+                  {#if gone[r.id].keeper}KEPT{:else}<b>{pickCodeOf(gone[r.id])}</b>{/if}
+                  {#if gone[r.id].by}<span class="by">{TEAMSHORT[gone[r.id].by] || gone[r.id].by}</span>{/if}
+                {:else if ownerById[r.id]}
+                  <span class="onros" title="on his roster now, but not kept — he goes back in the pool">{TEAMSHORT[ownerById[r.id]] || ownerById[r.id]}</span>
+                {/if}
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
+    {#if tip}
+      <div class="tip" style="left:{tip.x}px; top:{tip.y}px" role="tooltip">{tip.text}</div>
+    {/if}
+
     <p class="foot muted">
       Season {raw.season} projections, backfilled from {raw.prior} actuals where Sleeper leaves a scored stat out.
       Everything per game. VORP is ppg minus the replacement level for that position, from a greedy fill of the real lineup.
@@ -370,8 +484,28 @@
   .tag { font-style: normal; font-size: 8.5px; background: var(--brass); color: #fff; border-radius: 3px; padding: 0 3px; margin-left: 5px; }
   .pos { font-size: 9px; font-weight: 700; color: var(--blue-deep); background: var(--blue-wash); border-radius: 3px; padding: 1px 4px; }
   .big { font-weight: 700; color: var(--chalk); }
-  .edge.up { color: var(--good); font-weight: 700; }
+  /* The three that matter read as a group: what they see, what it really is,
+     and the gap — so the eye tracks left to right across one story. */
+  td.theirs { color: var(--muted); }
+  td.theirs .q { font-style: normal; color: var(--brass); font-size: 9px; margin-left: 2px; }
+  td.gap { color: var(--purp); }
+  .edge { font-weight: 700; }
+  .edge.up { color: var(--good); }
   .edge.dn { color: var(--stamp-red); }
+  td.stat .by { color: var(--muted); margin-left: 5px; font-size: 10px; }
+  td.stat b { color: var(--blue-deep); }
+  td.stat .onros { opacity: .55; font-size: 10px; }
+
+  /* Rendered outside the scrollport: the sticky header lives inside an
+     overflow box that would otherwise clip it. */
+  .tip {
+    position: fixed; z-index: 60; max-width: 290px;
+    background: var(--ink); color: #fff; border-radius: 7px;
+    padding: 7px 10px; font-size: 11px; line-height: 1.5;
+    box-shadow: 0 6px 20px rgba(22, 32, 43, .28); pointer-events: none;
+  }
+  thead th:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+  .chk.live { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; }
   .pos-good { color: var(--good); }
   .nrw { width: 30px; }
   .mv { white-space: nowrap; }
