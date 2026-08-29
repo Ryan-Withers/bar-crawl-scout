@@ -47,7 +47,14 @@
   let order = readLS();
   const save = () => { try { localStorage.setItem(LS, JSON.stringify(order)); } catch { /* full */ } };
   let useMine = order.length > 0;
-  function bump(id, d) { order = moveInOrder(order, view.map((r) => r.id), id, d); useMine = true; save(); }
+  // The WHOLE board seeds the order, the filtered view decides the neighbour.
+  // Seeding from the view alone meant nudging one quarterback on the QB tab
+  // hoisted all 42 of them above everyone else on the ALL board.
+  function bump(id, d) {
+    order = moveInOrder(order, built.rows.map((r) => r.id), view.map((r) => r.id), id, d);
+    useMine = true;
+    save();
+  }
   function clearMine() { order = []; useMine = false; save(); }
 
   // ---- raw -> rows ----

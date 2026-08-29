@@ -102,8 +102,18 @@ export const rosters = writable(readJSON('hq_rosters_v2'));
 export const draft = writable(readJSON('hq_draft_v1'));
 export const faab = writable(readJSON('hq_faab_v1'));
 
-// Persist rosters when they change (sync/auto-load update this store).
+// Persist the synced data when it changes. All three are READ from localStorage
+// above, but only rosters was ever written back — so a FAAB or draft sync
+// survived until the next reload and then vanished, and those two reads returned
+// null forever. Faab.svelte and ManagerDossier then fell back to the
+// hand-written FAAB_HIST constants as if no sync had ever run.
+//
+// This persists the SHAPE the sync already computed. It is Sleeper waiver-budget
+// and draft data — nothing to do with the bar bankroll, which lives in bet.js
+// and the Worker and is not touched here.
 rosters.subscribe((val) => { if (val) writeJSON('hq_rosters_v2', val); });
+draft.subscribe((val) => { if (val) writeJSON('hq_draft_v1', val); });
+faab.subscribe((val) => { if (val) writeJSON('hq_faab_v1', val); });
 
 // Name -> current owner handle, recomputed whenever rosters change.
 export const rosterOwn = derived(rosters, ($r) => buildRosterOwn($r));

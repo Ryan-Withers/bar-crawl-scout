@@ -1,5 +1,6 @@
 // POSITIONAL EDGES — known answers for the where-it's-won breakdown.
 import { describe, it, expect } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import { positionalEdges, edgeHighlights } from '../src/lib/engine/edges';
 
 const seat = (slot, proj) => ({ slot, player: { proj } });
@@ -47,5 +48,20 @@ describe('edgeHighlights', () => {
 
   it('is null-safe on empty input', () => {
     expect(edgeHighlights([])).toEqual({ best: null, worst: null });
+  });
+});
+
+describe('the synced stores survive a reload', () => {
+  it('writes back every key it reads from', async () => {
+    // draft and faab were read at boot and never written, so a sync lasted until
+    // the next reload and then the app fell back to hand-written constants as if
+    // it had never run.
+    const src = await readFile('src/lib/store.js', 'utf8');
+    for (const key of ['hq_rosters_v2', 'hq_draft_v1', 'hq_faab_v1']) {
+      const reads = src.includes(`readJSON('${key}')`);
+      const writes = src.includes(`writeJSON('${key}'`);
+      expect(reads, `${key} is read`).toBe(true);
+      expect(writes, `${key} is written back`).toBe(true);
+    }
   });
 });

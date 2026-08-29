@@ -10,6 +10,7 @@
   export let spectate = false;
   export let nm = (h) => h;
   export let live = true;          // false = the finished board in the debrief
+  export let userTurn = false;     // your pick — always pull the view back
 
   let wrap;
   $: N = st ? st.cfg.order.length : 0;
@@ -45,6 +46,25 @@
   // The pick's real code (13.01), not one recomputed from its position in the log.
   $: codeOf = (idx, p) => (meta && meta[idx] ? pickCode(meta[idx].pickNo, N) : pickCode(p.boardPick ?? p.overall, N));
 
+  // KEEP THE CLOCK IN VIEW — unless you have gone looking somewhere else.
+  //
+  // On a phone this board is 15 rows tall inside a viewport that shows maybe
+  // five. Scroll down to read the keeper rows at the bottom and, at the 28ms
+  // sim pace, the next pick yanked you straight back with smooth scrolling —
+  // so the bottom of the board was effectively unreachable during a run.
+  //
+  // Any scroll you make yourself parks the auto-follow until the board comes
+  // back to you: your own turn, or the end of the draft.
+  let userMoved = false;
+  let selfScrollUntil = 0;
+  function onScroll() {
+    // Our own scrollTop writes fire this too; ignore them for a beat.
+    if (Date.now() < selfScrollUntil) return;
+    userMoved = true;
+  }
+  /** Called when the board is yours again — resume following. */
+  export function resumeFollow() { userMoved = false; follow(); }
+
   // Keep the cell on the clock centred as the picks tick through.
   export function follow() {
     if (typeof requestAnimationFrame === 'undefined') return;
@@ -53,14 +73,17 @@
       if (!el || !wrap || !wrap.offsetParent) return;
       const br = wrap.getBoundingClientRect();
       const er = el.getBoundingClientRect();
+      selfScrollUntil = Date.now() + 400;
       wrap.scrollLeft += er.left - br.left - br.width / 2 + er.width / 2;
       wrap.scrollTop += er.top - br.top - br.height / 2 + er.height / 2;
     });
   }
-  $: if (wrap && live && cursor >= 0) follow();
+  $: if (wrap && live && cursor >= 0 && !userMoved) follow();
+  // Your own turn always wins back the view — that is the one moment you need it.
+  $: if (userTurn) { userMoved = false; }
 </script>
 
-<div class="boardwrap" class:full={!live} bind:this={wrap} data-testid="draft-board">
+<div class="boardwrap" class:full={!live} bind:this={wrap} on:scroll={onScroll} data-testid="draft-board">
   {#if gridOk}
     <table class="board">
       <thead>

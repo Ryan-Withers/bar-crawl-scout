@@ -192,22 +192,48 @@ describe('your own list', () => {
     expect(applyOrder(rows, ['d', 'b']).map((r) => r.id)).toEqual(['d', 'b', 'a', 'c']);
   });
 
-  it('moves a man up and down, seeding the list from what is on screen', () => {
-    const shown = ['a', 'b', 'c', 'd'];
-    expect(moveInOrder([], shown, 'c', -1)).toEqual(['a', 'c', 'b', 'd']);
-    expect(moveInOrder([], shown, 'a', 1)).toEqual(['b', 'a', 'c', 'd']);
+  const ALL = ['a', 'b', 'c', 'd'];
+
+  it('moves a man up and down', () => {
+    expect(moveInOrder([], ALL, ALL, 'c', -1)).toEqual(['a', 'c', 'b', 'd']);
+    expect(moveInOrder([], ALL, ALL, 'a', 1)).toEqual(['b', 'a', 'c', 'd']);
   });
 
   it('refuses to move off either end', () => {
-    const shown = ['a', 'b', 'c'];
-    expect(moveInOrder([], shown, 'a', -1)).toEqual(shown);
-    expect(moveInOrder([], shown, 'c', 1)).toEqual(shown);
+    expect(moveInOrder([], ALL, ALL, 'a', -1)).toEqual(ALL);
+    expect(moveInOrder([], ALL, ALL, 'd', 1)).toEqual(ALL);
   });
 
   it('absorbs anyone new into an existing list rather than losing them', () => {
-    const out = moveInOrder(['b', 'a'], ['a', 'b', 'z'], 'z', -1);
+    const out = moveInOrder(['b', 'a'], ['a', 'b', 'z'], ['a', 'b', 'z'], 'z', -1);
     expect(out).toContain('z');
     expect(out.length).toBe(3);
+  });
+
+  it('seeds from the WHOLE board, not from what the filter is showing', () => {
+    // The bug: on a filtered tab the saved order became only the visible ids, so
+    // applying it hoisted that whole position group above everyone else.
+    const all = ['qb1', 'rb1', 'qb2', 'rb2', 'qb3'];
+    const shownQBs = ['qb1', 'qb2', 'qb3'];
+    const out = moveInOrder([], all, shownQBs, 'qb2', -1);
+    expect(out).toHaveLength(5);                       // nobody dropped
+    expect(new Set(out)).toEqual(new Set(all));
+    // The backs keep their places; only the two quarterbacks swapped.
+    expect(out.indexOf('rb1')).toBe(1);
+    expect(out.indexOf('rb2')).toBe(3);
+  });
+
+  it('swaps with the next VISIBLE man, not whoever sits one row up unfiltered', () => {
+    const all = ['qb1', 'rb1', 'qb2'];
+    const out = moveInOrder([], all, ['qb1', 'qb2'], 'qb2', -1);
+    // qb2 goes above qb1 — the next quarterback — and rb1 is untouched.
+    expect(out).toEqual(['qb2', 'rb1', 'qb1']);
+  });
+
+  it('will not move the top or bottom of a FILTERED view', () => {
+    const all = ['qb1', 'rb1', 'qb2'];
+    expect(moveInOrder([], all, ['qb1', 'qb2'], 'qb1', -1)).toEqual(all);
+    expect(moveInOrder([], all, ['qb1', 'qb2'], 'qb2', 1)).toEqual(all);
   });
 });
 

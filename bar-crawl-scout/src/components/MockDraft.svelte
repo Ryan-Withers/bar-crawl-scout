@@ -398,7 +398,7 @@
 
     <div class="room">
       <section class="pane board" class:show={mobileTab === 'board'} aria-label="Draft board">
-        <DraftBoard bind:this={boardCmp} {st} {boardType} {seat} {spectate} {nm} />
+        <DraftBoard bind:this={boardCmp} {st} {boardType} {seat} {spectate} {nm} {userTurn} />
       </section>
 
       <div class="lower">
