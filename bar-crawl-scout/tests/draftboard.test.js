@@ -60,3 +60,30 @@ describe('the real 2026 board', () => {
     expect(draftSlotBoard(draft, 'nonsense', users, rosters)).not.toBeNull(); // bad trades -> just no overrides
   });
 });
+
+describe('a short draft order is flagged, not swallowed', () => {
+  it('reports the DRAFT\'s team count and marks the order incomplete', () => {
+    // The 2025 draft really does carry nine entries for ten teams.
+    // Drop the TOP slot specifically: that shortens the array without leaving a
+    // hole, which is exactly why nothing downstream could tell.
+    const nine = {
+      ...draft,
+      draft_order: Object.fromEntries(Object.entries(draft.draft_order).filter(([, slot]) => slot !== 10)),
+    };
+    const board = draftSlotBoard(nine, traded, users, rosters);
+    expect(board.slotHandles).toHaveLength(9);
+    expect(board.teams).toBe(10);          // from draft.settings.teams
+    expect(board.incomplete).toBe(true);
+  });
+
+  it('a complete order is not flagged', () => {
+    const board = draftSlotBoard(draft, traded, users, rosters);
+    expect(board.teams).toBe(10);
+    expect(board.incomplete).toBe(false);
+  });
+
+  it('falls back to the roster count when the draft omits settings.teams', () => {
+    const bare = { ...draft, settings: undefined };
+    expect(draftSlotBoard(bare, traded, users, rosters).teams).toBe(10);
+  });
+});

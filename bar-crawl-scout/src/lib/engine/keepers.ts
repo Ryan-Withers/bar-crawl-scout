@@ -51,15 +51,31 @@ export interface KeeperBoard {
   rounds: number;
   type: 'snake' | 'linear';
   cells: BoardCell[];
-  /** Where the keeper placement came from. 'none' means nobody has kept yet. */
-  source: 'board' | 'derived' | 'none';
+  /**
+   * Where the keeper placement came from. 'board' is Sleeper's own, complete
+   * answer; 'mixed' means it has placed SOME and the rest is worked out from
+   * ownership; 'derived' is entirely ours; 'none' means nobody has kept yet.
+   */
+  source: 'board' | 'mixed' | 'derived' | 'none';
 }
 
 export interface SlotBoardLike {
   slotHandles: string[];
   overrides: Array<{ round: number; slot: number; handle: string }>;
   type: 'snake' | 'linear';
+  /**
+   * How many teams the DRAFT says it has. Falls back to slotHandles.length, but
+   * do not rely on that: this league's 2025 draft_order carries nine entries for
+   * a ten-team draft, and a missing top slot shortens the array silently, so a
+   * board built on the array length would run nine columns wide and put every
+   * pick after the first round in the wrong place.
+   */
+  teams?: number;
 }
+
+/** The column count to do snake arithmetic with. */
+export const teamsOf = (sb: SlotBoardLike): number =>
+  (Number.isFinite(sb.teams) && (sb.teams as number) > 0 ? (sb.teams as number) : sb.slotHandles.length);
 
 // ---- snake geometry ----
 
@@ -88,13 +104,16 @@ export function pickCode(pickNo: number, teams: number): string {
  * not applied here — `keeperBoard` does that.
  */
 export function allCells(sb: SlotBoardLike, rounds: number): BoardCell[] {
-  const teams = sb.slotHandles.length;
+  const teams = teamsOf(sb);
   const ov = new Map(sb.overrides.map((o) => [`${o.round}:${o.slot}`, o.handle]));
   const cells: BoardCell[] = [];
   for (let round = 1; round <= rounds; round++) {
     for (let idx = 0; idx < teams; idx++) {
       const slot = slotAt(round, idx, teams, sb.type);
-      const base = sb.slotHandles[slot - 1];
+      // A short draft_order leaves a seat with nobody in it. Say so in the cell
+      // rather than emitting `undefined` and letting it surface as the string
+      // "undefined" three components downstream.
+      const base = sb.slotHandles[slot - 1] || `slot ${slot}`;
       const traded = ov.get(`${round}:${slot}`);
       cells.push({
         round,
@@ -156,13 +175,22 @@ export function keeperBoard(
 ): KeeperBoard | null {
   if (!sb || !Array.isArray(sb.slotHandles) || !sb.slotHandles.length) return null;
   if (!Number.isFinite(rounds) || rounds < 1) return null;
-  const teams = sb.slotHandles.length;
+  const teams = teamsOf(sb);
   const cells = allCells(sb, rounds);
   const byPick = new Map(cells.map((c) => [c.pickNo, c]));
 
-  // 1. Sleeper's own answer.
+  const expected = Object.values(ledger || {}).reduce((n, men) => n + men.length, 0);
+
+  // 1. Sleeper's own answer — but only when it is the WHOLE answer.
+  //
+  // The commissioner can assign keepers a team at a time, and one is_keeper pick
+  // used to be enough to take this path. That reported a half-filled board as
+  // fact: nine managers got no placement at all, their bottom picks stayed live,
+  // and the page announced "3 spent on keepers and 147 live" with a straight
+  // face. If the board disagrees with the roster ledger about how many men are
+  // kept, the board is partial — take what it gives, derive the rest.
   const kept = (Array.isArray(picks) ? picks : []).filter((p) => p && p.is_keeper && Number.isFinite(p.pick_no));
-  if (kept.length) {
+  if (kept.length && (!expected || kept.length === expected)) {
     for (const p of kept) {
       const cell = byPick.get(p.pick_no as number);
       if (!cell) continue;
@@ -182,23 +210,38 @@ export function keeperBoard(
     return { teams, rounds, type: sb.type, cells, source: 'board' };
   }
 
-  // 2. Nobody has been placed on the board yet — derive from what each man owns.
+  // 2. Derive. Either nothing is on the board yet, or only part of it is — in
+  // which case honour the placements Sleeper HAS made and work the rest out.
   const counts: Record<string, number> = {};
   for (const [h, men] of Object.entries(ledger || {})) counts[h] = men.length;
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (!total) return { teams, rounds, type: sb.type, cells, source: 'none' };
 
-  const consumed = derivePlacement(cells, counts);
+  const placed = new Set<string>();
+  for (const p of kept) {
+    const cell = byPick.get(p.pick_no as number);
+    if (!cell) continue;
+    const md = p.metadata || {};
+    const name = [md.first_name, md.last_name].filter(Boolean).join(' ').trim();
+    cell.keeper = { playerId: String(p.player_id ?? ''), name: name || String(p.player_id ?? ''), pos: md.position || '' };
+    const h = rosterHandle[p.roster_id as number] || cell.handle;
+    placed.add(`${h}:${cell.keeper.playerId}`);
+    counts[h] = Math.max(0, (counts[h] || 0) - 1);
+  }
+
+  const consumed = derivePlacement(cells.filter((c) => !c.keeper), counts);
   // Hand each manager his own men, deepest pick first — the order within his own
   // bottom picks is cosmetic, so we just need it to be stable.
   const queue: Record<string, KeptMan[]> = {};
-  for (const [h, men] of Object.entries(ledger || {})) queue[h] = men.slice();
+  for (const [h, men] of Object.entries(ledger || {})) {
+    queue[h] = men.filter((m) => !placed.has(`${h}:${m.playerId}`));
+  }
   for (const c of cells) {
-    if (!consumed.has(c.pickNo)) continue;
+    if (c.keeper || !consumed.has(c.pickNo)) continue;
     const men = queue[c.handle];
     if (men && men.length) c.keeper = men.shift() as KeptMan;
   }
-  return { teams, rounds, type: sb.type, cells, source: 'derived' };
+  return { teams, rounds, type: sb.type, cells, source: kept.length ? 'mixed' : 'derived' };
 }
 
 // ---- reading the board ----

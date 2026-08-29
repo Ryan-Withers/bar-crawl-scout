@@ -76,6 +76,8 @@
       <b>{liveCells(board).length} are live</b>.
       {#if board.source === 'derived'}
         The commissioner hasn't placed the keepers on the board yet, so their slots are worked out from what each manager still owns.
+      {:else if board.source === 'mixed'}
+        The commissioner has placed some of the keepers and not others; the rest are worked out from what each manager still owns.
       {:else if board.source === 'none'}
         Nobody has locked a keeper yet, so every pick below is live.
       {/if}

@@ -397,3 +397,72 @@ describe('the sequence carries its own coordinates', () => {
     }
   });
 });
+
+describe('the column count comes from the DRAFT, not the order', () => {
+  // This league's own 2025 draft_order carries NINE entries for a ten-team
+  // draft. A missing top slot shortens the array without leaving a hole, so
+  // nothing downstream can tell — and a board nine columns wide puts every pick
+  // after the first round under the wrong manager.
+  const short = { slotHandles: sb.slotHandles.slice(0, 9), overrides: [], type: 'snake', teams: 10 };
+
+  it('lays out ten columns even when the order names nine', () => {
+    const b = keeperBoard(short, 3, {}, []);
+    expect(b.teams).toBe(10);
+    expect(b.cells).toHaveLength(30);
+    expect(new Set(b.cells.map((c) => c.slot))).toEqual(new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+  });
+
+  it('names the empty seat instead of emitting undefined', () => {
+    const b = keeperBoard(short, 1, {}, []);
+    const orphan = b.cells.find((c) => c.slot === 10);
+    expect(orphan.handle).toBe('slot 10');
+    expect(b.cells.every((c) => typeof c.handle === 'string' && c.handle)).toBe(true);
+  });
+
+  it('falls back to the order length when the draft does not say', () => {
+    const noTeams = { slotHandles: sb.slotHandles.slice(0, 9), overrides: [], type: 'snake' };
+    expect(keeperBoard(noTeams, 1, {}, []).teams).toBe(9);
+  });
+
+  it('and the real 2026 board still comes out at ten', () => {
+    expect(board.teams).toBe(10);
+    expect(sb.teams).toBe(10);
+    expect(sb.incomplete).toBe(false);
+  });
+});
+
+describe('a HALF-assigned board is not the whole answer', () => {
+  // The commissioner can place keepers a team at a time. One is_keeper pick used
+  // to be enough to take the authoritative path, which reported nine managers as
+  // keeping nobody and announced "3 spent, 147 live" as fact.
+  const partial = picks.filter((p) => p.roster_id === 1);   // Ryan's three only
+
+  it('takes the placements Sleeper made AND derives the rest', () => {
+    const b = keeperBoard(sb, ROUNDS, ledger, partial, rosterHandle);
+    expect(b.source).toBe('mixed');
+    expect(keeperCells(b)).toHaveLength(30);
+    expect(liveCells(b)).toHaveLength(120);
+  });
+
+  it('and lands on the same thirty picks the full board uses', () => {
+    const b = keeperBoard(sb, ROUNDS, ledger, partial, rosterHandle);
+    expect(keeperCells(b).map((c) => c.pickNo).sort((a, b2) => a - b2))
+      .toEqual(keeperCells(board).map((c) => c.pickNo).sort((a, b2) => a - b2));
+  });
+
+  it('never hands a manager the same man twice', () => {
+    const b = keeperBoard(sb, ROUNDS, ledger, partial, rosterHandle);
+    const ids = keeperCells(b).map((c) => c.keeper.playerId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('still calls a COMPLETE board complete', () => {
+    expect(keeperBoard(sb, ROUNDS, ledger, picks, rosterHandle).source).toBe('board');
+  });
+
+  it('trusts the board outright when we hold no ledger to check it against', () => {
+    const b = keeperBoard(sb, ROUNDS, {}, partial, rosterHandle);
+    expect(b.source).toBe('board');
+    expect(keeperCells(b)).toHaveLength(3);
+  });
+});

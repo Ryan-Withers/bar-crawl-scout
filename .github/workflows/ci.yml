@@ -22,6 +22,10 @@ jobs:
                                  # type in the app was documentation, not a check.
       - run: npm run stage-check # years_exp settles rookie/yr2 — a wrong tag
                                  # mis-prices a player in every mode, silently.
+      - run: npm run adp-check   # report-only: ADP is the model's only real
+                                 # input, so a drifted one mis-prices a player
+                                 # everywhere. Two honest sources may legitimately
+                                 # disagree, so this prints rather than fails.
       - run: npm run coverage    # THE AUDITOR + THE BOUNCER + coverage gate
       - run: npm run build
       - run: npm run bundle-budget  # THE STOPWATCH — JS stays small, no 5MB blob

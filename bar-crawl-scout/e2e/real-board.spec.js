@@ -50,7 +50,10 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
     if (url.endsWith('/rosters')) return json(r, rosters);
     if (url.endsWith('/drafts')) return json(r, drafts);
     if (url.endsWith(`/draft/${draftId}/picks`)) return json(r, picks);
-    if (url.endsWith('/traded_picks')) return json(r, traded);
+    // EXACT path: the app must ask the LEAGUE for traded picks, because that is
+    // the only endpoint carrying the 2027 futures. A suffix match here hid the
+    // fact that it was asking the draft instead.
+    if (url.endsWith(`/league/${league.league_id}/traded_picks`)) return json(r, traded);
     if (url.includes('/players/nfl')) return json(r, blob);
     if (/\/league\/\d+$/.test(url)) return json(r, league);
     return json(r, []);
