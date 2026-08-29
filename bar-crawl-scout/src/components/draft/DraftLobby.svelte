@@ -19,6 +19,7 @@
   export let personas = {};
   export let rounds = 0;
   export let rosterSize = 0;
+  export let yourKeepers = 0;
   export let yourFirstPick = '';
   export let history = [];
   export let onStart = () => {};
@@ -50,7 +51,7 @@
       <li><i>Traded picks</i><b>{useReal ? `${tradeCount} honored` : 'n/a'}</b></li>
       <li><i>Your seat</i><b>{spectate ? 'Spectating' : nm(seat)}</b></li>
       <li><i>Pick clock</i><b>{clockLen ? `${clockLen}s` : 'off'}</b></li>
-      <li><i>Roster</i><b>{rosterSize} spots · your 3 keepers included</b></li>
+      <li><i>Roster</i><b>{rosterSize} spots · {spectate ? 'keepers included' : `your ${yourKeepers} keeper${yourKeepers === 1 ? '' : 's'} included`}</b></li>
       <li><i>Pool</i><b>Skill positions only</b></li>
     </ul>
     <button class="go" data-testid="start" on:click={onStart}>

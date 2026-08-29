@@ -27,13 +27,25 @@ test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to en
   await expect(page.getByText(/THE WAR ROOM/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /the league/i })).toHaveCount(0); // hub chrome hidden
   await expect(page.getByTestId('gm-list').locator('li')).toHaveCount(10);
-  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Balanced · mostly disciplined/);
+  // Ten managers, ten different men. joshleota has sold Jefferson and Nacua for
+  // four 2027 firsts, so the room describes him as drafting for next year — and
+  // ImyHunter, who emptied his futures buying Lamb and Flowers, as the opposite.
+  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Future-first/);
+  await expect(page.getByTestId('gm-phrase-ImyHunter')).toHaveText(/Win-now/);
+  const phrases = await page.getByTestId('gm-list').locator('li').allTextContents();
+  expect(new Set(phrases).size, 'the GMs are not ten clones').toBeGreaterThan(4);
   await expect(page.getByTestId('customise-gms').locator('input[type=range]')).toHaveCount(20);
 
   await page.getByTestId('start').click();
 
   // THE ROOM: the board is the hero, one cell is on the clock, and you're up.
   await expect(page.getByTestId('draft-board')).toBeVisible();
+  // ...and the room was built on Sleeper's LOCKED keepers, not on the old
+  // hand-written projections. The mock serves the captured league, so a
+  // regression that quietly drops back to the fallback fails here rather than
+  // in one spec at the far end of the suite.
+  await expect(page.getByTestId('roster')).toContainText("Ja'Marr Chase");
+  await expect(page.getByTestId('roster')).toContainText('Puka Nacua');   // bought in principle
   await expect(page.getByTestId('clock')).toBeVisible();
   await expect(page.getByTestId('your-turn')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('[data-testid="draft-board"] .cur')).toHaveCount(1);

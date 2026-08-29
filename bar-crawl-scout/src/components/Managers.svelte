@@ -3,10 +3,10 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { capital } from '../lib/store.js';
-  import { chestTag, needScores } from '../lib/models.js';
+  import { chestTag, needScores, keptRows, watchName } from '../lib/models.js';
   import { chestValue, chestTagFor } from '../lib/engine/picks';
   import { needTargets } from '../lib/engine/league-config';
-  import { keepers, unlocked, keepersSource } from '../lib/store.js';
+  import { keepers, unlocked, keepersSource, keeperFrom } from '../lib/store.js';
   import { usersQuery, rostersQuery, seasonMatchupsQuery , leagueQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { rosterHandleMap } from '../api/history';
@@ -52,8 +52,11 @@
     const live = $capital && seasons[0] ? $capital[seasons[0]][h] : null;
     return live ? chestTagFor(chestValue(live)) : chestTag(h);
   };
-  $: keepersOf = (h) => (ks[h] || []).slice(0, 3).filter((s) => s && s[0]);
-  $: watchOf = (h) => { const w = (ks[h] || [])[3]; return w && w[0] ? w[0] : null; };
+  // Not a fixed three any more: a keeper sold in principle is listed under the
+  // manager who bought him, so a settled squad can be four or five.
+  $: keepersOf = (h) => keptRows(ks, h);
+  $: watchOf = (h) => watchName(ks, h);
+  $: fromOf = (name) => $keeperFrom[name] || null;
   const leagueQ = createQuery(leagueQuery());
   // The starting lineup decides what a manager needs; it is not a constant.
   $: tgts = needTargets($leagueQ.data?.roster_positions || []);
@@ -103,7 +106,7 @@
           <div class="section">
             <div class="lbl">{$keepersSource === 'projection' ? 'Projected keepers' : 'Keepers'}</div>
             <ul class="keeps">
-              {#each keepersOf(m.h) as s}<li><span class="kn">{s[0]}</span><span class="kc">{s[1]}</span></li>{/each}
+              {#each keepersOf(m.h) as s}<li><span class="kn">{s[0]}</span><span class="kc">{fromOf(s[0]) ? 'via ' + fromOf(s[0]) : s[1]}</span></li>{/each}
               {#if watchOf(m.h)}<li class="watch"><span class="kn">{watchOf(m.h)}</span><span class="kc">watch</span></li>{/if}
             </ul>
           </div>

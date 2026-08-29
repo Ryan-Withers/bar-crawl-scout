@@ -14,6 +14,7 @@ import playersBlob from '../src/lib/api/fixtures/players-trimmed.json';
 import { userHandleMap } from '../src/api/league';
 import {
   pendingMoves, pendingByPlayer, outgoingByRoster, incomingByRoster, settledKeepers,
+  settleLedger, cameFrom,
 } from '../src/lib/engine/principle';
 
 const uh = userHandleMap(users);
@@ -138,5 +139,52 @@ describe('the rule, in isolation', () => {
     expect(pendingMoves(undefined)).toEqual([]);
     expect(pendingMoves([])).toEqual([]);
     expect(pendingMoves([{}])).toEqual([]);
+  });
+});
+
+describe('settling the ledger — act as if the deals are done', () => {
+  const led = {};
+  for (const r of rosters) led[handleOf[r.roster_id]] = (r.keepers || []).map((id) => ({ playerId: String(id) }));
+  const settled = settleLedger(led, moves, handleOf);
+  const names = (h) => (settled[h] || []).map((k) => nameOf(k.playerId)).sort();
+
+  it('puts Nacua on Ryan and takes him off joshleota', () => {
+    expect(names('Ryan')).toEqual(["Brock Bowers", "Ja'Marr Chase", 'Puka Nacua', 'Tetairoa McMillan']);
+    expect(names('joshleota')).toEqual(['DeVonta Smith', 'TreVeyon Henderson']);
+  });
+
+  it('gives ImyHunter five and leaves jpdonners with one', () => {
+    expect(names('ImyHunter')).toEqual(['Bijan Robinson', 'CeeDee Lamb', 'Emeka Egbuka', 'Malik Nabers', 'Zay Flowers']);
+    expect(names('jpdonners')).toEqual(['Lamar Jackson']);
+  });
+
+  it('still accounts for all thirty men, just on different rosters', () => {
+    const before = Object.values(led).flat().length;
+    const after = Object.values(settled).flat().length;
+    expect(after).toBe(before);
+    expect(after).toBe(30);
+  });
+
+  it('leaves everyone else exactly as they were', () => {
+    for (const h of ['ATorelli4', 'WinzTheBrah', 'ShaydenB', 'JohnnyDuff', 'JShrimp341', 'jduddy9']) {
+      expect(names(h)).toEqual((led[h] || []).map((k) => nameOf(k.playerId)).sort());
+    }
+  });
+
+  it('remembers where each man came from', () => {
+    const from = cameFrom(moves, handleOf);
+    const nacua = moves.find((m) => nameOf(m.playerId) === 'Puka Nacua');
+    expect(from[nacua.playerId]).toBe('joshleota');
+  });
+
+  it('is a no-op when nothing is pending', () => {
+    expect(settleLedger(led, [], handleOf)).toBe(led);
+    expect(settleLedger(led, null, handleOf)).toBe(led);
+  });
+
+  it('ignores a deal for a man nobody declared as a keeper', () => {
+    const ghost = [{ playerId: 'nobody', fromRoster: 2, toRoster: 1, agreedAt: 1, revertedAt: 2 }];
+    const out = settleLedger(led, ghost, handleOf);
+    expect(Object.values(out).flat()).toHaveLength(30);
   });
 });

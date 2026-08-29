@@ -6,8 +6,8 @@
   import { onDestroy } from 'svelte';
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
-  import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN, byName } from '../lib/data.js';
-  import { windowVal, isAvailable } from '../lib/models.js';
+  import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN, PERSONA, byName } from '../lib/data.js';
+  import { windowVal, isAvailable, keptRows } from '../lib/models.js';
   import { keepers } from '../lib/store.js';
   import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery } from '../api/queries';
   import { draftSlotBoard, userHandleMap } from '../api/league';
@@ -91,7 +91,14 @@
     if (!p || !SKILL.has(p[2])) return null;
     return { name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, stage: p[6] || '', v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') } };
   };
-  const keepersOf = (h) => ((ks[h] || []).slice(0, 3).map((s) => s && s[0]).filter(Boolean).map(toMockPlayer).filter(Boolean));
+  // The squad each manager will ACTUALLY have, keepers traded in principle
+  // already settled onto their new teams — so a mock starts Ryan on four men and
+  // jpdonners on one, which is what draft day will look like.
+  const keepersOf = (h) => keptRows(ks, h).map((s) => s[0]).map(toMockPlayer).filter(Boolean);
+  // How many men you actually start with — three was hard-coded in the lobby,
+  // and it stopped being three the moment a keeper could be traded in principle.
+  // Reactive, because it has to redraw when the live keepers land.
+  $: yourKeepers = keptRows(ks, seat).length;
 
   // ---- the REAL board: Sleeper draft slots + traded picks -> pick ownership ----
   const HANDLESET = new Set(TEAMS.map(([h]) => h));
@@ -115,9 +122,20 @@
   // ---- persisted lobby settings ----
   const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full */ } };
-  const defaultPersonas = () => Object.fromEntries(TEAMS.map(([h]) => [h, { window: 50, chaos: 50 }]));
-  let personas = { ...defaultPersonas(), ...readLS('bcs_mock_personas', {}) };
-  const savePersonas = () => { personas = { ...personas }; writeLS('bcs_mock_personas', personas); };
+  // Each GM drafts like himself. This used to hand all ten the same 50/50 dial,
+  // so the lobby described ten identical managers and the bots drafted one
+  // shared board — a room that could not tell a manager who has sold his season
+  // from one who has mortgaged next year to win this one.
+  //
+  // The key is v2 because the old flat table is persisted in localStorage:
+  // anyone who has opened the mock before would otherwise keep drafting against
+  // ten clones no matter what data.js says. Reset still gets you back to the
+  // room as scouted, not to a flat 50.
+  const defaultPersonas = () => Object.fromEntries(
+    TEAMS.map(([h]) => [h, { ...(PERSONA[h] || { window: 50, chaos: 50 }) }]),
+  );
+  let personas = { ...defaultPersonas(), ...readLS('bcs_mock_personas_v2', {}) };
+  const savePersonas = () => { personas = { ...personas }; writeLS('bcs_mock_personas_v2', personas); };
   const setPersona = (h, patch) => { personas[h] = { ...personas[h], ...patch }; savePersonas(); };
   const resetPersonas = () => { personas = defaultPersonas(); savePersonas(); };
 
@@ -380,7 +398,7 @@
     <DraftLobby
       teams={TEAMS.map(([h, t]) => [h, t.replace(' (YOU)', '')])}
       {nm} bind:seat bind:spectate {clockLen} bind:orderSource {realOk} {slotBoard} {round1} {tradeCount}
-      bind:order {personas} rounds={mockRounds} {rosterSize} {yourFirstPick} {history}
+      bind:order {personas} rounds={mockRounds} {rosterSize} {yourKeepers} {yourFirstPick} {history}
       focus={myFocus} onFocus={setFocus}
       onStart={() => start()} onClock={setClock} onShuffle={shuffleOrder} onMoveOrder={moveOrder}
       onPersona={setPersona} onResetPersonas={resetPersonas}

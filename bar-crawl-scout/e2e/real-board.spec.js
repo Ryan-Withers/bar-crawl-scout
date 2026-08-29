@@ -171,7 +171,35 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
   const josh = page.locator('article', { hasText: '@joshleota' });
   await expect(josh).not.toContainText('STRIPPED');
   await expect(josh).toContainText('2027: 4');
+  // TRADES IN PRINCIPLE, settled onto the squads that will actually have them.
+  // These deals cannot be backed out of; the only reason the man sits on the
+  // seller's roster is that Sleeper needs him there to accept a declaration.
+  // (Ryan's own folder is sealed on this page, so his side of it is asserted in
+  // the mock below, where his squad is the thing being drafted around.)
+  // Scoped to the keeper LIST, not the whole folder: the scouting notes name
+  // these men too, and a folder-wide match would pass on the prose.
+  await expect(josh.locator('.keeps')).not.toContainText('Puka Nacua');
+  const jpKeeps = page.locator('article', { hasText: '@jpdonners' }).locator('.keeps');
+  await expect(jpKeeps).not.toContainText('CeeDee Lamb');
+  await expect(jpKeeps).toContainText('Lamar Jackson');            // the one he keeps
+  const imyKeeps = page.locator('article', { hasText: '@ImyHunter' }).locator('.keeps');
+  await expect(imyKeeps).toContainText('CeeDee Lamb');
+  await expect(imyKeeps).toContainText('Zay Flowers');
+  await expect(imyKeeps).toContainText('via jpdonners');
+  await expect(imyKeeps.locator('li')).toHaveCount(5);
   await page.screenshot({ path: 'shots/managers.png', fullPage: true });
+
+  // THE MOCK starts everyone on the squad they will really have. Ryan's team
+  // read 3/15 while a fourth man was already bought and paid for.
+  await page.goto('./mock');
+  await expect(page.getByTestId('lobby')).toBeVisible();
+  await page.waitForTimeout(3500);   // let the live keepers land before the draw
+  await page.getByTestId('start').click();
+  const roster = page.getByTestId('roster');
+  await expect(roster).toBeVisible();
+  await expect(roster).toContainText('Puka Nacua');
+  await expect(roster.locator('.count')).toHaveText('4/15');
+  await page.screenshot({ path: 'shots/mock-settled.png' });
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('./draftboard');

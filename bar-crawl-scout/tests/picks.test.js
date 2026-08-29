@@ -32,11 +32,14 @@ describe('2026 capital, straight off the traded picks', () => {
     expect(c.top3).toEqual([1, 0, 3]);
   });
 
-  it('and data.js still claims he has two firsts', () => {
-    // Not a test of our engine — a test that the stale constant is stale, so
-    // this fails loudly the day somebody "fixes" one without the other.
-    expect(CAPITAL.Ryan[0]).toBe(2);
-    expect(cap26.Ryan.top3[0]).toBe(1);
+  it('and data.js now says the same thing', () => {
+    // This used to assert the opposite: the hand-written constant said two
+    // firsts and the ledger said one, and the test existed to pin the drift
+    // rather than hide it. The constant has since been corrected against these
+    // same fixtures, so the assertion flips to agreement — which is the state
+    // worth defending.
+    expect(CAPITAL.Ryan).toEqual(cap26.Ryan.top3);
+    expect(CAPITAL.Ryan[0]).toBe(1);
   });
 
   it('names where each bought pick came from', () => {
@@ -53,12 +56,16 @@ describe('2026 capital, straight off the traded picks', () => {
     expect(chestTagFor(chestValue(cap26.JohnnyDuff))).toBe('STRIPPED');
   });
 
-  it('disagrees with the hand-written CAPITAL for four of the ten', () => {
+  it('agrees with the hand-written CAPITAL for all ten', () => {
+    // Four of the ten used to disagree — Ryan, joshleota, jpdonners and
+    // ImyHunter, every one of them moved by an August trade the constant was
+    // written before. The offline fallback is the one people see when the
+    // network is down, so it is worth keeping honest.
     const wrong = Object.keys(cap26).filter((h) => {
       const hand = CAPITAL[h];
       return hand && String(hand) !== String(cap26[h].top3);
     }).sort();
-    expect(wrong).toEqual(['ImyHunter', 'Ryan', 'joshleota', 'jpdonners']);
+    expect(wrong).toEqual([]);
   });
 });
 
@@ -75,8 +82,12 @@ describe('2027 futures — the column nothing in the app has ever shown', () => 
     expect(firsts.filter((p) => !p.via)).toHaveLength(1);
   });
 
-  it('and the hand-written CAPITAL — which is 2026-only — has him at zero firsts', () => {
-    expect(CAPITAL.joshleota[0]).toBe(0);
+  it('and the hand-written CAPITAL, which is 2026-only, says nothing about it', () => {
+    // The constant covers this year alone, so it has one first for him and
+    // cannot express the four he holds for next. That is a reason to read the
+    // live capital store, not a reason to distrust either number.
+    expect(CAPITAL.joshleota).toEqual(cap26.joshleota.top3);
+    expect(CAPITAL.joshleota).toHaveLength(3);
   });
 
   it('nobody is left holding nothing at all', () => {
