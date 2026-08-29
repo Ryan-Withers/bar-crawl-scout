@@ -42,7 +42,13 @@ async function mockSheet(page, { proj = PROJ } = {}) {
     if (url.endsWith('/state/nfl')) return json({ week: 1, season: '2026', season_type: 'regular' });
     if (/\/league\/\w+$/.test(url)) return json({ league_id: '1', season: '2026', scoring_settings: SCORING, roster_positions: ROSTER_POSITIONS, previous_league_id: null });
     if (url.endsWith('/users')) return json([{ user_id: '1', display_name: 'witherssssss' }, { user_id: '2', display_name: 'joshleota' }]);
-    if (url.endsWith('/rosters')) return json([{ roster_id: 1, owner_id: '1', players: ['p2'] }, { roster_id: 2, owner_id: '2', players: [] }]);
+    // Roster 1 holds two men but KEEPS only one. In this league that is the whole
+    // point: everyone keeps three and redrafts the rest, so being on a roster is
+    // not being off the board.
+    if (url.endsWith('/rosters')) return json([
+      { roster_id: 1, owner_id: '1', players: ['p1', 'p2'], keepers: ['p2'] },
+      { roster_id: 2, owner_id: '2', players: [], keepers: [] },
+    ]);
     if (/\/projections\/nfl\/regular\/\d+$/.test(url)) return json(proj);
     if (/\/stats\/nfl\/regular\/\d+$/.test(url)) return json({});
     if (url.includes('/players/nfl')) return json(PLAYERS_BLOB);
@@ -213,4 +219,30 @@ test('a part-season projection is flagged and kept out of replacement', async ({
   await page.goto('./sheet');
   await expect(page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Half Season' })).toContainText('6G');
   await expect(page.getByTestId('sheet')).toContainText('held out of replacement');
+});
+
+test('a rostered man who was NOT kept stays on the board', async ({ page }) => {
+  // Everyone keeps three and redrafts the rest, so "rostered" is not "taken".
+  // Treating the two as the same hid the best draftable player in the league.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const table = page.getByTestId('sheet-table');
+  await expect(table).toContainText('Chain Mover');       // rostered, not kept
+  await expect(table).toContainText('Big Play');          // rostered AND kept
+
+  // The toggle knows the difference, and says so.
+  const chk = page.locator('label.chk', { hasText: /hide kept/i });
+  await expect(chk).toBeVisible();
+  await chk.locator('input').check();
+  await expect(table).toContainText('Chain Mover');       // still draftable
+  await expect(table).not.toContainText('Big Play');      // genuinely gone
+});
+
+test('the kept man is marked as kept, not merely as owned', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const kept = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Big Play' });
+  await expect(kept).toContainText('KEPT');
+  const notKept = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
+  await expect(notKept).not.toContainText('KEPT');
 });

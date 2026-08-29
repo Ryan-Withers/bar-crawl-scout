@@ -13,15 +13,17 @@
   // stale one only if you cannot tell them apart, so `keepersSource` says which
   // you are looking at and the Keepers page prints it.
   import { createQuery } from '@tanstack/svelte-query';
-  import { rostersQuery, usersQuery, playersQuery } from '../api/queries';
+  import { rostersQuery, usersQuery, playersQuery, realDraftQuery } from '../api/queries';
   import { userHandleMap } from '../api/league';
   import { keeperLedger } from '../lib/engine/keepers';
-  import { keepers } from '../lib/store.js';
+  import { capitalFor } from '../lib/engine/picks';
+  import { keepers, capital } from '../lib/store.js';
   import { TEAMS } from '../lib/data.js';
 
   const rostersQ = createQuery(rostersQuery());
   const usersQ = createQuery(usersQuery());
   const playersQ = createQuery(playersQuery());
+  const realQ = createQuery(realDraftQuery());
 
   const HANDLES = new Set(TEAMS.map(([h]) => h));
 
@@ -56,5 +58,18 @@
     // locked yet, which is strictly worse than the guess it replaced.
     const declared = Object.values(live).filter((rows) => rows[0][0]).length;
     keepers.setLive(declared === TEAMS.length ? live : null);
+  }
+
+  // PICK CAPITAL, this season and next. The futures column matters as much as
+  // this year's: one manager is sitting on four 2027 first-rounders and the
+  // hand-written constant has him at zero.
+  $: if (Array.isArray(rosters) && Array.isArray(users) && $realQ.data?.traded) {
+    const rosterHandle = Object.fromEntries(rosters.map((r) => [r.roster_id, userHandleMap(users)[r.owner_id]]));
+    const rounds = $realQ.data?.draft?.settings?.rounds || 15;
+    const season = Number($realQ.data?.draft?.season || new Date().getFullYear());
+    capital.set({
+      [String(season)]: capitalFor(season, rounds, $realQ.data.traded, rosterHandle),
+      [String(season + 1)]: capitalFor(season + 1, rounds, $realQ.data.traded, rosterHandle),
+    });
   }
 </script>

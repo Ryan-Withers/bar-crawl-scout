@@ -44,3 +44,37 @@ describe.skipIf(named.filter(([b]) => b !== 'league-scoring').length === 0)('cap
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// The two fields the whole keeper rework stands on. Declared in the schema so
+// drift-check notices if Sleeper renames or drops either — the schemas pass
+// unknown keys through, so an undeclared field disappearing is silent, and this
+// one disappearing drops the app back to hand-written guesses without a word.
+import rosters2026 from '../src/lib/api/fixtures/rosters-2026.json';
+import picks2026 from '../src/lib/api/fixtures/draft-picks-2026.json';
+import { SleeperRosterSchema, SleeperDraftPickSchema } from '../src/lib/api/schemas';
+
+describe('the keeper fields are real, and the schema knows about them', () => {
+  it('every 2026 roster parses and carries its three keepers', () => {
+    for (const r of rosters2026) {
+      const parsed = SleeperRosterSchema.parse(r);
+      expect(Array.isArray(parsed.keepers), `roster ${r.roster_id} has a keepers array`).toBe(true);
+      expect(parsed.keepers).toHaveLength(3);
+    }
+  });
+
+  it('every keeper pick parses and is flagged is_keeper', () => {
+    expect(picks2026.length).toBe(30);
+    for (const p of picks2026) {
+      const parsed = SleeperDraftPickSchema.parse(p);
+      expect(parsed.is_keeper).toBe(true);
+      expect(typeof parsed.pick_no).toBe('number');
+      expect(typeof parsed.player_id).toBe('string');
+    }
+  });
+
+  it('tolerates a roster that has not declared yet', () => {
+    expect(() => SleeperRosterSchema.parse({ roster_id: 1, keepers: null })).not.toThrow();
+    expect(() => SleeperRosterSchema.parse({ roster_id: 1 })).not.toThrow();
+  });
+});

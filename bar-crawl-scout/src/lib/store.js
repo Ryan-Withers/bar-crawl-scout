@@ -64,6 +64,15 @@ export const keepers = keeperStore();
 // The UI says which, rather than presenting a guess as a fact.
 export const keepersSource = derived(keepers.live, ($l) => ($l ? 'live' : 'projection'));
 
+// PICK CAPITAL, live. Same argument as the keepers: data.js hand-counts who
+// holds which early picks, and it had gone stale for four of the ten managers
+// without anything noticing — Ryan is written down as holding two 2026 firsts
+// and holds one. Sleeper's traded_picks settles it, for next year as well as
+// this one. Shape: { '2026': { handle: Capital }, '2027': {...} }.
+// Null until it arrives; every reader falls back to the hand-written CAPITAL.
+export const capital = writable(null);
+export const capitalSource = derived(capital, ($c) => ($c ? 'live' : 'hand-written'));
+
 // Window mode is not persisted in the original app; it defaults to win-now.
 export const mode = writable('winnow');
 

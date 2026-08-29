@@ -24,6 +24,22 @@ export const SleeperRosterSchema = z.object({
   players: z.array(z.string()).nullable().optional(),
   starters: z.array(z.string()).nullable().optional(),
   settings: z.record(z.string(), z.unknown()).nullable().optional(),
+  // The locked keepers. Declared so drift-check NOTICES if Sleeper ever renames
+  // or drops it — the schema passes through unknown keys, so an undeclared field
+  // vanishing is silent, and this one vanishing would drop the whole app back to
+  // the hand-written guesses without a word.
+  keepers: z.array(z.string()).nullable().optional(),
+}).passthrough();
+
+// A draft pick, including the flag that marks a keeper. Same reasoning: is_keeper
+// is what puts the thirty men on the bottom of the board.
+export const SleeperDraftPickSchema = z.object({
+  round: num.nullable().optional(),
+  pick_no: num.nullable().optional(),
+  draft_slot: num.nullable().optional(),
+  roster_id: num.nullable().optional(),
+  player_id: z.string().nullable().optional(),
+  is_keeper: z.boolean().nullable().optional(),
 }).passthrough();
 
 export const SleeperLeagueSchema = z.object({

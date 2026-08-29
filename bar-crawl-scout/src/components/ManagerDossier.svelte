@@ -2,6 +2,16 @@
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
   import { MGRS, TEAMS, TEAMSHORT, CAPITAL, RYAN } from '../lib/data.js';
+  import { capital } from '../lib/store.js';
+  import { chestValue, chestTagFor } from '../lib/engine/picks';
+
+  // The war chest, off Sleeper's traded picks rather than a hand-count that had
+  // drifted for four of the ten managers. Falls back to the constant offline.
+  $: capSeasons = $capital ? Object.keys($capital).sort() : [];
+  $: liveCap = $capital && capSeasons[0] ? $capital[capSeasons[0]][handle] : null;
+  $: futCap = $capital && capSeasons[1] ? $capital[capSeasons[1]][handle] : null;
+  $: chestNum = liveCap ? chestValue(liveCap) : warchest(handle);
+  $: chestLbl = liveCap ? chestTagFor(chestNum) : chestTag(handle);
   import { chestTag, needScores, warchest, yearsLeft } from '../lib/models.js';
   import { keepers, draft, faab, managerNotes, unlocked } from '../lib/store.js';
   import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
@@ -69,16 +79,38 @@
         <div class="coasters">
           <Coaster value={rec ? `${rec.wins}-${rec.losses}` : m.rec} label="Record" tone="neon" />
           <Coaster value={rec ? fmtK(rec.pf) : staticPF(m.pf)} label="Points For" tone="brass" />
-          <Coaster value={warchest(handle)} label="Chest" tone={chestTag(handle) === 'LOADED' ? 'brass' : chestTag(handle) === 'STRIPPED' ? 'red' : 'muted'} />
+          <Coaster value={chestNum} label="Chest" tone={chestLbl === 'LOADED' ? 'brass' : chestLbl === 'STRIPPED' ? 'red' : 'muted'} />
           {#if fa}<Coaster value={'$' + (fa.max || 0)} label="Top Bid" tone="neon" />{/if}
         </div>
 
         <div class="stamps">
           {#each m.tags as t, ti}<Stamp text={t} tone={ti === 0 ? 'neon' : 'ink'} seed={ti + 3} />{/each}
-          <Stamp text={chestTag(handle)} tone={chestTag(handle) === 'LOADED' ? 'brass' : chestTag(handle) === 'STRIPPED' ? 'red' : 'ink'} seed={9} />
+          <Stamp text={chestLbl} tone={chestLbl === 'LOADED' ? 'brass' : chestLbl === 'STRIPPED' ? 'red' : 'ink'} seed={9} />
         </div>
 
         <div class="secs">
+        {#if liveCap}
+          <div class="sec"><h4>Draft capital <small>(live from Sleeper)</small></h4>
+            <div class="caprow">
+              <b>{capSeasons[0]}</b>
+              {liveCap.top3[0]}·1st {liveCap.top3[1]}·2nd {liveCap.top3[2]}·3rd
+              <small>{liveCap.total} picks</small>
+            </div>
+            {#if futCap}
+              <div class="caprow">
+                <b>{capSeasons[1]}</b>
+                {futCap.top3[0]}·1st {futCap.top3[1]}·2nd {futCap.top3[2]}·3rd
+                <small>{futCap.total} picks</small>
+              </div>
+            {/if}
+            {#if liveCap.picks.filter((p) => p.via && p.round <= 5).length}
+              <div class="caprow bought">
+                Bought:
+                {liveCap.picks.filter((p) => p.via && p.round <= 5).map((p) => `R${p.round} (${p.via})`).join(', ')}
+              </div>
+            {/if}
+          </div>
+        {/if}
         <div class="sec"><h4>Form &amp; records <small>(this season)</small></h4>
           {#if form && form.cur}
             <div class="formrow">
@@ -146,6 +178,11 @@
 {/if}
 
 <style>
+  .caprow { font-family: var(--mono); font-size: 12px; color: var(--chalk); padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .caprow:last-child { border-bottom: none; }
+  .caprow b { color: var(--blue-deep); margin-right: 6px; }
+  .caprow small { color: var(--muted); margin-left: 6px; }
+  .caprow.bought { color: var(--brass); }
   .dossier { padding-top: 2px; }
   .back { display: inline-flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; }
   .stub { padding: 40px 0; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }

@@ -29,7 +29,12 @@ export function tierFromADP(a) {
   return ADP_ANCHORS[ADP_ANCHORS.length - 1][1];
 }
 export const ELITE_BONUS = a => (a <= 4 ? 12 : a <= 8 ? 7 : a <= 12 ? 3 : 0);
-export const yearsLeft = n => (KEPT2025.has(n) ? 1 : 2);
+// KEPT2025 is spelled our way ("Marvin Harrison Jr."); a name reaching this
+// function may be spelled Sleeper's ("Marvin Harrison"). Match on the normalised
+// key so a suffix cannot quietly hand a final-year keeper a second year — which
+// is worth 60-odd points of 2027 value to him.
+const KEPT2025_KEYS = new Set([...KEPT2025].map(nameKey));
+export const yearsLeft = n => (KEPT2025.has(n) || KEPT2025_KEYS.has(nameKey(n)) ? 1 : 2);
 
 // ks is the keeper map: { handle: [[name, conf], ...] }, conf in {VL, L, U}.
 export function ownerOf(ks, name) {
