@@ -172,9 +172,9 @@
   // How far our own half-PPR re-score agrees with Sleeper's published number.
   // The Edge column is only worth anything if the baseline it is measured from
   // is genuinely theirs, so the page reports the agreement rather than claiming it.
-  $: backfilled = built.rows.filter((r) => r.filled > 0).length;
+  $: fumbled = built.rows.filter((r) => r.fumAdj < 0).length;
   $: agree = (() => {
-    const rows = built.rows.filter((r) => r.theirsFrom === 'sleeper');
+    const rows = built.rows.filter((r) => r.marketFrom === 'sleeper');
     const ok = rows.filter((r) => r.matchesSleeper).length;
     return { checked: rows.length, ok, off: rows.length - ok };
   })();
@@ -232,11 +232,12 @@
     ['pos', 'Pos', 'l', 'What he plays.'],
     ['team', 'Tm', 'l', 'His NFL club.'],
     ['games', 'G', '', 'Games Sleeper expects him to play. Everything to the right is over this many games.'],
-    ['theirs', 'They see', '', "Sleeper's own season projection — the number the other nine managers are looking at. Standard half-PPR, our rules ignored."],
-    ['real', 'Really worth', '', "The same projected stats, scored under OUR rulebook: 6-point passing TDs, half a point per first down, fumbles counted twice."],
-    ['gap', '+Pts', '', 'Really worth minus They see. The points this rulebook simply hands him.'],
-    ['edgePts', 'Edge', '', 'The bit of that gain nobody else gets. Our rules lift the whole board, so this is the points he beats the average lift by — the column to sort on.'],
-    ['ours', 'PPG', '', 'Really worth, per game.'],
+    ['sleeper', 'Sleeper', '', 'Exactly the PTS number in your Sleeper draft room. Their projection, scored under our league rules by them. This column IS that column.'],
+    ['market', 'Market', '', 'The same player under standard half-PPR — what every ADP and public ranking in the world is built on, and therefore what he costs.'],
+    ['gap', '+Pts', '', 'Sleeper minus Market. What our rulebook adds over the scoring his draft price is set by.'],
+    ['edgePts', 'Edge', '', 'The bit of that gain nobody else gets. Our rules lift the whole board about a quarter, so this is the points he beats that lift by — where his ADP is actually wrong for us.'],
+    ['fumAdj', 'Fum', '', 'We dock a point per fumble AND a point for losing it, but no projection counts plain fumbles — so Sleeper misses this for everyone. Estimated from his own last season. Always a cost, never in the ranking.'],
+    ['ours', 'PPG', '', 'The Sleeper number, per game.'],
     ['fd', '1D', '', 'Points per game that come purely from first downs — the rule no public ranking can see.'],
     ['vorpSeason', 'VORP', '', 'Points over a replacement-level starter across the season. What drafting him actually wins you versus taking the next man at his position.'],
     ['posRank', 'PosRk', '', 'His rank at his own position on this board.'],
@@ -262,7 +263,7 @@
     <a class="back" href="/board" use:link>← Big Board</a>
     <div class="ttl">
       <b>THE SHEET</b>
-      <span class="sub">every player re-scored under this league's actual rulebook · not linked from anywhere</span>
+      <span class="sub">your draft room's own numbers, against the scoring the market prices them on · not linked from anywhere</span>
     </div>
     <div class="acts">
       <button class="btn go" data-testid="sheet-refresh" on:click={refresh} disabled={refreshing || $sheetQ.isFetching}>
@@ -292,7 +293,7 @@
           Rush 1D <b>{scoring.rush_fd ?? 0}</b> · Rec 1D <b>{scoring.rec_fd ?? 0}</b> ·
           Fum <b>{scoring.fum ?? 0}</b> + lost <b>{scoring.fum_lost ?? 0}</b>
         </p>
-        <p class="muted">Whole board inflated <b>{pct(built.medBoost)}</b> vs what Sleeper shows. <b>Edge</b> is measured against that tide, so it names who beats it rather than who rides it.</p>
+        <p class="muted">These rules lift the board <b>{pct(built.medBoost)}</b> over the half-PPR the market prices on. <b>Edge</b> is measured against that tide, so it names who beats it rather than who rides it.</p>
       </div>
       <div class="strip">
         <div class="sh">The lineup ({teams} teams)</div>
@@ -316,22 +317,23 @@
       <div class="strip">
         <div class="sh">Do these numbers match Sleeper?</div>
         <p class="muted" data-testid="sheet-agree">
+          <b>Sleeper</b> is not our maths — it is the PTS column in your draft room, digit for digit.
+          They already apply this league's scoring to their own projection, so there is nothing there to argue with,
+          and this page no longer tries to: it reproduces their number and builds on it.
           {#if agree.checked}
-            Our half-PPR baseline reproduces <b>Sleeper's own published projection to the decimal for {agree.ok} of {agree.checked}</b> players.
-            {#if agree.off}<span class="bad">{agree.off} {agree.off === 1 ? 'does not' : 'do not'}</span>, and {agree.off === 1 ? 'is' : 'are'} marked.{/if}
-            So the <b>They see</b> column is their number, and the gap to <b>Really worth</b> is our rulebook and nothing else.
-          {:else}
-            Sleeper published no projections to check against.
+            <b>Market</b> is their published half-PPR total, which our own baseline reproduces for {agree.ok} of {agree.checked} players{#if agree.off}<span class="bad"> ({agree.off} {agree.off === 1 ? 'does not' : 'do not'}, and {agree.off === 1 ? 'is' : 'are'} marked)</span>{/if}.
           {/if}
+          The whole point is the gap between them: your room drafts on one and the ADP that sets his price is built on the other.
         </p>
         <p class="muted">
           {built.rows.length} players scored · {built.rows.filter((r) => r.partial).length} on a part-season projection (held out of replacement)
-          {#if backfilled} · {backfilled} had a rule Sleeper leaves out filled from his own last season{/if}.
+          {#if fumbled} · {fumbled} carry a fumble estimate in their own column, never in the ranking{/if}.
         </p>
         {#if cov.missing.length}
           <p class="muted bad" data-testid="sheet-missing">
             {cov.missing.length} scored rule{cov.missing.length === 1 ? '' : 's'} had NO projected stat behind {cov.missing.length === 1 ? 'it' : 'them'}:
-            <code>{cov.missing.join(' ')}</code> — those points are missing from every row.
+            <code>{cov.missing.join(' ')}</code> — so those points are missing from Sleeper's number too, for everyone.
+            {#if cov.missing.includes('fum')}The big one is <code>fum</code>, and it has its own column.{/if}
           </p>
         {:else}
           <p class="muted">Every scored rule had data behind it.</p>
@@ -395,12 +397,13 @@
               <td class="l"><span class="pos">{r.pos}</span></td>
               <td class="l muted">{r.team}</td>
               <td class="muted">{r.games}</td>
-              <td class="theirs" title={r.theirsFrom === 'derived' ? 'Sleeper publishes no projection for him — this is our own half-PPR score of the same stats' : 'Sleeper’s published half-PPR projection'}>
-                {n0(r.theirs)}{#if r.theirsFrom === 'derived'}<em class="q">?</em>{/if}
+              <td class="big" title="the PTS column in your Sleeper draft room">{n1(r.sleeper)}</td>
+              <td class="theirs" title={r.marketFrom === 'derived' ? 'Sleeper publishes no half-PPR projection for him — this is our own score of the same stats' : 'Sleeper’s published half-PPR projection, what ADP is built on'}>
+                {n0(r.market)}{#if r.marketFrom === 'derived'}<em class="q">?</em>{/if}
               </td>
-              <td class="big">{n0(r.real)}</td>
               <td class="gap">{plus(r.gap)}</td>
               <td class="edge" class:up={r.edgePts > 3} class:dn={r.edgePts < -3}>{plus(r.edgePts)}</td>
+              <td class="fum" title={r.fumAdj ? `${r.adjusted} with the fumble rule put back` : 'no prior season to estimate from'}>{r.fumAdj ? r.fumAdj.toFixed(1) : ''}</td>
               <td class="muted">{n2(r.ours)}</td>
               <td class:pos-good={r.fd > 0}>{r.fd ? n2(r.fd) : ''}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
@@ -424,8 +427,9 @@
     {/if}
 
     <p class="foot muted">
-      Season {raw.season} projections, backfilled from {raw.prior} actuals where Sleeper leaves a scored stat out.
-      Everything per game. VORP is ppg minus the replacement level for that position, from a greedy fill of the real lineup.
+      Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room.
+      <b>Market</b> is their half-PPR total, what ADP is priced on. <b>Fum</b> is the one league rule no projection can carry, estimated from {raw.prior} actuals and kept out of the ranking.
+      VORP is season points over the replacement level for that position, from a greedy fill of the real lineup.
       Your order is saved in this browser only.
     </p>
   {/if}
@@ -487,6 +491,7 @@
   /* The three that matter read as a group: what they see, what it really is,
      and the gap — so the eye tracks left to right across one story. */
   td.theirs { color: var(--muted); }
+  td.fum { color: var(--stamp-red); opacity: .75; font-size: 10.5px; }
   td.theirs .q { font-style: normal; color: var(--brass); font-size: 9px; margin-left: 2px; }
   td.gap { color: var(--purp); }
   .edge { font-weight: 700; }
