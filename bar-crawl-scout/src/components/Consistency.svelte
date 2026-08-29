@@ -51,7 +51,7 @@
 <style>
   .con { margin-top: 2px; }
   .hd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 12px; }
-  .card { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 14px; box-shadow: inset 0 0 0 1px rgba(28,26,22,.12); }
+  .card { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 14px; box-shadow: inset 0 0 0 1px rgba(22, 32, 43,.12); }
   .verdict { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .badge { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: .02em; padding: 3px 9px; border-radius: 4px; color: #fff; }
   .verdict.steady .badge { background: #2e7d46; }
@@ -61,7 +61,7 @@
 
   .range { margin-bottom: 14px; }
   .ends { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
-  .bar { position: relative; height: 26px; background: rgba(28,26,22,.08); border-radius: 5px; }
+  .bar { position: relative; height: 26px; background: rgba(22, 32, 43,.08); border-radius: 5px; }
   .fill { position: absolute; inset: 0 auto 0 0; width: var(--lo); background: rgba(47,127,184,.18); border-radius: 5px; }
   .dot { position: absolute; top: 50%; transform: translate(-50%, -50%); font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
   .dot.floor { left: 6%; color: #b5442f; }
@@ -69,7 +69,7 @@
   .dot.ceil { left: 94%; color: #2e7d46; }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .cell { background: rgba(28,26,22,.04); border-radius: 5px; padding: 8px 6px; text-align: center; }
+  .cell { background: rgba(22, 32, 43,.04); border-radius: 5px; padding: 8px 6px; text-align: center; }
   .cell b { display: block; font-family: 'Archivo Black', sans-serif; font-size: 17px; color: var(--ink); }
   .cell span { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: .08em; color: var(--ink-soft); }
   .cell.boom b { color: #2e7d46; }

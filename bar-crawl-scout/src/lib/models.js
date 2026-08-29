@@ -4,7 +4,7 @@
 import {
   PLAYERS, TEAMS, KEPT2025, STAGE, MODES, PTS_BASE, POSRANK, GROWTH,
   CAPITAL, NEED_TGT, BYUNAME, FAAB_HIST, STAGE_FAAB, REPLACEMENT, RYAN,
-  POS_DECAY, POS_DEV, POS_ROOKIE_Y1, nameKey,
+  POS_DECAY, POS_DEV, POS_ROOKIE_Y1, nameKey, byName,
 } from './data.js';
 
 // ADP -> talent base. The anchor points are the tiers this board has always
@@ -120,12 +120,27 @@ export function pts27(p, ks) {
 
 export const warchest = h => { const c = CAPITAL[h] || [0, 0, 0]; return c[0] * 3 + c[1] * 1.5 + c[2]; };
 export const chestTag = h => { const w = warchest(h); return w >= 10 ? 'LOADED' : w >= 5 ? 'SOLID' : w >= 2 ? 'LIGHT' : 'STRIPPED'; };
-export function needScores(ks, h) {
+/**
+ * How badly a manager still needs each position, 0-10, after his keepers.
+ *
+ * `targets` comes from the live lineup when the caller has it (see
+ * league-config.needTargets); NEED_TGT is the offline fallback and the two agree
+ * for this league by construction.
+ *
+ * The name lookup goes through byName, not a raw BYUNAME hit: Sleeper says
+ * "Kenneth Walker" where the board says "Kenneth Walker III", so a raw compare
+ * silently failed to count eighteen of the top 200 toward anybody's need.
+ */
+export function needScores(ks, h, targets = NEED_TGT) {
   const arr = ks[h] || [];
   const have = { QB: 0, RB: 0, WR: 0, TE: 0 };
-  [0, 1, 2].forEach(i => { const s = arr[i]; if (s && s[0]) { const p = BYUNAME[s[0].toLowerCase()]; if (p && have[p[2]] != null) have[p[2]]++; } });
+  [0, 1, 2].forEach(i => { const s = arr[i]; if (s && s[0]) { const p = byName(s[0]); if (p && have[p[2]] != null) have[p[2]]++; } });
   const o = {};
-  for (const k in NEED_TGT) o[k] = Math.max(0, Math.min(10, Math.round((NEED_TGT[k] - have[k]) / NEED_TGT[k] * 10)));
+  const tgt = targets && Object.keys(targets).length ? targets : NEED_TGT;
+  for (const k in tgt) {
+    const need = tgt[k] || 1;
+    o[k] = Math.max(0, Math.min(10, Math.round((need - have[k]) / need * 10)));
+  }
   return o;
 }
 
