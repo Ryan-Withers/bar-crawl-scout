@@ -21,6 +21,7 @@ import proj from '../src/lib/api/fixtures/season-projections-2026.json';
 import blob from '../src/lib/api/fixtures/players-trimmed.json';
 import league from '../src/lib/api/fixtures/league.json';
 import priorStats from '../src/lib/api/fixtures/season-stats-2025.json';
+import rostersFixture from '../src/lib/api/fixtures/rosters-2026.json';
 import { STOCK_SCORING, buildSheet, edgePoints } from '../src/lib/engine/sheet';
 import { scoreStats } from '../src/lib/engine/scoring';
 
@@ -251,5 +252,179 @@ describe('edgePoints, in isolation', () => {
   it('says nothing when there is no baseline to measure from', () => {
     expect(edgePoints(120, 0, 1.2)).toBe(0);
     expect(edgePoints(120, -5, 1.2)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AND THE PRICE. Sleeper publishes a dozen ADP columns and serves the one that
+// matches the league FORMAT — so reading the wrong one shows a price nobody in
+// the room has ever seen, which is the same class of mistake as scoring the
+// wrong rulebook. Ours starts an IDP_FLEX and one quarterback.
+import { adpKeyFor } from '../src/lib/engine/sheet';
+
+// Read off the ADP column of sleeper.com/draft, same session as the PTS above.
+const DRAFT_ROOM_ADP = {
+  'Josh Allen': 16.4,
+  'Drake London': 17.1,
+  'Trey McBride': 19.1,
+  'Jeremiyah Love': 23.1,
+  'George Pickens': 23.9,
+  'Quinshon Judkins': 52.9,
+  'Chuba Hubbard': 98,
+  'Blake Corum': 111.4,
+  'Jadarian Price': 73.3,
+};
+
+describe('the ADP column is the one his draft room shows', () => {
+  it('picks the IDP one-quarterback family for this league', () => {
+    expect(adpKeyFor(league.roster_positions, league.scoring_settings)).toBe('adp_idp_1qb');
+  });
+
+  it('and that column reproduces his draft room exactly', () => {
+    const key = adpKeyFor(league.roster_positions, league.scoring_settings);
+    for (const [name, adp] of Object.entries(DRAFT_ROOM_ADP)) {
+      const row = rows.find((r) => r.name === name);
+      expect(row, name).toBeTruthy();
+      expect(Number(row.line[key]), name).toBe(adp);
+    }
+  });
+
+  it('where adp_half_ppr — the obvious guess — does NOT', () => {
+    // Out by four to twenty places, which would have invented a bargain on
+    // every row and been impossible to spot without the board next to it.
+    const off = Object.entries(DRAFT_ROOM_ADP).filter(([name, adp]) => {
+      const row = rows.find((r) => r.name === name);
+      return Math.abs(Number(row.line.adp_half_ppr) - adp) > 0.5;
+    });
+    expect(off.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('follows the format rather than hard-coding ours', () => {
+    expect(adpKeyFor(['QB', 'RB', 'WR', 'FLEX'], { rec: 0.5 })).toBe('adp_half_ppr');
+    expect(adpKeyFor(['QB', 'RB', 'WR', 'FLEX'], { rec: 1 })).toBe('adp_ppr');
+    expect(adpKeyFor(['QB', 'RB', 'WR', 'FLEX'], { rec: 0 })).toBe('adp_std');
+    expect(adpKeyFor(['QB', 'SUPER_FLEX', 'RB'], { rec: 0.5 })).toBe('adp_2qb');
+    expect(adpKeyFor(['QB', 'IDP_FLEX', 'RB'], { rec: 0.5 })).toBe('adp_idp_1qb');
+    expect(adpKeyFor(['QB', 'QB', 'IDP_FLEX'], { rec: 0.5 })).toBe('adp_idp');
+    expect(adpKeyFor([], {})).toBe('adp_half_ppr');
+  });
+});
+
+describe('what Sleeper is not doing, measured', () => {
+  const OUT2 = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+  const sc = Object.fromEntries(Object.entries(league.scoring_settings).filter(([k]) => !OUT2.test(k)));
+  const SLOTS = league.roster_positions.filter((p) => p !== 'IDP_FLEX');
+  const key = adpKeyFor(league.roster_positions, league.scoring_settings);
+  const kept = new Set();
+  for (const r of rostersFixture) for (const id of (r.keepers || [])) kept.add(String(id));
+  const mk = () => rows.map((r) => ({
+    id: r.id, name: r.name, pos: r.pos, team: 'FA',
+    games: Number(r.line.gp) || 17, proj: r.line,
+    sleeperPts: r.published, adp: Number(r.line[key]) || null,
+  }));
+  const world = buildSheet(mk(), sc, SLOTS, 10);
+  const ours = buildSheet(mk(), sc, SLOTS, 10, 17, kept, 300);
+
+  it('does not know thirty men are off the board', () => {
+    // The keepers are overwhelmingly backs and receivers, so the bar at those
+    // two positions drops and every one you can still take is worth more than
+    // a global ADP thinks. QB and TE barely move: almost nobody keeps one.
+    expect(kept.size).toBe(30);
+    expect(world.levels.RB - ours.levels.RB).toBeGreaterThan(1);
+    expect(world.levels.WR - ours.levels.WR).toBeGreaterThan(1);
+    expect(Math.abs(world.levels.QB - ours.levels.QB)).toBeLessThan(0.5);
+    expect(Math.abs(world.levels.TE - ours.levels.TE)).toBeLessThan(0.5);
+  });
+
+  it('and does not price value over replacement AT ALL', () => {
+    // The single biggest thing this page adds. Josh Allen outscores the board by
+    // a hundred and seventy points and is nowhere near the most valuable pick,
+    // because the gap from him to a startable quarterback is the smallest gap
+    // on the board. Sleeper sorts by points and cannot say this.
+    const byPts = ours.rows.slice().sort((a, b) => b.sleeper - a.sleeper);
+    expect(byPts[0].name).toBe('Josh Allen');
+    const allen = ours.rows.find((r) => r.name === 'Josh Allen');
+    const top = ours.rows[0];
+    // He outscores the most VALUABLE man on the board and is still worth less
+    // than him, because the gap from Allen to a startable quarterback is the
+    // smallest gap at any position.
+    expect(allen.sleeper).toBeGreaterThan(top.sleeper);
+    expect(allen.vorpSeason).toBeLessThan(top.vorpSeason);
+    expect(allen.ovRank).toBeGreaterThan(3);
+    expect(top.pos).not.toBe('QB');
+  });
+
+  it('ranks a real bargain, not a player nobody drafts', () => {
+    // Before the cap, the top of the value list was men carrying Sleeper's
+    // "ADP 700" filler — placeholders ranked as if they were prices.
+    const best = ours.rows.filter((r) => r.slip != null).sort((a, b) => b.slip - a.slip).slice(0, 10);
+    for (const r of best) {
+      expect(r.adp, `${r.name} has a real price`).toBeLessThanOrEqual(300);
+      expect(r.surplus, `${r.name} gains points, not just places`).toBeGreaterThan(0);
+    }
+  });
+
+  it('states the gap in points as well as places', () => {
+    const r = ours.rows.find((x) => x.slip != null && x.slip > 20);
+    expect(r.surplus).not.toBeNull();
+    // Surplus is measured against the man his price actually buys.
+    const priced = ours.rows.filter((x) => x.adp != null).sort((a, b) => b.vorpSeason - a.vorpSeason);
+    expect(r.surplus).toBeCloseTo(r.vorpSeason - priced[r.adpRank - 1].vorpSeason, 1);
+  });
+
+  it('gives no slip to a man the market has no read on', () => {
+    const unpriced = ours.rows.filter((r) => r.adp == null);
+    expect(unpriced.length).toBeGreaterThan(50);
+    for (const r of unpriced) {
+      expect(r.slip).toBeNull();
+      expect(r.surplus).toBeNull();
+      expect(r.adpRank).toBeNull();
+    }
+  });
+});
+
+describe('both prices, side by side', () => {
+  const OUT3 = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+  const sc = Object.fromEntries(Object.entries(league.scoring_settings).filter(([k]) => !OUT3.test(k)));
+  const SLOTS = league.roster_positions.filter((p) => p !== 'IDP_FLEX');
+  const key = adpKeyFor(league.roster_positions, league.scoring_settings);
+  const built = buildSheet(rows.map((r) => ({
+    id: r.id, name: r.name, pos: r.pos, team: 'FA',
+    games: Number(r.line.gp) || 17, proj: r.line, sleeperPts: r.published,
+    adp: Number(r.line[key]) || null,
+    adpMarket: Number(r.line.adp_half_ppr) || null,
+  })), sc, SLOTS, 10, 17, null, 300);
+  const at = Object.fromEntries(built.rows.map((r) => [r.name, r]));
+
+  it('carries our room’s price AND the mainstream one', () => {
+    // Both real, both Sleeper's own, and deliberately different numbers.
+    expect(at['Josh Allen'].adp).toBe(16.4);
+    expect(at['Josh Allen'].adpMarket).toBe(20.9);
+    expect(at['Trey McBride'].adp).toBe(19.1);
+    expect(at['Trey McBride'].adpMarket).toBe(23.2);
+  });
+
+  it('and they disagree for most of the board, which is the point', () => {
+    const both = built.rows.filter((r) => r.adp != null && r.adpMarket != null);
+    expect(both.length).toBeGreaterThan(100);
+    const differ = both.filter((r) => Math.abs(r.adp - r.adpMarket) > 1);
+    expect(differ.length / both.length).toBeGreaterThan(0.5);
+  });
+
+  it('prices Value off OUR room, not the mainstream one', () => {
+    // The slip has to be measured against what you will actually pay.
+    const priced = built.rows.filter((r) => r.adp != null);
+    const byAdp = priced.slice().sort((a, b) => a.adp - b.adp);
+    expect(byAdp[0].adpRank).toBe(1);
+    for (const r of built.rows) {
+      if (r.adp == null) expect(r.slip).toBeNull();
+    }
+  });
+
+  it('caps the mainstream column on the same filler rule', () => {
+    for (const r of built.rows) {
+      if (r.adpMarket != null) expect(r.adpMarket).toBeLessThanOrEqual(300);
+    }
+    expect(built.rows.some((r) => r.adpMarket == null)).toBe(true);
   });
 });
