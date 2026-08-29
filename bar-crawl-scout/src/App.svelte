@@ -35,10 +35,12 @@
   import TheBook from './components/TheBook.svelte';
   import MockDraft from './components/MockDraft.svelte';
   import Vault from './components/Vault.svelte';
+  import DraftRoom from './components/DraftRoom.svelte';
   import Sheet from './components/Sheet.svelte';
   import BetLedger from './components/BetLedger.svelte';
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
+  import LiveKeepers from './components/LiveKeepers.svelte';
   import Stub from './components/Stub.svelte';
 
   // Pull live rosters from the Worker on open (silent if offline/blocked).
@@ -66,6 +68,7 @@
     '/power': PowerRankings,
     '/mock': MockDraft,
     '/vault': Vault,
+    '/draftboard': DraftRoom,
     // Hidden on purpose: a real route, deliberately absent from nav.js so the
     // app never links to it. Security by obscurity — the repo is public.
     '/sheet': Sheet,
@@ -108,6 +111,9 @@
 <svelte:window on:keydown={(e) => e.key === 'Escape' && closeDrawer()} />
 
 <QueryClientProvider client={queryClient}>
+  <!-- Renders nothing; pulls the locked keepers and hands them to the store,
+       so every page that reads keepers reads Sleeper rather than a guess. -->
+  <LiveKeepers />
   <div class="app" class:focus={focusMode}>
     {#if !focusMode}
       <aside class="rail" data-testid="sidebar">

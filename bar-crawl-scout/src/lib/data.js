@@ -33,16 +33,16 @@ export const PLAYERS=[
  [55,"Davante Adams","WR","LAR",11,54.3,"fading"],[56,"Drake Maye","QB","NE",11,54.7,"asc"],
  [57,"Jameson Williams","WR","DET",6,55.0,"asc"],[58,"D'Andre Swift","RB","CHI",10,55.3,"prime"],
  [59,"Jaylen Waddle","WR","DEN",10,55.7,"prime"],[60,"Jadarian Price","RB","SEA",11,57.7,"rookie"],
- [61,"Jayden Daniels","QB","WAS",7,59.0,"asc"],[62,"Bhayshul Tuten","RB","JAC",7,60.7,"yr2"],
+ [61,"Jayden Daniels","QB","WAS",7,59.0,"asc"],[62,"Bhayshul Tuten","RB","JAX",7,60.7,"yr2"],
  [63,"Rome Odunze","WR","CHI",10,63.0,"asc"],[64,"Caleb Williams","QB","CHI",10,65.7,"asc"],
  [65,"Christian Watson","WR","GB",11,68.3,"prime"],[66,"Jalen Hurts","QB","PHI",10,68.3,"prime"],
- [67,"Brian Thomas Jr.","WR","JAC",7,69.3,"asc"],[68,"Dak Prescott","QB","DAL",14,71.3,"prime"],
+ [67,"Brian Thomas Jr.","WR","JAX",7,69.3,"asc"],[68,"Dak Prescott","QB","DAL",14,71.3,"prime"],
  [69,"Carnell Tate","WR","TEN",9,71.3,"rookie"],[70,"Harold Fannin Jr.","TE","CLE",11,72.3,"yr2"],
  [71,"Tucker Kraft","TE","GB",11,72.7,"asc"],[72,"Chuba Hubbard","RB","CAR",5,73.3,"prime"],
  [73,"Marvin Harrison Jr.","WR","ARI",14,74.3,"asc"],[74,"Rhamondre Stevenson","RB","NE",11,76.3,"prime"],
  [75,"Jordyn Tyson","WR","NO",8,79.3,"rookie"],[76,"Jaylen Warren","RB","PIT",9,79.3,"prime"],
- [77,"Kyle Pitts Sr.","TE","ATL",11,79.7,"prime"],[78,"Parker Washington","WR","JAC",7,80.0,""],
- [79,"RJ Harvey","RB","DEN",10,80.3,"yr2"],[80,"Trevor Lawrence","QB","JAC",7,80.7,"prime"],
+ [77,"Kyle Pitts Sr.","TE","ATL",11,79.7,"prime"],[78,"Parker Washington","WR","JAX",7,80.0,""],
+ [79,"RJ Harvey","RB","DEN",10,80.3,"yr2"],[80,"Trevor Lawrence","QB","JAX",7,80.7,"prime"],
  [81,"Sam LaPorta","TE","DET",6,81.3,"asc"],[82,"Justin Herbert","QB","LAC",7,81.3,"prime"],
  [83,"Alec Pierce","WR","IND",13,81.7,""],[84,"Tony Pollard","RB","TEN",9,81.7,"prime"],
  [85,"Courtland Sutton","WR","DEN",10,85.0,"prime"],[86,"DK Metcalf","WR","PIT",9,85.7,"prime"],
@@ -53,7 +53,7 @@ export const PLAYERS=[
  [95,"Brock Purdy","QB","SF",8,96.0,"prime"],[96,"George Kittle","TE","SF",8,97.0,"aging"],
  [97,"Jayden Reed","WR","GB",11,100.0,"prime"],[98,"Blake Corum","RB","LAR",11,100.0,"yr2"],
  [99,"J.K. Dobbins","RB","DEN",10,100.3,"prime"],[100,"Bo Nix","QB","DEN",10,100.3,"asc"],
- [101,"Jared Goff","QB","DET",6,102.0,"prime"],[102,"Jakobi Meyers","WR","JAC",7,103.7,"prime"],
+ [101,"Jared Goff","QB","DET",6,102.0,"prime"],[102,"Jakobi Meyers","WR","JAX",7,103.7,"prime"],
  [103,"Kenneth Gainwell","RB","TB",10,104.0,""],[104,"Travis Kelce","TE","KC",5,104.3,"fading"],
  [105,"Jordan Addison","WR","MIN",6,105.0,"prime"],[106,"Quentin Johnston","WR","LAC",7,105.7,"asc"],
  [107,"Michael Pittman Jr.","WR","PIT",9,106.3,"prime"],[108,"Wan'Dale Robinson","WR","TEN",9,107.7,""],
@@ -67,7 +67,7 @@ export const PLAYERS=[
  [123,"Baker Mayfield","QB","TB",10,119.3,"prime"],[124,"Aaron Jones Sr.","RB","MIN",6,120.0,"aging"],
  [125,"Matthew Golden","WR","GB",11,121.7,"yr2"],[126,"Romeo Doubs","WR","NE",11,123.7,""],
  [127,"KC Concepcion","WR","CLE",11,124.3,"rookie"],[128,"Jacory Croskey-Merritt","RB","WAS",7,124.3,"yr2"],
- [129,"Chris Rodriguez Jr.","RB","JAC",7,130.0,""],[130,"Tyrone Tracy Jr.","RB","NYG",8,131.0,"yr2"],
+ [129,"Chris Rodriguez Jr.","RB","JAX",7,130.0,""],[130,"Tyrone Tracy Jr.","RB","NYG",8,131.0,"yr2"],
  [131,"Malik Willis","QB","MIA",6,132.3,""],[132,"Khalil Shakir","WR","BUF",7,133.3,"prime"],
  [133,"Jayden Higgins","WR","HOU",8,135.7,"yr2"],[134,"Sam Darnold","QB","SEA",11,136.0,"prime"],
  [135,"Oronde Gadsden II","TE","LAC",7,139.3,"yr2"],[136,"Chig Okonkwo","TE","WAS",7,139.3,"prime"],
@@ -76,7 +76,7 @@ export const PLAYERS=[
  [141,"Jalen Coker","WR","CAR",5,142.0,"yr2"],[142,"Cam Ward","QB","TEN",9,142.7,"yr2"],
  [143,"Rashid Shaheed","WR","SEA",11,144.0,"prime"],[144,"Hunter Henry","TE","NE",11,144.0,"aging"],
  [145,"Stefon Diggs","WR","FA",0,144.3,"fading"],[146,"Isiah Pacheco","RB","DET",6,145.0,"aging"],
- [147,"Brenton Strange","TE","JAC",7,147.7,"asc"],[148,"T.J. Hockenson","TE","MIN",6,148.7,"prime"],
+ [147,"Brenton Strange","TE","JAX",7,147.7,"asc"],[148,"T.J. Hockenson","TE","MIN",6,148.7,"prime"],
  [149,"Daniel Jones","QB","IND",13,149.0,"prime"],[150,"Keaton Mitchell","RB","LAC",7,149.3,""],
  [151,"Zach Charbonnet","RB","SEA",11,151.3,"prime"],[152,"Jonah Coleman","RB","DEN",10,152.0,"rookie"],
  [153,"Tyler Allgeier","RB","ARI",14,152.3,"prime"],[154,"Jauan Jennings","WR","MIN",6,154.0,"prime"],
@@ -102,9 +102,32 @@ export const PLAYERS=[
  [193,"Ryan Flournoy","WR","DAL",14,195.3,"yr2"],[194,"De'Zhaun Stribling","WR","SF",8,195.7,"rookie"],
  [195,"Tua Tagovailoa","QB","ATL",11,197.3,"prime"],[196,"Braelon Allen","RB","NYJ",13,197.3,"yr2"],
  [197,"Germie Bernard","WR","PIT",9,199.0,"rookie"],[198,"Kayshon Boutte","WR","NE",11,200.3,"asc"],
- [199,"Tre' Harris","WR","LAC",7,202.0,"yr2"],[200,"Travis Hunter","WR","JAC",7,177.0,"yr2"]
+ [199,"Tre' Harris","WR","LAC",7,202.0,"yr2"],[200,"Travis Hunter","WR","JAX",7,177.0,"yr2"]
 ];
-export const BYUNAME={};PLAYERS.forEach(p=>BYUNAME[p[1].toLowerCase()]=p);
+// NAME KEY — the join between our board and Sleeper's world.
+//
+// Sleeper's name fields drop the generational suffix: it says "Kenneth Walker",
+// "Brian Thomas", "Marvin Harrison". Our board carries the suffix, as the
+// broadcast does. Joining on a raw lowercase name therefore missed EIGHTEEN of
+// the top 200 outright — Walker, Etienne, Burden, Thomas, Fannin, Harrison,
+// Pitts, Mahomes, Godwin, Pittman, Jones, Rodriguez, Tracy, Gadsden, Cooper,
+// Robinson, Samuel, Washington — and a miss is silent: My Team fell back to a
+// flat positional guess for their projection and to bye week 0, the Board never
+// drew their live-ownership badge, and the keeper set differed from Sleeper's
+// own 2025 keeper picks by exactly the two suffixed names in it.
+//
+// So: lowercase, drop apostrophes and full stops, drop a trailing suffix, and
+// squeeze whitespace. Both spellings are indexed, so an exact match still wins.
+export const nameKey = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/[.'\u2019]/g, '')
+  .replace(/\s+(jr|sr|ii|iii|iv|v)$/, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+export const BYUNAME={};
+PLAYERS.forEach(p=>{BYUNAME[p[1].toLowerCase()]=p;const k=nameKey(p[1]);if(!(k in BYUNAME))BYUNAME[k]=p;});
+// Look a player up by any spelling of his name — ours or Sleeper's.
+export const byName = (n) => BYUNAME[String(n || '').toLowerCase()] || BYUNAME[nameKey(n)] || null;
 export const KEPT2025=new Set(["Jahmyr Gibbs","Saquon Barkley","Garrett Wilson","Rashee Rice","Chuba Hubbard","Breece Hall","Brian Thomas Jr.","Christian McCaffrey","Bijan Robinson","Ja'Marr Chase","Malik Nabers","Jaxon Smith-Njigba","Puka Nacua","De'Von Achane","Nico Collins","Josh Jacobs","James Cook","Justin Jefferson","Trey McBride","Xavier Worthy","Stefon Diggs","Marvin Harrison Jr.","Amon-Ra St. Brown","Tyreek Hill","Tee Higgins","Jonathan Taylor","Chase Brown","Drake London","Kyren Williams","CeeDee Lamb"]);
 export const TEAMS=[["Ryan","Big Tettys on Bo-nly fans (YOU)"],["joshleota","Buckle Up!"],["WinzTheBrah","Jet2 Hall-iday"],["JohnnyDuff","Go Shough Yourself"],["jduddy9","Nice like Rice"],["jpdonners","WHO DO U THINK LAMAR I AM"],["ATorelli4","Griddler on the roof"],["JShrimp341","Shakir and Baker Baby"],["ShaydenB","Bourne to win"],["ImyHunter","Egbukakke"]];
 export const PROJ={

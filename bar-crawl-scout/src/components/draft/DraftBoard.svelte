@@ -13,13 +13,37 @@
 
   let wrap;
   $: N = st ? st.cfg.order.length : 0;
-  $: gridOk = !!st && N > 0 && st.seq.length % N === 0;
-  $: rounds = gridOk ? st.seq.length / N : 0;
   $: cursor = st ? st.cursor : -1;
   $: lastPick = st && st.log.length ? st.log.length - 1 : -1;
 
+  // THE RAGGED BOARD.
+  //
+  // A mock over an untouched order is a clean grid: every round holds exactly
+  // one pick per manager, so a sequence index tells you the round and the column
+  // on its own. The REAL board is not that. Keepers sit at the bottom and the
+  // bottom picks have been traded, so round 12 holds eight live picks and round
+  // 13 holds two. The old arithmetic still produced a grid — 120 divides by 10 —
+  // and quietly filed those two round-13 picks under other managers' columns,
+  // labelled 12.09 and 12.10. Nothing errored; it was simply wrong.
+  //
+  // So when the config carries real coordinates, the board is built from them.
+  $: meta = st?.cfg?.sequenceMeta || null;
+  $: uniform = !!st && N > 0 && st.seq.length % N === 0;
+  $: gridOk = !!st && N > 0 && (!!meta || uniform);
+  $: rounds = meta ? Math.max(0, ...meta.map((m) => m.round)) : (uniform ? st.seq.length / N : 0);
+
   // seq index for (0-based round r, 0-based column c): snakes on even rounds.
   const idxOf = (r, c, n, type) => r * n + (type === 'snake' && r % 2 === 1 ? n - 1 - c : c);
+  // With real coordinates, look the index up by (round, slot) instead — and
+  // return -1 for a cell nobody picks in, which is what a keeper leaves behind.
+  $: metaIndex = meta
+    ? (() => { const m = new Map(); meta.forEach((x, i) => m.set(`${x.round}:${x.slot}`, i)); return m; })()
+    : null;
+  $: indexAt = (r, c) => (metaIndex
+    ? (metaIndex.has(`${r + 1}:${c + 1}`) ? metaIndex.get(`${r + 1}:${c + 1}`) : -1)
+    : idxOf(r, c, N, boardType));
+  // The pick's real code (13.01), not one recomputed from its position in the log.
+  $: codeOf = (idx, p) => (meta && meta[idx] ? pickCode(meta[idx].pickNo, N) : pickCode(p.overall, N));
 
   // Keep the cell on the clock centred as the picks tick through.
   export function follow() {
@@ -62,20 +86,24 @@
               </i>
             </td>
             {#each Array(N) as __, c}
-              {@const idx = idxOf(r, c, N, boardType)}
-              {@const p = st.log[idx]}
-              {@const owner = st.seq[idx]}
+              {@const idx = indexAt(r, c)}
+              {@const p = idx >= 0 ? st.log[idx] : null}
+              {@const owner = idx >= 0 ? st.seq[idx] : null}
               <td
                 class="cell"
-                class:cur={live && idx === cursor}
+                class:cur={live && idx >= 0 && idx === cursor}
                 class:mine={!spectate && owner === seat}
                 class:empty={!p}
+                class:spent={idx < 0}
               >
-                {#if p}
+                {#if idx < 0}
+                  <!-- A pick that no longer exists: a keeper is sitting on it. -->
+                  <span class="todo spent">—</span>
+                {:else if p}
                   <span class="pk" class:fresh={live && idx === lastPick} style="--pc:{posColor(p.player.pos)}">
                     <b>{shortName(p.player.name)}</b>
                     <i>{p.player.pos} · {nm(p.handle)}</i>
-                    <em class="code">{pickCode(p.overall, N)}</em>
+                    <em class="code">{codeOf(idx, p)}</em>
                   </span>
                 {:else if live && idx === cursor}
                   <span class="onclk">⏱ {nm(owner)}</span>
@@ -100,6 +128,10 @@
     scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
   }
   .boardwrap.full { max-height: none; }
+  /* A cell a keeper has already taken: on the board so the rounds line up, but
+     plainly not a pick anybody is going to make. */
+  .cell.spent { opacity: .3; }
+  .todo.spent { color: var(--muted); }
   /* Fixed layout so a long team name can never widen (or spill out of) a column —
      every name ellipses inside its own cell the way a real draft board does. */
   .board { border-collapse: separate; border-spacing: 2px; font-family: var(--mono); font-size: 10px; table-layout: fixed; }

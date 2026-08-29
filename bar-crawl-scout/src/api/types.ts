@@ -25,6 +25,11 @@ export interface SleeperRoster {
   players: string[] | null;
   starters: string[] | null;
   settings: RosterSettings;
+  // The three men this roster has LOCKED for the coming draft. Absent until the
+  // manager sets them, which is why every reader treats null as "not yet", never
+  // as "none". This is the only keeper source that is right by construction —
+  // it is what Sleeper enforces on draft day.
+  keepers?: string[] | null;
 }
 
 export interface SleeperLeague {

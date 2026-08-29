@@ -1,118 +1,245 @@
 <script>
-  import { TEAMS, PROJ, BYUNAME, RYAN } from '../lib/data.js';
-  import { yearsLeft } from '../lib/models.js';
-  import { keepers, mode, unlocked } from '../lib/store.js';
+  // THE LEDGER — who is actually kept, and who that puts back in the pool.
+  //
+  // This page used to be a form. You typed a name into a slot, tapped a pill to
+  // say how sure you were, and the whole app priced players off your guess. That
+  // was the right tool while keepers were a guess. They are locked now: Sleeper
+  // carries each roster's three, so there is nothing to type and nothing to be
+  // unsure about.
+  //
+  // What is worth showing instead is the consequence. Thirty men are off the
+  // board and a hundred and twenty-five go back into it, including some very
+  // good ones, and THAT is the thing you want in your head on draft day.
+  import { createQuery } from '@tanstack/svelte-query';
+  import { link } from '../lib/router.js';
+  import { TEAMS, TEAMSHORT, RYAN, byName } from '../lib/data.js';
+  import { keepers, keepersSource, unlocked } from '../lib/store.js';
+  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery, draftVaultQuery } from '../api/queries';
+  import { userHandleMap, draftSlotBoard } from '../api/league';
+  import {
+    keeperLedger, keeperOwners, contracts, keeperBoard, keeperCells,
+    pickCode, incompleteKeepers,
+  } from '../lib/engine/keepers';
   import Stamp from './Stamp.svelte';
   import SeasonNote from './SeasonNote.svelte';
 
-  $: ks = $keepers;
-  $: md = $mode;
+  const leagueQ = createQuery(leagueQuery());
+  const usersQ = createQuery(usersQuery());
+  const rostersQ = createQuery(rostersQuery());
+  const realQ = createQuery(realDraftQuery());
+  const playersQ = createQuery(playersQuery());
+  const vaultQ = createQuery(draftVaultQuery());
 
-  function setSlot(team, slot, name) {
-    keepers.update((k) => {
-      if (!k[team]) k[team] = [['', ''], ['', ''], ['', ''], ['', '']];
-      const conf = slot === 3 ? 'U' : ((k[team][slot] && k[team][slot][1] && k[team][slot][1] !== 'U') ? k[team][slot][1] : 'L');
-      k[team][slot] = [name, conf];
-      return k;
-    });
-  }
-  function onInput(team, slot, e) {
-    let v = e.target.value.trim();
-    const m = BYUNAME[v.toLowerCase()];
-    if (m) v = m[1];
-    e.target.value = v;
-    setSlot(team, slot, v);
-  }
-  function togglePill(team, slot) {
-    keepers.update((k) => {
-      if (!k[team] || !k[team][slot] || !k[team][slot][0]) return k;
-      k[team][slot][1] = k[team][slot][1] === 'L' ? 'VL' : 'L';
-      return k;
-    });
-  }
-  const clearSlot = (team, slot) => setSlot(team, slot, '');
-  function resetAll() {
-    if (confirm('Reset all keepers to the audited projections?')) {
-      const k = JSON.parse(JSON.stringify(PROJ));
-      for (const t of TEAMS) { while (k[t[0]].length < 4) k[t[0]].push(['', '']); }
-      keepers.set(k);
+  const POS_INK = { QB: '#D6453C', RB: '#1D8A4E', WR: '#2F7FB8', TE: '#B08428' };
+
+  $: users = $usersQ.data || [];
+  $: rosters = $rostersQ.data || [];
+  $: uh = userHandleMap(users);
+  $: maxKeepers = Number($leagueQ.data?.settings?.max_keepers ?? 3);
+  $: live = $keepersSource === 'live';
+
+  $: nameOf = (id) => {
+    const p = $playersQ.data?.[String(id)];
+    return p ? { name: p[0], pos: p[1] } : null;
+  };
+  $: ledger = rosters.length && $playersQ.data ? keeperLedger(rosters, uh, nameOf) : {};
+  $: rosterOfHandle = Object.fromEntries(rosters.map((r) => [uh[r.owner_id], r.roster_id]));
+  $: notLocked = incompleteKeepers(ledger, maxKeepers);
+
+  // Last season's keepers, straight off last season's draft — so the contract
+  // clock is derived rather than remembered.
+  $: priorSeason = ($vaultQ.data || []).find((s) => Number(s.season) === Number($leagueQ.data?.season) - 1);
+  $: priorOwners = priorSeason ? keeperOwners(priorSeason.picks) : {};
+
+  // Where each manager's keepers actually sit on the board.
+  $: sb = draftSlotBoard($realQ.data?.draft, $realQ.data?.traded, users, rosters);
+  $: rounds = $realQ.data?.draft?.settings?.rounds || 15;
+  $: rosterHandle = Object.fromEntries(rosters.map((r) => [r.roster_id, uh[r.owner_id]]));
+  $: kBoard = sb ? keeperBoard(sb, rounds, ledger, $realQ.data?.picks, rosterHandle) : null;
+  $: slotsOf = (h) => (kBoard ? keeperCells(kBoard).filter((c) => c.handle === h).map((c) => pickCode(c.pickNo, kBoard.teams)) : []);
+
+  // WHO CAME BACK. Every man on a roster who is not one of the thirty returns to
+  // the pool, and the good ones are the whole story of this draft.
+  $: keptIdSet = new Set(Object.values(ledger).flat().map((m) => m.playerId));
+  $: backInPool = (() => {
+    if (!rosters.length || !$playersQ.data) return [];
+    const seen = new Set();
+    const out = [];
+    for (const r of rosters) {
+      for (const id of r.players || []) {
+        const key = String(id);
+        if (keptIdSet.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        const p = $playersQ.data[key];
+        if (!p) continue;
+        const row = byName(p[0]);
+        if (!row) continue;                       // not on the top-200 board
+        out.push({ id: key, name: row[1], pos: row[2], team: row[3], adp: row[5] });
+      }
     }
-  }
-  const teamName = (h) => (TEAMS.find((t) => t[0] === h) || [h, h])[1];
+    return out.sort((a, b) => a.adp - b.adp);
+  })();
+
+  const teamName = (h) => TEAMSHORT[h] || h;
+  // The projection fallback still uses the old store shape.
+  $: fallback = $keepers;
+  let poolOpen = true;
 </script>
 
 <section class="ledger">
-  <div class="lednote">
-    <SeasonNote page="keepers" />
-  </div>
+  <div class="lednote"><SeasonNote page="keepers" /></div>
+
+  {#if live}
+    <p class="headline">
+      <b>Locked.</b> All {TEAMS.length} managers have declared their {maxKeepers}, straight from
+      Sleeper — {Object.values(ledger).flat().length} men off the board. Everyone else
+      on every roster goes back into the draft.
+    </p>
+  {:else}
+    <p class="warn">
+      Showing the old <b>projections</b>, not the locked list — Sleeper hasn't answered yet.
+      These are guesses and the app is pricing players off them.
+    </p>
+  {/if}
+  {#if live && notLocked.length}
+    <p class="warn">Still short of {maxKeepers}: {notLocked.join(', ')}.</p>
+  {/if}
 
   <div class="grid">
     {#each TEAMS as t, ti}
-      <div class="sheet">
-        <div class="stitle">{teamName(t[0])} <span>@{t[0]}</span></div>
-        {#if t[0] === RYAN && !$unlocked}
+      {@const h = t[0]}
+      {@const men = ledger[h] || []}
+      {@const cs = contracts(men, priorOwners, rosterOfHandle[h])}
+      <div class="sheet" class:me={h === RYAN}>
+        <div class="stitle">
+          <a href="/managers/{h}" use:link>{teamName(h)}</a>
+          <span>@{h}</span>
+        </div>
+
+        {#if h === RYAN && !$unlocked && !live}
           <div class="sealed">🔒 <b>CLASSIFIED.</b> The commissioner's ledger is sealed. Go beat someone you can read.</div>
-        {:else}
-          {#each [0, 1, 2] as i}
-            {@const s = (ks[t[0]] || [])[i] || ['', '']}
-            <div class="row">
-              <input list="plist" value={s[0] || ''} placeholder="keeper {i + 1}" on:change={(e) => onInput(t[0], i, e)} />
-              <button type="button" class="cpill {s[1] || 'L'}" on:click={() => togglePill(t[0], i)}>{s[1] || 'L'}</button>
-              {#if s[0]}
-                <span class="clock">
-                  {#each Array(yearsLeft(s[0])) as _, y}<i>{26 + y}</i>{/each}
-                  {#if yearsLeft(s[0]) === 1}<Stamp text="Last Call" tone="red" seed={ti * 4 + i} />{/if}
-                </span>
-              {/if}
-              <button class="clr" on:click={() => clearSlot(t[0], i)} title="Clear">×</button>
+        {:else if live && men.length}
+          {#each cs as c, i}
+            {@const m = men[i]}
+            <div class="row" style="--pos:{POS_INK[m.pos] || 'var(--line)'}">
+              <span class="pn">{m.name}</span>
+              <span class="pos">{m.pos}</span>
+              <span class="clock" title={c.yearsLeft === 1 ? 'Second straight year — he cannot be kept again' : 'Fresh keeper — he can be kept once more'}>
+                {#each Array(c.yearsLeft) as _, y}<i>{26 + y}</i>{/each}
+              </span>
+              {#if c.yearsLeft === 1}<Stamp text="Last Call" tone="red" seed={ti * 4 + i} />{/if}
+              {#if c.changedHands}<em class="moved" title="Kept by someone else last season">traded in</em>{/if}
             </div>
           {/each}
-          {@const u = (ks[t[0]] || [])[3] || ['', '']}
-          <div class="row watch">
-            <input list="plist" value={u[0] || ''} placeholder="watch — stays in pool" on:change={(e) => onInput(t[0], 3, e)} />
-            <span class="cpill U">U</span>
-            <button class="clr" on:click={() => clearSlot(t[0], 3)} title="Clear">×</button>
-          </div>
+          {#if slotsOf(h).length}
+            <div class="picks">Keeper picks: {slotsOf(h).join(' · ')}</div>
+          {/if}
+        {:else}
+          {#each [0, 1, 2] as i}
+            {@const s = (fallback[h] || [])[i] || ['', '']}
+            <div class="row proj">
+              <span class="pn">{s[0] || '—'}</span>
+              <span class="cpill">{s[1] || 'L'}</span>
+            </div>
+          {/each}
         {/if}
       </div>
     {/each}
   </div>
 
-  <button class="reset" on:click={resetAll}>Reset to my projections</button>
+  {#if live && backInPool.length}
+    <div class="poolhead">
+      <button class="ptoggle" on:click={() => (poolOpen = !poolOpen)} aria-expanded={poolOpen}>
+        {poolOpen ? '▾' : '▸'} Back in the pool ({backInPool.length})
+      </button>
+      <p class="note">
+        Every man on a roster who was not one of the {Object.values(ledger).flat().length} kept.
+        These are not free agents — they are the league's own players, returning to the draft.
+      </p>
+    </div>
+    {#if poolOpen}
+      <ol class="pool">
+        {#each backInPool.slice(0, 60) as p}
+          <li style="--pos:{POS_INK[p.pos] || 'var(--line)'}">
+            <a href="/player/{encodeURIComponent(p.name)}" use:link>{p.name}</a>
+            <span class="pt">{p.pos} · {p.team}</span>
+            <span class="adp">ADP {p.adp}</span>
+          </li>
+        {/each}
+      </ol>
+      {#if backInPool.length > 60}
+        <p class="note">…and {backInPool.length - 60} more. The full ordering lives on the <a href="/board" use:link>Big Board</a>.</p>
+      {/if}
+    {/if}
+  {/if}
 </section>
 
 <style>
   .ledger { padding-top: 2px; }
-  .lednote { margin-bottom: 16px; }
+  .lednote { margin-bottom: 14px; }
   .lednote :global(.note) { margin-top: 0; margin-bottom: 0; }
+  .note { font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.7; max-width: 78ch; }
+  .note a { color: var(--blue); }
+  .headline {
+    font-family: var(--body); font-size: 15px; line-height: 1.6; color: var(--chalk);
+    margin: 0 0 14px; max-width: 78ch; border-left: 3px solid var(--blue-sky); padding-left: 12px;
+  }
+  .warn {
+    font-family: var(--mono); font-size: 12px; color: var(--stamp-red); line-height: 1.6;
+    border-left: 3px solid var(--stamp-red); padding-left: 12px; margin: 0 0 14px; max-width: 78ch;
+  }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; }
   .sheet {
-    background: var(--paper); color: var(--ink); border-radius: 4px; padding: 16px 18px 18px;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(28, 26, 22, 0.1);
-    background-image: repeating-linear-gradient(rgba(28, 26, 22, 0.055) 0 1px, transparent 1px 40px);
-    background-position: 0 44px;
+    background: #fff; color: var(--chalk); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px 16px;
   }
-  .stitle { font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; padding-bottom: 10px; border-bottom: 2px solid rgba(28, 26, 22, 0.3); margin-bottom: 6px; }
-  .stitle span { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); font-weight: 400; text-transform: none; }
-  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #3a352a; padding: 14px 4px; line-height: 1.6; }
+  .sheet.me { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue-wash); }
+  .stitle {
+    font-family: var(--display); font-weight: 800; font-size: 14px; text-transform: uppercase;
+    letter-spacing: .02em; padding-bottom: 9px; border-bottom: 2px solid var(--line); margin-bottom: 4px;
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .stitle a { color: var(--chalk); text-decoration: none; }
+  .stitle a:hover { color: var(--blue); }
+  .stitle span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); font-weight: 400; text-transform: none; }
+  .sealed { font-family: var(--mono); font-size: 12px; color: var(--muted); padding: 14px 2px; line-height: 1.6; }
 
-  .row { display: flex; align-items: center; gap: 9px; padding: 7px 0; min-height: 40px; border-bottom: 1px dashed rgba(28, 26, 22, 0.16); }
-  .row.watch { border-bottom: none; opacity: 0.82; }
-  .row input {
-    flex: 1 1 auto; min-width: 90px; background: transparent; border: none; border-bottom: 1px solid rgba(28, 26, 22, 0.28);
-    color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; padding: 4px 2px; border-radius: 0;
+  .row {
+    display: flex; align-items: center; gap: 8px; padding: 9px 0 9px 9px; min-height: 40px;
+    border-bottom: 1px solid var(--line); border-left: 3px solid var(--pos); flex-wrap: wrap;
   }
-  .row input:focus { outline: none; border-bottom-color: #2f7fb8; }
-  .cpill { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1.5px solid; background: transparent; flex: none; }
-  .cpill.VL { color: #b5442f; border-color: #b5442f; }
-  .cpill.L { color: #6a4fa0; border-color: #6a4fa0; }
-  .cpill.U { color: var(--ink-soft); border-color: var(--ink-soft); cursor: default; }
+  .row:last-of-type { border-bottom: none; }
+  .row.proj { border-left-color: var(--line); opacity: .75; }
+  .pn { font-family: var(--body); font-weight: 700; font-size: 13.5px; color: var(--chalk); flex: 1 1 auto; min-width: 0; }
+  .pos { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .cpill {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 3px 7px;
+    border-radius: 4px; border: 1.5px solid var(--muted); color: var(--muted);
+  }
   .clock { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-  .clock i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(28, 26, 22, 0.5); font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-style: normal; color: #3a352a; }
-  .clr { flex: none; background: none; border: none; color: var(--ink-soft); font-size: 17px; cursor: pointer; line-height: 1; padding: 0 2px; }
-  .clr:hover { color: var(--stamp-red); }
+  .clock i {
+    display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%;
+    border: 1.5px solid var(--line); font-family: var(--mono); font-size: 9px; font-style: normal; color: var(--muted);
+  }
+  .moved { font-family: var(--mono); font-size: 9.5px; color: var(--brass); font-style: normal; }
+  .picks { font-family: var(--mono); font-size: 10.5px; color: var(--muted); padding-top: 10px; }
 
-  .reset { margin-top: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--barroom-lift); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
-  .reset:hover { color: var(--chalk); border-color: rgba(130, 201, 252, 0.4); }
+  .poolhead { margin-top: 26px; padding-top: 18px; border-top: 2px solid var(--line); }
+  .ptoggle {
+    font-family: var(--display); font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: .02em;
+    background: none; border: none; color: var(--blue-deep); cursor: pointer; padding: 0 0 6px; min-height: 40px;
+  }
+  ol.pool {
+    list-style: none; padding: 0; margin: 12px 0 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 6px;
+  }
+  ol.pool li {
+    display: flex; align-items: baseline; gap: 8px; background: #fff;
+    border: 1px solid var(--line); border-left: 3px solid var(--pos); border-radius: 8px; padding: 9px 11px;
+  }
+  ol.pool a { font-family: var(--body); font-weight: 700; font-size: 13px; color: var(--chalk); text-decoration: none; }
+  ol.pool a:hover { color: var(--blue); }
+  .pt { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .adp { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: auto; }
 </style>

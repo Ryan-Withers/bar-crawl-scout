@@ -144,16 +144,77 @@ describe('mock draft — the user seat', () => {
 });
 
 describe('mock draft — the debrief', () => {
-  it('grades rank by drafted value and mark the lean', () => {
+  it('marks the lean and reports the whole squad, keepers included', () => {
     const done = simToEnd(createMock(cfg2({ teams: [team('A', { window: 0, chaos: 0 }), team('B', { window: 100, chaos: 0 })] })));
     const { rows } = gradeMock(done);
     expect(rows).toHaveLength(2);
-    expect(rows[0].total).toBeGreaterThanOrEqual(rows[1].total);
-    expect(rows[0].grade).toBe('A+');
     const a = rows.find((r) => r.handle === 'A');
     const b = rows.find((r) => r.handle === 'B');
     expect(a.winnow).toBeGreaterThan(a.future - 40); // win-now team skews winnow
     expect(b.future).toBeGreaterThan(b.winnow - 40);
+    expect(a.squad).toBe(a.total + a.kept);
+    expect(a.picks).toBeGreaterThan(0);
+  });
+
+  it('two disciplined GMs land NEXT to each other, not at opposite ends of the scale', () => {
+    // The old grader forced a full A+..D spread by rank, so of two teams that
+    // played the same way one was always told he had a bad draft. The grade is
+    // now absolute, so a close draft reads as a close draft.
+    const done = simToEnd(createMock(cfg2({ teams: [team('A', { window: 50, chaos: 0 }), team('B', { window: 50, chaos: 0 })] })));
+    const { rows } = gradeMock(done);
+    const SCALE = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D'];
+    const gap = Math.abs(SCALE.indexOf(rows[0].grade) - SCALE.indexOf(rows[1].grade));
+    expect(gap).toBeLessThanOrEqual(2);
+    expect(rows.map((r) => r.grade)).not.toContain('A+');
+    expect(rows.map((r) => r.grade)).not.toContain('D');
+    expect(Math.abs(rows[0].perPick - rows[1].perPick)).toBeLessThan(4);
+  });
+
+  it('does NOT crown whoever owns the most picks', () => {
+    // The league has 47 traded 2026 picks; one manager holds 19 live selections
+    // and another 6. Grading on the raw drafted total made that the whole story.
+    const teams = [team('A', { window: 50, chaos: 0 }), team('B', { window: 50, chaos: 0 })];
+    // A gets three times B's picks, and drafts strictly by the board.
+    const sequence = [];
+    for (let i = 0; i < 12; i++) sequence.push(i % 4 === 3 ? 'B' : 'A');
+    const done = simToEnd(createMock(cfg2({ teams, sequence, rosterSize: 12 })));
+    const { rows } = gradeMock(done);
+    const a = rows.find((r) => r.handle === 'A');
+    const b = rows.find((r) => r.handle === 'B');
+    expect(a.picks).toBe(9);
+    expect(b.picks).toBe(3);
+    expect(a.total).toBeGreaterThan(b.total);      // he did take more value...
+    expect(a.grade).toBe(b.grade);                 // ...but he did not draft better
+  });
+
+  it('counts how many men a hoarder has to cut', () => {
+    const teams = [team('A', { window: 50, chaos: 0 }), team('B', { window: 50, chaos: 0 })];
+    const sequence = [];
+    for (let i = 0; i < 12; i++) sequence.push(i % 4 === 3 ? 'B' : 'A');
+    const done = simToEnd(createMock(cfg2({ teams, sequence, rosterSize: 5 })));
+    const { rows } = gradeMock(done);
+    expect(rows.find((r) => r.handle === 'A').overCap).toBe(4); // 9 picks into 5 spots
+    expect(rows.find((r) => r.handle === 'B').overCap).toBe(0);
+  });
+
+  it('ranks the best available FIRST, never as a reach — even with keepers gone', () => {
+    // cfg.pool used to keep the kept men in it, so board ranks were offset by the
+    // whole keeper set and pick 1.01 came back as a 23-slot reach.
+    const kept = [P('RB1', 'RB', 100, 95, 70), P('WR1', 'WR', 60, 92, 99), P('QB1', 'QB', 90, 85, 80)];
+    const st = createMock(cfg2({ teams: [team('A', { window: 50, chaos: 0 }, kept), team('B')] }));
+    const after = makePick(st);
+    expect(after.log[0].boardRank).toBe(1);
+    expect(after.log[0].overall - after.log[0].boardRank).toBe(0);
+  });
+
+  it('a GM the config has never heard of drafts by the book instead of crashing', () => {
+    // draftSlotBoard builds override handles from Sleeper display names; one
+    // manager renaming himself used to take the whole room down on his pick.
+    const st = createMock(cfg2({ sequence: ['A', 'GHOST', 'B', 'A'] }));
+    expect(() => simToEnd(st)).not.toThrow();
+    const done = simToEnd(st);
+    expect(done.log.map((p) => p.handle)).toContain('GHOST');
+    expect(done.rosters.GHOST).toHaveLength(1);
   });
 
   it('flags steals (fell past board rank) and reaches', () => {

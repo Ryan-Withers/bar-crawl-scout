@@ -29,7 +29,40 @@ function initKS(existing) {
   return ks;
 }
 
-export const keepers = persisted('hq_keepers_v6', initKS(readJSON('hq_keepers_v6')));
+// THE KEEPER STORE — two layers, and Sleeper wins.
+//
+// This used to be a single writable seeded from PROJ, a hand-guessed table, and
+// persisted. That was right while keepers were a guess. They are locked now:
+// Sleeper carries the answer on each roster and there is nothing left to guess.
+//
+// So the store keeps its SHAPE — { handle: [[name, conf], ...] }, which twenty-
+// one components read — and swaps its SOURCE. The live layer, when present,
+// overrides everything; the local layer stays underneath as the offline fallback
+// and as somewhere the old sync path can still write without fighting the truth.
+//
+// Persistence is the reason this matters. Anyone who opened the app before the
+// lock has a stale guess frozen in localStorage, and correcting data.js would
+// never have reached them: initKS prefers the saved copy. The live layer is not
+// persisted at all, so it cannot go stale — it is either fresh from Sleeper this
+// session or it is not there.
+function keeperStore() {
+  const local = persisted('hq_keepers_v6', initKS(readJSON('hq_keepers_v6')));
+  const live = writable(null);
+  const view = derived([live, local], ([$live, $local]) => $live || $local);
+  return {
+    subscribe: view.subscribe,
+    set: local.set,
+    update: local.update,
+    /** Sleeper's answer. Pass null to fall back to the local layer. */
+    setLive: live.set,
+    live: { subscribe: live.subscribe },
+  };
+}
+export const keepers = keeperStore();
+
+// 'live' once Sleeper's locked keepers are in hand, 'projection' until then.
+// The UI says which, rather than presenting a guess as a fact.
+export const keepersSource = derived(keepers.live, ($l) => ($l ? 'live' : 'projection'));
 
 // Window mode is not persisted in the original app; it defaults to win-now.
 export const mode = writable('winnow');

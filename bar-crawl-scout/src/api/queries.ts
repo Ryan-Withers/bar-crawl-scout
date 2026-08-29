@@ -55,8 +55,14 @@ export const seasonTransactionsQuery = () => ({
   ),
 });
 
-// The league's current draft + its traded picks, in one shot (for the War Room's
-// real slot board). Null when there's no draft with an assigned order yet.
+// The league's current draft, its traded picks AND its picks-so-far, in one shot
+// (for the War Room's real slot board and the keeper board). Null when there's
+// no draft with an assigned order yet.
+//
+// The picks are what carry the KEEPERS: once the commissioner assigns them they
+// appear here with is_keeper set, sitting in the last picks each manager still
+// owns. Before that the endpoint returns [] and the keeper board derives the
+// placement instead — so an empty array is a normal state, not a failure.
 export const realDraftQuery = () => ({
   queryKey: ['realdraft'] as const,
   staleTime: 30 * MIN,
@@ -64,8 +70,11 @@ export const realDraftQuery = () => ({
     const drafts = await S.getLeagueDrafts();
     const draft = (Array.isArray(drafts) ? drafts : []).find((d) => d && d.draft_order) || null;
     if (!draft) return null;
-    const traded = await S.getTradedPicks(draft.draft_id).catch(() => []);
-    return { draft, traded };
+    const [traded, picks] = await Promise.all([
+      S.getTradedPicks(draft.draft_id).catch(() => []),
+      S.getDraftPicks(draft.draft_id).catch(() => []),
+    ]);
+    return { draft, traded, picks };
   },
 });
 

@@ -6,11 +6,12 @@
   import { onDestroy } from 'svelte';
   import { link } from '../lib/router.js';
   import { createQuery } from '@tanstack/svelte-query';
-  import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN } from '../lib/data.js';
+  import { TEAMS, TEAMSHORT, PLAYERS, BYUNAME, RYAN, byName } from '../lib/data.js';
   import { windowVal, isAvailable } from '../lib/models.js';
   import { keepers } from '../lib/store.js';
-  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery } from '../api/queries';
-  import { draftSlotBoard } from '../api/league';
+  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery } from '../api/queries';
+  import { draftSlotBoard, userHandleMap } from '../api/league';
+  import { keeperBoard, keeperLedger, liveSequence, liveSequenceMeta, liveCells } from '../lib/engine/keepers';
   import {
     createMock, makePick, gradeMock, currentHandle, shuffle, sequenceFromSlots, recapText, shortName,
     autoPickName, queueTop, toggleQueued, moveQueued, pruneQueue,
@@ -31,6 +32,7 @@
   const usersQ = createQuery(usersQuery());
   const rostersQ = createQuery(rostersQuery());
   const realQ = createQuery(realDraftQuery());
+  const playersQ = createQuery(playersQuery());
 
   // ---- pool & league shape (skill board only — no K/DEF on the board) ----
   const SKILL = new Set(['QB', 'RB', 'WR', 'TE']);
@@ -45,10 +47,40 @@
   $: mockPositions = positions.filter((p) => !['K', 'DEF', 'IDP_FLEX', 'IR', 'TAXI'].includes(p));
   $: slots = mockPositions.filter((p) => p !== 'BN');
   $: rosterSize = mockPositions.length;
-  $: mockRounds = Math.max(1, rosterSize - 3);
+
+  // ---- THE LIVE BOARD ----
+  //
+  // The live draft is NOT "the first N rounds". Keepers sit at the bottom, and
+  // Sleeper puts each man's keepers on the latest picks he still OWNS — so the
+  // two managers who sold a 15th have a keeper riding up into round 12, and the
+  // two who bought them keep a live pick in round 13. Truncating the board at a
+  // round count hands one pair a pick they do not have and takes one off the
+  // other pair.
+  //
+  // So: build the whole 15-round board, mark the keeper cells where they really
+  // fall, and let what is left BE the sequence.
+  $: draftRounds = $realQ.data?.draft?.settings?.rounds || 15;
+  $: maxKeepers = Number($leagueQ.data?.settings?.max_keepers ?? 3);
+  $: liveLedger = ($rostersQ.data && $usersQ.data && $playersQ.data)
+    ? keeperLedger($rostersQ.data, userHandleMap($usersQ.data), (id) => {
+        const p = $playersQ.data[String(id)];
+        return p ? { name: p[0], pos: p[1] } : null;
+      })
+    : {};
+  $: rosterHandle = Object.fromEntries(($rostersQ.data || []).map((r) => [r.roster_id, userHandleMap($usersQ.data || [])[r.owner_id]]));
+  $: kBoard = slotBoard ? keeperBoard(slotBoard, draftRounds, liveLedger, $realQ.data?.picks, rosterHandle) : null;
+  $: realSeq = kBoard ? liveSequence(kBoard) : null;
+  $: realSeqMeta = kBoard ? liveSequenceMeta(kBoard) : null;
+  // The fallback when Sleeper is unreachable: rounds minus the keeper allowance.
+  // rosterSize excludes the IDP_FLEX seat, so count rounds off the DRAFT, not the
+  // trimmed roster — that off-by-one ran every mock a full round short.
+  $: mockRounds = Math.max(1, draftRounds - maxKeepers);
 
   const toMockPlayer = (name) => {
-    const p = BYUNAME[(name || '').toLowerCase()];
+    // byName, not a raw BYUNAME hit: Sleeper says "Kenneth Walker" where the
+    // board says "Kenneth Walker III", and a miss here silently leaves a team
+    // one keeper short rather than erroring.
+    const p = byName(name);
     if (!p || !SKILL.has(p[2])) return null;
     return { name: p[1], pos: p[2], team: p[3], bye: p[4] || 0, stage: p[6] || '', v: { winnow: windowVal(p, ks, 'winnow'), balanced: windowVal(p, ks, 'balanced'), future: windowVal(p, ks, 'future') } };
   };
@@ -64,7 +96,14 @@
     const ov = slotBoard.overrides.find((o) => o.round === 1 && o.slot === i + 1);
     return { slot: i + 1, handle: ov ? ov.handle : h, via: ov ? h : null };
   }) : [];
-  $: tradeCount = realOk ? slotBoard.overrides.filter((o) => o.round <= mockRounds).length : 0;
+  // Count the trades that land on a pick somebody will actually make. Filtering
+  // by round dropped the round-12 trade, which is live for eight of the ten.
+  $: liveKeys = kBoard ? new Set(liveCells(kBoard).map((c) => `${c.round}:${c.slot}`)) : null;
+  $: tradeCount = realOk
+    ? (liveKeys
+        ? slotBoard.overrides.filter((o) => liveKeys.has(`${o.round}:${o.slot}`)).length
+        : slotBoard.overrides.filter((o) => o.round <= mockRounds).length)
+    : 0;
 
   // ---- persisted lobby settings ----
   const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
@@ -122,7 +161,9 @@
   $: canUndoMine = phase === 'live' && !spectate && !userTurn && hist.some((s) => currentHandle(s) === seat);
 
   // Where your first pick lands, previewed in the lobby.
-  $: previewSeq = useReal && slotBoard ? sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type) : null;
+  $: previewSeq = useReal
+    ? (realSeq || sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type))
+    : null;
   $: yourFirstPick = spectate ? '' : (() => {
     const i = previewSeq ? previewSeq.indexOf(seat) : order.indexOf(seat);
     return i >= 0 ? pickCode(i + 1, TEAMS.length) : '';
@@ -265,7 +306,12 @@
     }));
     boardType = useReal ? slotBoard.type : 'snake';
     const cfg = { teams, order: useReal ? slotBoard.slotHandles.slice() : [...order], slots, rosterSize, seed, pool };
-    if (useReal) cfg.sequence = sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type);
+    if (useReal) {
+      cfg.sequence = realSeq || sequenceFromSlots(slotBoard.slotHandles, slotBoard.overrides, mockRounds, slotBoard.type);
+      // The board needs the real coordinates or it will draw a tidy grid over a
+      // ragged draft and put two picks in the wrong managers' columns.
+      if (realSeq && realSeqMeta) cfg.sequenceMeta = realSeqMeta;
+    }
     stopRun(); disarmClock(); dismissReveal();
     st = createMock(cfg);
     hist = []; grades = null; clockArmedAt = -1; turnSeen = -1;

@@ -5,7 +5,7 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { leagueQuery, stateQuery } from '../api/queries';
 
-  export let page = 'board'; // 'board' | 'keepers'
+  export let page = 'board'; // 'board' | 'keepers' | 'draftboard'
 
   const leagueQ = createQuery(leagueQuery());
   const stateQ = createQuery(stateQuery());
@@ -25,9 +25,15 @@
     {/if}
   {:else if page === 'keepers'}
     {#if phase === 'season'}
-      <b>Keeper planning for next season.</b> Lock in who you'd protect — the clock shows contract years. Revisit as the season reshapes your roster.
+      <b>Keeper planning for next season.</b> The clock shows contract years — a man in his second straight year is on his last one. Revisit as the season reshapes your roster.
     {:else}
-      Three keeper slots plus a watch slot per team. Tap the pill to flip L ↔ VL, × to clear. The clock shows contract years.
+      <b>These are locked.</b> Every manager's three come straight off Sleeper, so there is nothing left to guess and nothing here to type. Everyone else on every roster goes back into the pool.
+    {/if}
+  {:else if page === 'draftboard'}
+    {#if phase === 'season'}
+      <b>The draft is done.</b> This is the board as it finished — useful for settling arguments about who took whom, and where.
+    {:else}
+      Read a manager's draft <b>down his column</b>. Keepers are shaded and already spent; the brass edge marks a pick that changed hands. Scroll sideways on a phone.
     {/if}
   {/if}
 </div>
