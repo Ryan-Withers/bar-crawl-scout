@@ -112,7 +112,18 @@ export const mode = writable('winnow');
 // Board: drafted list, custom ranking views, and tags.
 function initBoard(existing) {
   const b = existing || {};
-  return { drafted: Array.isArray(b.drafted) ? b.drafted : [], views: Array.isArray(b.views) ? b.views : [], tags: (b.tags && typeof b.tags === 'object') ? b.tags : {} };
+  return {
+    drafted: Array.isArray(b.drafted) ? b.drafted : [],
+    views: Array.isArray(b.views) ? b.views : [],
+    tags: (b.tags && typeof b.tags === 'object') ? b.tags : {},
+    // FAVOURITES and FREE-TEXT TAGS, both keyed by player name so they mean the
+    // same thing on every page that reads them. Added to the existing board
+    // record rather than a new key so one saved blob still carries everything a
+    // draft is prepared with, and so an older saved board simply arrives with
+    // both empty rather than undefined.
+    favs: Array.isArray(b.favs) ? b.favs : [],
+    custom: (b.custom && typeof b.custom === 'object') ? b.custom : {},
+  };
 }
 export const board = persisted('hq_board_v3', initBoard(readJSON('hq_board_v3')));
 

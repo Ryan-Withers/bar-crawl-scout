@@ -108,6 +108,14 @@ export interface SheetInput {
    * to a man's price before anybody has scored a point.
    */
   adpMarket?: number | null;
+  /** Full-PPR ADP. Our rules sit between the two, so both bracket the price. */
+  adpPpr?: number | null;
+  /**
+   * A cross-site consensus ADP — FantasyPros, which aggregates ESPN, Yahoo, CBS
+   * and NFL. Sleeper's API publishes only its own families, so this is the one
+   * number on the board that is not Sleeper's opinion of itself.
+   */
+  adpConsensus?: number | null;
 }
 
 export interface SheetRow {
@@ -154,6 +162,17 @@ export interface SheetRow {
   adp: number | null;
   /** Where the mainstream half-PPR world drafts him. Null when unpriced. */
   adpMarket: number | null;
+  /** Full-PPR ADP — the other side of the bracket our scoring sits inside. */
+  adpPpr: number | null;
+  /** FantasyPros consensus (ESPN/Yahoo/CBS/NFL). Null when he is off that board. */
+  adpConsensus: number | null;
+  /**
+   * A 2026 rookie, from Sleeper's own `years_exp` rather than anybody's memory.
+   * Checked against all twenty hand-tagged rookies on the board: twenty hits,
+   * no false positives among the other hundred and eighty, and twenty-five more
+   * the hand list had missed.
+   */
+  rookie: boolean;
   /** His rank by that price, among the men who have one. */
   adpRank: number | null;
   /** His rank by VORP, among the same men. */
@@ -414,6 +433,10 @@ export function buildSheet(
       adp: Number.isFinite(p.adp) && Number(p.adp) > 0 && Number(p.adp) <= adpCap ? Number(p.adp) : null,
       adpMarket: Number.isFinite(p.adpMarket) && Number(p.adpMarket) > 0 && Number(p.adpMarket) <= adpCap
         ? Number(p.adpMarket) : null,
+      adpPpr: Number.isFinite(p.adpPpr) && Number(p.adpPpr) > 0 && Number(p.adpPpr) <= adpCap
+        ? Number(p.adpPpr) : null,
+      adpConsensus: Number.isFinite(p.adpConsensus) && Number(p.adpConsensus) > 0 ? Number(p.adpConsensus) : null,
+      rookie: Number(p.exp) === 0,
       adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
       marketFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
       // Our half-PPR re-score should BE Sleeper's published one. Where it isn't,
