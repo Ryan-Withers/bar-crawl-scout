@@ -13,8 +13,9 @@
   $: chestNum = liveCap ? chestValue(liveCap) : warchest(handle);
   $: chestLbl = liveCap ? chestTagFor(chestNum) : chestTag(handle);
   import { chestTag, needScores, warchest, yearsLeft } from '../lib/models.js';
+  import { needTargets } from '../lib/engine/league-config';
   import { keepers, draft, faab, managerNotes, unlocked } from '../lib/store.js';
-  import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
+  import { usersQuery, rostersQuery, seasonMatchupsQuery , leagueQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { rosterHandleMap } from '../api/history';
   import { weekResultsFor, streakSummary } from '../lib/engine/streaks.ts';
@@ -47,7 +48,8 @@
   const oppName = (h) => TEAMSHORT[h] || h;
   $: fa = $faab && $faab.byManager ? $faab.byManager[handle] : null;
   $: keeps = (ks[handle] || []).slice(0, 3).filter((s) => s && s[0]);
-  $: needs = m ? needScores(ks, handle) : {};
+  const leagueQd = createQuery(leagueQuery());
+  $: needs = m ? needScores(ks, handle, needTargets($leagueQd.data?.roster_positions || [])) : {};
 
   const initials = (name) => name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   const posMix = (d) => { const p = d.pos || {}; return Object.keys(p).sort((a, b) => p[b] - p[a]).map((k) => `${k} ${p[k]}`).join(' · '); };

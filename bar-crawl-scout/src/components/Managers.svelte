@@ -4,8 +4,9 @@
   import { MGRS, TEAMS, CAPITAL, RYAN } from '../lib/data.js';
   import { capital } from '../lib/store.js';
   import { chestTag, needScores } from '../lib/models.js';
+  import { needTargets } from '../lib/engine/league-config';
   import { keepers, unlocked } from '../lib/store.js';
-  import { usersQuery, rostersQuery, seasonMatchupsQuery } from '../api/queries';
+  import { usersQuery, rostersQuery, seasonMatchupsQuery , leagueQuery } from '../api/queries';
   import { managersFromUsers, userHandleMap, recordsFromRosters } from '../api/league';
   import { rosterHandleMap } from '../api/history';
   import { weekResultsFor } from '../lib/engine/streaks.ts';
@@ -36,7 +37,10 @@
   const initials = (name) => name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   const keepersOf = (h) => (ks[h] || []).slice(0, 3).filter((s) => s && s[0]);
   const watchOf = (h) => { const w = (ks[h] || [])[3]; return w && w[0] ? w[0] : null; };
-  const needBars = (h) => { const n = needScores(ks, h); return ['RB', 'WR', 'TE', 'QB'].map((k) => ({ k, v: n[k] })); };
+  const leagueQ = createQuery(leagueQuery());
+  // The starting lineup decides what a manager needs; it is not a constant.
+  $: tgts = needTargets($leagueQ.data?.roster_positions || []);
+  $: needBars = (h) => { const n = needScores(ks, h, tgts); return ['RB', 'WR', 'TE', 'QB'].map((k) => ({ k, v: n[k] })); };
   const chestTone = (t) => (t === 'LOADED' ? 'brass' : t === 'STRIPPED' ? 'red' : 'ink');
 </script>
 

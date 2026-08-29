@@ -1,6 +1,9 @@
 <script>
+  import { createQuery } from '@tanstack/svelte-query';
+  import { leagueQuery } from '../api/queries';
   import { TEAMS, TEAMSHORT, BYUNAME, LEAN, REBUILD, CONTEND } from '../lib/data.js';
   import { needScores, aggrOf, faabTalent, makeOdd, isRyanPlayer } from '../lib/models.js';
+  import { needTargets } from '../lib/engine/league-config';
   import { keepers, faab, draft, unlocked } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
   import Stamp from './Stamp.svelte';
@@ -28,7 +31,7 @@
     if (isRyanPlayer(ks, nm) && !$unlocked) { result = { blocked: true }; return; }
 
     const list = TEAMS.map((t) => t[0]).filter((h) => h !== 'Ryan').map((h) => {
-      const need = (needScores(ks, h)[pos] || 0) / 10 * 2.5;
+      const need = (needScores(ks, h, faabTgts)[pos] || 0) / 10 * 2.5;
       const lean = ((LEAN[h] || {})[pos] || 0);
       const stageFit = REBUILD.has(h)
         ? (['rookie', 'yr2', 'asc'].indexOf(stage) >= 0 ? 1 : (['aging', 'fading'].indexOf(stage) >= 0 ? -1.5 : 0))
@@ -67,6 +70,10 @@
       lo, hi, contested, top2, fans, threats, agg,
     };
   }
+
+  const faabLeagueQ = createQuery(leagueQuery());
+  // Need is measured against the league's actual starting lineup, not a constant.
+  $: faabTgts = needTargets($faabLeagueQ.data?.roster_positions || []);
 </script>
 
 <section class="tab on">
