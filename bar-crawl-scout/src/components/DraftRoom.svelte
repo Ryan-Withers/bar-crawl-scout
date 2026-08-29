@@ -9,13 +9,14 @@
   // live pick in round 13. This page draws that, rather than describing it.
   import { createQuery } from '@tanstack/svelte-query';
   import { link } from '../lib/router.js';
-  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery } from '../api/queries';
+  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery, seasonTransactionsQuery } from '../api/queries';
   import { draftSlotBoard, userHandleMap } from '../api/league';
   import {
     keeperBoard, keeperLedger, liveCells, keeperCells, livePicksFor,
     livePickCounts, fullyLiveRounds, pickCode, incompleteKeepers,
   } from '../lib/engine/keepers';
   import { TEAMS, TEAMSHORT, RYAN } from '../lib/data.js';
+  import { pendingMoves, outgoingByRoster, incomingByRoster } from '../lib/engine/principle';
   import SeasonNote from './SeasonNote.svelte';
 
   const leagueQ = createQuery(leagueQuery());
@@ -23,6 +24,7 @@
   const rostersQ = createQuery(rostersQuery());
   const realQ = createQuery(realDraftQuery());
   const playersQ = createQuery(playersQuery());
+  const txnQ = createQuery(seasonTransactionsQuery());
 
   const POS_INK = { QB: '#D6453C', RB: '#1D8A4E', WR: '#2F7FB8', TE: '#B08428' };
 
@@ -55,10 +57,23 @@
   // just like an odd one — you read a manager's whole draft down one column.
   $: cellAt = (round, slot) => byRound[round - 1]?.find((c) => c.slot === slot) || null;
 
+  // Deals agreed before the draft that execute after it. They do not change who
+  // picks when — but they very much change the squad each man ends up with.
+  $: pending = pendingMoves((($txnQ.data || []).flat()));
+  $: rosterOfHandle = Object.fromEntries(rosters.map((r) => [uh[r.owner_id], r.roster_id]));
+  $: outgoing = outgoingByRoster(pending);
+  $: incoming = incomingByRoster(pending);
+
   $: squad = TEAMS.map(([h]) => {
     const kept = (ledger[h] || []).length;
     const live = counts[h] || 0;
-    return { handle: h, kept, live, total: kept + live, delta: kept + live - rounds };
+    const owed = (outgoing[rosterOfHandle[h]] || []).length;
+    const due = (incoming[rosterOfHandle[h]] || []).length;
+    const settled = kept + live - owed + due;
+    return {
+      handle: h, kept, live, total: kept + live, delta: kept + live - rounds,
+      owed, due, settled, settledDelta: settled - rounds,
+    };
   }).sort((a, b) => b.live - a.live);
 
   let view = 'board';
@@ -169,7 +184,11 @@
       <div class="tablewrap">
         <table class="squad">
           <thead>
-            <tr><th>Manager</th><th>Keepers</th><th>Live picks</th><th>Squad</th><th>vs {rounds} spots</th></tr>
+            <tr>
+              <th>Manager</th><th>Keepers</th><th>Live picks</th><th>Squad</th>
+              {#if pending.length}<th>After the deals</th>{/if}
+              <th>vs {rounds} spots</th>
+            </tr>
           </thead>
           <tbody>
             {#each squad as s}
@@ -178,8 +197,14 @@
                 <td class="num">{s.kept}</td>
                 <td class="num">{s.live}</td>
                 <td class="num">{s.total}</td>
-                <td class="num" class:over={s.delta > 0} class:short={s.delta < 0}>
-                  {#if s.delta > 0}{s.delta} over — must cut{:else if s.delta < 0}{-s.delta} short{:else}exactly full{/if}
+                {#if pending.length}
+                  <td class="num">
+                    {s.settled}
+                    {#if s.owed || s.due}<i class="deal">{s.due ? `+${s.due}` : ''}{s.owed ? ` −${s.owed}` : ''}</i>{/if}
+                  </td>
+                {/if}
+                <td class="num" class:over={s.settledDelta > 0} class:short={s.settledDelta < 0}>
+                  {#if s.settledDelta > 0}{s.settledDelta} over — must cut{:else if s.settledDelta < 0}{-s.settledDelta} short{:else}exactly full{/if}
                 </td>
               </tr>
             {/each}
@@ -190,6 +215,10 @@
         Traded picks mean nobody comes out even. The league still adds to
         {board.cells.length} — it has to — but a manager who bought picks drafts more
         men than he has room for and cuts the rest, and one who sold spends the season on waivers.
+        {#if pending.length}
+          The last two columns settle the {pending.length} keeper{pending.length === 1 ? '' : 's'} traded
+          in principle, which land after the draft and are what each squad really ends up as.
+        {/if}
       </p>
     {/if}
   {/if}
@@ -279,5 +308,6 @@
   .squad tr.me td { background: var(--blue-wash); }
   .squad .num { font-family: var(--mono); font-size: 12.5px; }
   .squad .over { color: var(--stamp-red); }
+  .squad .deal { font-style: normal; font-size: 10.5px; color: var(--good); margin-left: 5px; }
   .squad .short { color: var(--brass); }
 </style>

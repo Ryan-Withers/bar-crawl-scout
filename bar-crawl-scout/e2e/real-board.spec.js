@@ -24,6 +24,7 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
   const traded = read('traded_picks-2026.json');
   const league = read('league.json');
   const blob = read('players-trimmed.json');
+  const txns2026 = read('transactions-2026-1.json');
   const draftId = drafts[0].draft_id;
 
   // The PREVIOUS season too — the contract clock ("is this his last year?") is
@@ -55,6 +56,7 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
     // fact that it was asking the draft instead.
     if (url.endsWith(`/league/${league.league_id}/traded_picks`)) return json(r, traded);
     if (url.includes('/players/nfl')) return json(r, blob);
+    if (/\/league\/\d+\/transactions\/1$/.test(url)) return json(r, txns2026);
     if (/\/league\/\d+$/.test(url)) return json(r, league);
     return json(r, []);
   });
@@ -92,7 +94,10 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
   const rows = page.locator('table.squad tbody tr');
   await expect(rows).toHaveCount(10);
   await expect(rows.filter({ hasText: 'ATorelli4' })).toContainText('7 over');
-  await expect(rows.filter({ hasText: 'jpdonners' })).toContainText('6 short');
+  // jpdonners is 6 short on the raw board — and 8 short once the two keepers he
+  // has already sold to ImyHunter actually leave.
+  await expect(rows.filter({ hasText: 'jpdonners' })).toContainText('8 short');
+  await expect(page.getByTestId('content')).toContainText('After the deals');
   await page.screenshot({ path: 'shots/holds-what.png', fullPage: true });
 
   await page.goto('./keepers');
@@ -103,10 +108,22 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
   // Thirteen men are on their second straight year with the same manager, and
   // four more changed hands — the case the league's own rule decides.
   await expect(led.getByText('Last Call')).toHaveCount(17);
-  await expect(led.getByText('traded in')).toHaveCount(4);
+  // Exact: "traded in" the badge, not the "traded in principle" line below it.
+  await expect(led.getByText('traded in', { exact: true })).toHaveCount(4);
   // The big names who came BACK, which is the whole story of this draft.
   await expect(led).toContainText('Josh Allen');
   await expect(led).toContainText('Drake London');
+  // TRADES IN PRINCIPLE — agreed now, executed after the draft. The rosters are
+  // deliberately, temporarily wrong and the page has to say so.
+  await expect(led).toContainText('traded in principle');
+  const joshLedger = page.locator('.sheet', { hasText: '@joshleota' });
+  await expect(joshLedger).toContainText('Puka Nacua');
+  await expect(joshLedger).toContainText('→ Ryan');       // Nacua is coming to Ryan
+  const jpLedger = page.locator('.sheet', { hasText: '@jpdonners' });
+  await expect(jpLedger).toContainText('→ ImyHunter');    // Lamb and Flowers are going
+  const ryanLedger = page.locator('.sheet', { hasText: '@Ryan' });
+  await expect(ryanLedger).toContainText('After the draft:');
+  await expect(ryanLedger).toContainText('Puka Nacua');
   await page.screenshot({ path: 'shots/keepers.png', fullPage: true });
 
   // THE TRADE DESK — a pick is offered per SEAT and priced on the snake.

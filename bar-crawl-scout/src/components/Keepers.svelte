@@ -14,12 +14,13 @@
   import { link } from '../lib/router.js';
   import { TEAMS, TEAMSHORT, RYAN, byName } from '../lib/data.js';
   import { keepers, keepersSource, unlocked } from '../lib/store.js';
-  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery, draftVaultQuery } from '../api/queries';
+  import { leagueQuery, usersQuery, rostersQuery, realDraftQuery, playersQuery, draftVaultQuery, seasonTransactionsQuery } from '../api/queries';
   import { userHandleMap, draftSlotBoard } from '../api/league';
   import {
     keeperLedger, keeperOwners, contracts, keeperBoard, keeperCells,
     pickCode, incompleteKeepers,
   } from '../lib/engine/keepers';
+  import { pendingMoves, outgoingByRoster, incomingByRoster } from '../lib/engine/principle';
   import Stamp from './Stamp.svelte';
   import SeasonNote from './SeasonNote.svelte';
 
@@ -29,6 +30,7 @@
   const realQ = createQuery(realDraftQuery());
   const playersQ = createQuery(playersQuery());
   const vaultQ = createQuery(draftVaultQuery());
+  const txnQ = createQuery(seasonTransactionsQuery());
 
   const POS_INK = { QB: '#D6453C', RB: '#1D8A4E', WR: '#2F7FB8', TE: '#B08428' };
 
@@ -58,6 +60,27 @@
   $: rosterHandle = Object.fromEntries(rosters.map((r) => [r.roster_id, uh[r.owner_id]]));
   $: kBoard = sb ? keeperBoard(sb, rounds, ledger, $realQ.data?.picks, rosterHandle) : null;
   $: slotsOf = (h) => (kBoard ? keeperCells(kBoard).filter((c) => c.handle === h).map((c) => pickCode(c.pickNo, kBoard.teams)) : []);
+
+  // TRADES IN PRINCIPLE — agreed now, executed after the draft.
+  //
+  // The league lets a keeper be traded before the draft on the understanding
+  // that it lands afterwards. Sleeper cannot say that, so the deal goes through
+  // and the commissioner moves the players back — a man has to be on your roster
+  // for you to declare him. The rosters are therefore deliberately, temporarily
+  // wrong, and nothing in the app said so.
+  $: pending = pendingMoves((($txnQ.data || []).flat()));
+  $: outgoing = outgoingByRoster(pending);
+  $: incoming = incomingByRoster(pending);
+  $: leavingOf = (h) => (outgoing[rosterOfHandle[h]] || []);
+  $: arrivingOf = (h) => (incoming[rosterOfHandle[h]] || []);
+  $: goingTo = (playerId) => {
+    const m = pending.find((x) => x.playerId === playerId);
+    return m ? (uh[(rosters.find((r) => r.roster_id === m.toRoster) || {}).owner_id] || null) : null;
+  };
+  $: nameOfId = (id) => {
+    const p = $playersQ.data?.[String(id)];
+    return p ? p[0] : String(id);
+  };
 
   // WHO CAME BACK. Every man on a roster who is not one of the thirty returns to
   // the pool, and the good ones are the whole story of this draft.
@@ -103,6 +126,13 @@
       <b>Locked.</b> All {TEAMS.length} managers have declared their {maxKeepers}, straight from
       Sleeper — {Object.values(ledger).flat().length} men off the board. Everyone else
       on every roster goes back into the draft.
+      {#if pending.length}
+        <br />
+        <b>{pending.length} of them are already sold.</b> This league lets a keeper be
+        traded before the draft on the understanding it executes afterwards, so those
+        rosters are deliberately, temporarily wrong — the man is declared by the
+        manager who still holds him and moves once the draft is done.
+      {/if}
     </p>
   {:else if mixed}
     <p class="warn">
@@ -143,8 +173,17 @@
               </span>
               {#if c.yearsLeft === 1}<Stamp text="Last Call" tone="red" seed={ti * 4 + i} />{/if}
               {#if c.changedHands}<em class="moved" title="Kept by someone else last season">traded in</em>{/if}
+              {#if goingTo(m.playerId)}
+                <em class="going" title="Traded in principle — the deal executes after the draft">→ {goingTo(m.playerId)}</em>
+              {/if}
             </div>
           {/each}
+          {#if arrivingOf(h).length}
+            <div class="arriving">
+              After the draft: <b>{arrivingOf(h).map((mv) => nameOfId(mv.playerId)).join(', ')}</b>
+              <i>traded in principle</i>
+            </div>
+          {/if}
           {#if slotsOf(h).length}
             <div class="picks">Keeper picks: {slotsOf(h).join(' · ')}</div>
           {/if}
@@ -244,6 +283,10 @@
     border: 1.5px solid var(--line); font-family: var(--mono); font-size: 9px; font-style: normal; color: var(--muted);
   }
   .moved { font-family: var(--mono); font-size: 9.5px; color: var(--brass); font-style: normal; }
+  .going { font-family: var(--mono); font-size: 9.5px; color: var(--stamp-red); font-style: normal; font-weight: 700; }
+  .arriving { font-family: var(--mono); font-size: 11px; color: var(--good); padding-top: 10px; line-height: 1.5; }
+  .arriving b { color: var(--chalk); }
+  .arriving i { color: var(--muted); font-style: normal; }
   .picks { font-family: var(--mono); font-size: 10.5px; color: var(--muted); padding-top: 10px; }
 
   .poolhead { margin-top: 26px; padding-top: 18px; border-top: 2px solid var(--line); }

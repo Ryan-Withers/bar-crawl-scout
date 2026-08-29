@@ -456,9 +456,21 @@ export function slugify(s: string): string {
 // The queue is just an ordered list of names. Nothing is removed when a player
 // gets sniped — resolution simply skips anyone no longer in the pool, so the
 // user's ranking survives the draft chewing through it.
+
+// THE QUEUE'S NAME KEY. The queue persists to localStorage across sessions and
+// across data refreshes, and it stores NAMES. So the day a spelling changes —
+// "Kenneth Walker III" becoming "Kenneth Walker" on a fresh capture — an exact
+// compare quietly drops your starred man from the queue and Tidy deletes him as
+// "already off the board". Matching on a normalised key keeps him.
+const qKey = (s: string): string => String(s || '')
+  .toLowerCase()
+  .replace(/[.'\u2019]/g, '')
+  .replace(/\s+(jr|sr|ii|iii|iv|v)$/, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
 export function queueTop(pool: MockPlayer[], queue: string[]): string | null {
-  const avail = new Set(pool.map((p) => p.name));
-  for (const n of queue) if (avail.has(n)) return n;
+  const avail = new Map(pool.map((p) => [qKey(p.name), p.name]));
+  for (const n of queue) { const hit = avail.get(qKey(n)); if (hit) return hit; }
   return null;
 }
 
@@ -470,7 +482,8 @@ export function autoPickName(s: MockState, queue: string[] = []): string | null 
 }
 
 export function toggleQueued(queue: string[], name: string): string[] {
-  return queue.includes(name) ? queue.filter((n) => n !== name) : [...queue, name];
+  const k = qKey(name);
+  return queue.some((n) => qKey(n) === k) ? queue.filter((n) => qKey(n) !== k) : [...queue, name];
 }
 
 export function moveQueued(queue: string[], index: number, delta: number): string[] {
@@ -483,8 +496,12 @@ export function moveQueued(queue: string[], index: number, delta: number): strin
 
 // Drop everyone already off the board (used by "tidy queue").
 export function pruneQueue(queue: string[], pool: MockPlayer[]): string[] {
-  const avail = new Set(pool.map((p) => p.name));
-  return queue.filter((n) => avail.has(n));
+  // Keep the man AND rewrite him to the board's current spelling, so the next
+  // prune finds him without needing the normaliser to save him again.
+  const avail = new Map(pool.map((p) => [qKey(p.name), p.name]));
+  const out: string[] = [];
+  for (const n of queue) { const hit = avail.get(qKey(n)); if (hit && !out.includes(hit)) out.push(hit); }
+  return out;
 }
 
 // ---- UNDO — a mock is practice, so every pick is reversible -------------
