@@ -15,7 +15,7 @@
 // played varies and a 9-game projection otherwise tops the board.
 //
 // Pure: no fetching, no DOM, no dates.
-import { scoreStats } from './scoring';
+import { scoreStats, scoreStatsRaw } from './scoring';
 
 /**
  * A stock half-PPR rulebook — the baseline every public ranking assumes, and
@@ -75,33 +75,49 @@ export interface SheetRow {
   age: number | null; exp: number | null;
   games: number;
 
-  // ---- the three numbers the board is really about, all SEASON totals ----
-  /** What everyone else sees: Sleeper's own published half-PPR season total. */
-  theirs: number;
-  /** Where it came from — Sleeper's number, or ours when they publish none. */
-  theirsFrom: 'sleeper' | 'derived';
-  /** What he is really worth: season points under THIS league's rulebook. */
-  real: number;
-  /** real - theirs. The raw points this rulebook hands him. */
+  // ---- the numbers the board is really about, all SEASON totals ----
+  /**
+   * SLEEPER'S OWN PROJECTION, league-scored — the exact number in the PTS
+   * column of sleeper.com/draft. Sleeper applies the league's scoring_settings
+   * itself, so this is not our interpretation of anything: it is what every
+   * manager in the room is looking at, reproduced to the decimal.
+   */
+  sleeper: number;
+  /**
+   * The same player under STOCK half-PPR — Sleeper's published `pts_half_ppr`.
+   * Nobody drafts off this in our room, but the whole market does, so it is
+   * what ADP is built from and therefore what sets his price.
+   */
+  market: number;
+  /** Where the market number came from — theirs, or ours when they publish none. */
+  marketFrom: 'sleeper' | 'derived';
+  /** sleeper - market. What our rulebook adds over the one ADP is priced on. */
   gap: number;
   /**
-   * The part of that gap he does NOT share with everyone else. This rulebook
-   * inflates the whole board, so the raw gap is mostly tide; this is the points
-   * he beats the tide by, and it is the column worth sorting on.
+   * The part of that gain he does NOT share with everyone else. Our rules lift
+   * the whole board about a quarter, so the raw gap is mostly tide; this is the
+   * points he beats the tide by, and it is where ADP is actually wrong for us.
    */
   edgePts: number;
+  /**
+   * The one thing Sleeper's number CANNOT include: this league docks a point for
+   * every fumble on top of the point for losing it, and no projection carries a
+   * raw fumble count. Estimated from his own last season, always negative or
+   * zero, and kept out of `sleeper` so that column stays exactly their number.
+   */
+  fumAdj: number;
+  /** sleeper + fumAdj. The same board with that one rule put back. */
+  adjusted: number;
 
   // ---- per game, and the internals the three numbers are built from ----
-  ours: number;   // ppg under the league's rules
+  ours: number;   // sleeper, per game — the rate behind the season total
   stock: number;  // ppg under the stock baseline (0 for defenders — no baseline exists)
-  boost: number;  // real/theirs - 1, or 0 when there is no baseline
+  boost: number;  // sleeper/market - 1, or 0 when there is no baseline
   edge: number;   // boost measured against the league-wide median boost
   vorp: number;   // ppg over replacement level for his position
   vorpSeason: number; // that, across his projected games — the draft currency
   /** True when our own half-PPR re-score reproduces Sleeper's published total. */
   matchesSleeper: boolean;
-  /** How many scored rules Sleeper omitted and we filled from his prior season. */
-  filled: number;
   posRank: number;
   ovRank: number;
   partial: boolean; // projected for less than a full season
@@ -269,40 +285,56 @@ export function buildSheet(
   fullGames = 17,
 ): { rows: SheetRow[]; levels: Record<string, number>; dry: string[]; medBoost: number; tide: number } {
   const scored = inputs.map((p) => {
+    // SCORE THE RAW PROJECTION, exactly as Sleeper does.
+    //
+    // This used to score a BACKFILLED line — the projection with any scored stat
+    // Sleeper omits filled in from the player's own last season — and that one
+    // decision put the headline number out of step with the board every manager
+    // in the league is actually looking at. Sleeper applies the league's
+    // scoring_settings to its own projection and prints the result in the draft
+    // room; scoring anything else means arguing with the number on the screen.
+    // Josh Allen came out at 428 where his draft board says 435.3, and there was
+    // no way to tell from the page which one to believe.
+    //
+    // So the headline is their line, their stats, the league's rules, and it
+    // reproduces sleeper.com/draft to the decimal. See sheet-vs-sleeper.test.js,
+    // which checks it against nine numbers read straight off that board.
+    const sleeperSeason = scoreStatsRaw(p.proj || {}, scoring);
+    const ours = p.games > 0 ? sleeperSeason / p.games : 0;
     const projPg = perGame(p.proj || {}, p.games);
-    const priorPg = p.prior && p.priorGames ? perGame(p.prior, p.priorGames) : null;
-    const { line, filled } = backfill(projPg, priorPg, scoring);
-    const ours = scoreStats(line, scoring);
-    const stock = scoreStats(line, STOCK_SCORING);
-    // The agreement check has to score the line Sleeper ACTUALLY scored — the
-    // raw projection, before we fill any gap from last season. Comparing the
-    // backfilled line instead measured our own backfill and reported a fifth of
-    // the board as disagreeing with Sleeper when the baseline is exact.
-    const stockRaw = scoreStats(projPg, STOCK_SCORING);
+    const stock = scoreStats(projPg, STOCK_SCORING);
 
-    // WHAT THE ROOM SEES. Sleeper's own published half-PPR total, verbatim,
-    // because the whole point of the column is that it is THEIR number and not
-    // a re-derivation of it. When they publish none — retired men, almost
-    // always — fall back to our own half-PPR re-score and say so, rather than
-    // showing a blank where a comparison should be.
+    // THE ONE RULE NO PROJECTION CAN CARRY. This league docks a point for every
+    // fumble as well as a point for losing it, and Sleeper projects only the
+    // fumbles LOST — so its number quietly omits the rest of that penalty for
+    // everybody. Estimated from the player's own last season at his projected
+    // workload, kept in its own column, and never folded into the number above.
+    const priorPg = p.prior && p.priorGames ? perGame(p.prior, p.priorGames) : null;
+    const fumRate = priorPg && typeof priorPg.fum === 'number' ? priorPg.fum : 0;
+    const fumAdj = Math.round(fumRate * p.games * (scoring.fum || 0) * 10) / 10;
+
+    // WHAT THE MARKET IS PRICED ON. Sleeper's published half-PPR total, verbatim:
+    // nobody in our room drafts off it, but every ADP in the world is built from
+    // it, so it is what sets what a player costs.
     const published = Number(p.sleeperPts) > 0 ? Number(p.sleeperPts) : 0;
     const derived = Math.round(stock * p.games * 10) / 10;
-    const theirs = published || derived;
-    const real = Math.round(ours * p.games * 10) / 10;
+    const market = published || derived;
+    // toFixed, not Math.round: the sum lands on an exact half-tenth often enough
+    // to matter, and rounding the binary approximation puts the last digit the
+    // other way from the draft board on those. This reproduces all nine numbers
+    // read off sleeper.com/draft.
+    const sleeper = Number(sleeperSeason.toFixed(1));
 
     return {
       id: p.id, name: p.name, pos: p.pos, team: p.team,
       age: p.age ?? null, exp: p.exp ?? null,
-      games: p.games, ours, stock, line, real, theirs,
-      theirsFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
-      // Our baseline should BE their baseline. Where it isn't, the row says so
-      // rather than quietly reporting an edge that is really a disagreement.
-      matchesSleeper: !published || Math.abs(stockRaw * p.games - published) <= 0.5,
-      // Which of the league's scored rules Sleeper left out of his projection
-      // and we filled from his own prior season. It moves `real` and nothing
-      // else, and the page says how many rows it touched.
-      filled: filled.length,
-      fd: Math.round(firstDownPoints(line, scoring) * 100) / 100,
+      games: p.games, ours, stock, line: projPg, sleeper, market, fumAdj,
+      adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
+      marketFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
+      // Our half-PPR re-score should BE Sleeper's published one. Where it isn't,
+      // the row says so rather than reporting a gap that is really a disagreement.
+      matchesSleeper: !published || Math.abs(derived - published) <= 0.5,
+      fd: Math.round(firstDownPoints(projPg, scoring) * 100) / 100,
       partial: p.games > 0 && p.games < fullGames * 0.75,
     };
   }).filter((r) => r.games > 0);
@@ -312,8 +344,8 @@ export function buildSheet(
   // Measured against what the league actually sees, so it is the same number
   // the Edge column is derived from. Defenders have no published baseline and
   // cannot set the tide.
-  const withBase = scored.filter((r) => r.theirs > 0);
-  const medBoost = median(withBase.map((r) => r.real / r.theirs - 1));
+  const withBase = scored.filter((r) => r.market > 0);
+  const medBoost = median(withBase.map((r) => r.sleeper / r.market - 1));
   const tide = 1 + medBoost;
 
   const { levels, dry } = replacementLevels(scored, rosterPositions, teams);
@@ -322,10 +354,10 @@ export function buildSheet(
     const vorp = r.ours - (levels[r.pos] ?? 0);
     return {
       ...r,
-      gap: Math.round((r.real - r.theirs) * 10) / 10,
-      edgePts: edgePoints(r.real, r.theirs, tide),
-      boost: r.theirs > 0 ? r.real / r.theirs - 1 : 0,
-      edge: rulesEdge(r.real, r.theirs, medBoost),
+      gap: Math.round((r.sleeper - r.market) * 10) / 10,
+      edgePts: edgePoints(r.sleeper, r.market, tide),
+      boost: r.market > 0 ? r.sleeper / r.market - 1 : 0,
+      edge: rulesEdge(r.sleeper, r.market, medBoost),
       vorp,
       // The draft currency. A man projected for nine games at a fine rate is
       // worth nine games of it, and the board has to rank him that way or it

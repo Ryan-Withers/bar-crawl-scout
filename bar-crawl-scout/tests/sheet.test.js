@@ -152,8 +152,14 @@ describe('buildSheet on hand-checkable lines', () => {
   it('gives a defender a real score and no stock baseline', () => {
     const lb = P('d', 'Backer', 'LB', { idp_tkl: 130, idp_sack: 8, idp_int: 2, idp_pass_def: 6 });
     const { rows } = buildSheet([lb], OURS, ROSTER, 10);
-    // (130*0.5 + 8*2 + 2*2 + 6*1) / 17 = 5.3529..., and scoreStats rounds to 2dp.
-    expect(rows[0].ours).toBe(5.35);
+    // 130*0.5 + 8*2 + 2*2 + 6*1 = 91 for the season, over 17 games.
+    //
+    // The SEASON total is the anchor now, because it is the figure Sleeper puts
+    // on the draft board and the one this page has to reproduce exactly; the
+    // per-game rate is derived from it rather than the other way round. So it is
+    // no longer pre-rounded to two places — 5.3529..., not 5.35.
+    expect(rows[0].sleeper).toBe(91);
+    expect(rows[0].ours).toBeCloseTo(91 / 17, 6);
     expect(rows[0].stock).toBe(0);
     expect(rows[0].boost).toBe(0);  // stated as nothing, never invented
     expect(rows[0].edge).toBe(0);

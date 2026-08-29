@@ -27,6 +27,7 @@
   import HoverCard from './components/HoverCard.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import LiveKeepers from './components/LiveKeepers.svelte';
+  import NewVersion from './components/NewVersion.svelte';
 
   // LAZY ROUTES. Each of these is a whole screen of machinery most visits never
   // open — the War Room alone is the biggest thing in the app — and shipping
@@ -122,6 +123,11 @@
   <!-- Renders nothing; pulls the locked keepers and hands them to the store,
        so every page that reads keepers reads Sleeper rather than a guess. -->
   <LiveKeepers />
+  <!-- Renders nothing until the deployed build id stops matching this one, then
+       offers a reload. GitHub Pages caches index.html, so without this a fresh
+       deploy can look for several minutes exactly like a change that never
+       shipped. Outside the focus check on purpose — it matters most mid-draft. -->
+  <NewVersion />
   <div class="app" class:focus={focusMode}>
     {#if !focusMode}
       <aside class="rail" data-testid="sidebar">

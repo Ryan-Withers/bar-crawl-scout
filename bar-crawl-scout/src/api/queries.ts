@@ -6,9 +6,23 @@ import { loadPlayers } from './players';
 
 const MIN = 60_000;
 
+// HOW LIVE IS LIVE.
+//
+// These were set for an idle off-season, and they showed: the draft board, the
+// keepers and the traded picks all sat behind a THIRTY MINUTE stale time, so a
+// trade agreed in the group chat took half an hour to reach the app even if you
+// reloaded the page. It is draft week; that is the wrong trade to make.
+//
+// So the draft-critical endpoints now poll while you are actually looking at
+// them. `refetchIntervalInBackground` is left off, which is the default, so a
+// tab sitting behind another window costs nothing — the poll resumes the moment
+// it comes forward, alongside the refetch-on-focus that was already there.
+const LIVE = 30_000;        // the draft board, the keepers, the picks
+const NEARLY = 60_000;      // rosters, transactions — the things a trade moves
+
 export const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 5 * MIN, refetchOnWindowFocus: true, retry: 2, gcTime: 60 * MIN },
+    queries: { staleTime: NEARLY, refetchOnWindowFocus: true, retry: 2, gcTime: 60 * MIN },
   },
 });
 
@@ -24,9 +38,10 @@ export const qk = {
   trendingAdds: ['trending', 'add'] as const,
 };
 
-export const leagueQuery = () => ({ queryKey: qk.league, queryFn: () => S.getLeague() });
-export const usersQuery = () => ({ queryKey: qk.users, queryFn: () => S.getUsers() });
-export const rostersQuery = () => ({ queryKey: qk.rosters, queryFn: () => S.getRosters(), staleTime: 5 * MIN });
+export const leagueQuery = () => ({ queryKey: qk.league, queryFn: () => S.getLeague(), staleTime: 5 * MIN });
+export const usersQuery = () => ({ queryKey: qk.users, queryFn: () => S.getUsers(), staleTime: 5 * MIN });
+// The keepers live here, so this is the one a mid-week declaration moves.
+export const rostersQuery = () => ({ queryKey: qk.rosters, queryFn: () => S.getRosters(), staleTime: NEARLY, refetchInterval: NEARLY });
 export const stateQuery = () => ({ queryKey: qk.state, queryFn: () => S.getState(), staleTime: 30 * MIN });
 export const playersQuery = () => ({ queryKey: qk.players, queryFn: loadPlayers, staleTime: 24 * 60 * MIN });
 export const foundingQuery = () => ({ queryKey: qk.founding, queryFn: () => S.getFoundingSeason(), staleTime: Infinity, gcTime: Infinity });
@@ -49,7 +64,9 @@ export const seasonMatchupsQuery = () => ({
 // Best-effort per week: a missing week never sinks the feed.
 export const seasonTransactionsQuery = () => ({
   queryKey: ['seasonTransactions'] as const,
-  staleTime: 5 * MIN,
+  // Trades in principle come down this feed, and the draft is a week away.
+  staleTime: NEARLY,
+  refetchInterval: NEARLY,
   queryFn: () => Promise.all(
     Array.from({ length: 17 }, (_, i) => S.getTransactions(i + 1).catch(() => [] as Awaited<ReturnType<typeof S.getTransactions>>)),
   ),
@@ -65,7 +82,10 @@ export const seasonTransactionsQuery = () => ({
 // placement instead — so an empty array is a normal state, not a failure.
 export const realDraftQuery = () => ({
   queryKey: ['realdraft'] as const,
-  staleTime: 30 * MIN,
+  // Thirty minutes was the single worst offender: the draft order, the traded
+  // picks AND the keeper placement all sat behind it.
+  staleTime: LIVE,
+  refetchInterval: LIVE,
   queryFn: async () => {
     // The league object names its own draft. Take that one rather than the first
     // with an order: this league's settings carry draft_rounds 3 as well as the

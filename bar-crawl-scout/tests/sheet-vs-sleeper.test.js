@@ -1,19 +1,26 @@
-// DO OUR NUMBERS MATCH SLEEPER'S? — reconciled against the captured projections.
+// DO OUR NUMBERS MATCH SLEEPER'S? — reconciled against the real draft board.
 //
-// The Sheet's whole claim is that the gap between what the league sees and what
-// a player is really worth here is OUR RULEBOOK and nothing else. That claim is
-// only true if the baseline we measure from is genuinely the one Sleeper
-// publishes. It wasn't: STOCK_SCORING carried pass_int -2, copied across from
-// our own league, where Sleeper's published half-PPR uses -1. It only bit
-// quarterbacks, so it never looked like a bug — it just made every QB's boost
-// under our rules read eight to fourteen points bigger than it is.
+// Twice now the answer was no, and both times for a reason nothing on the page
+// could have told you.
 //
-// These tests solve Sleeper's own published totals for that weight and then
-// hold the whole baseline to their number, so it cannot drift back.
+// FIRST: STOCK_SCORING carried pass_int -2, copied across from our own league,
+// where Sleeper's published half-PPR uses -1. It only bit quarterbacks, so it
+// never looked like a bug — every QB just read eight to fourteen points light.
+//
+// SECOND, and worse: the headline column scored a BACKFILLED line — the
+// projection with any omitted stat filled in from the player's own last season.
+// Sleeper applies the league's scoring_settings to its own projection and prints
+// the answer in the draft room, so scoring anything else meant arguing with the
+// number on Ryan's screen. Josh Allen came out at 428 against a draft board
+// reading 435.3, and the page gave you no way to tell which to believe.
+//
+// So the anchor of these tests is not a fixture written to agree with the code.
+// It is nine numbers read straight off sleeper.com/draft.
 import { describe, it, expect } from 'vitest';
 import proj from '../src/lib/api/fixtures/season-projections-2026.json';
 import blob from '../src/lib/api/fixtures/players-trimmed.json';
 import league from '../src/lib/api/fixtures/league.json';
+import priorStats from '../src/lib/api/fixtures/season-stats-2025.json';
 import { STOCK_SCORING, buildSheet, edgePoints } from '../src/lib/engine/sheet';
 import { scoreStats } from '../src/lib/engine/scoring';
 
@@ -75,6 +82,72 @@ describe('the stock baseline IS Sleeper’s baseline', () => {
   });
 });
 
+// Read off sleeper.com/draft (the PTS column) while the board was open. These
+// are the numbers every manager in the league is looking at, and the headline
+// column has to BE them — not approximate them, not improve on them.
+const SLEEPER_DRAFT_BOARD = {
+  'Josh Allen': 435.3,
+  'Drake London': 263.3,
+  'Trey McBride': 236.3,
+  'Jeremiyah Love': 251.7,
+  'George Pickens': 266.6,
+  'Quinshon Judkins': 243.0,
+  'Chuba Hubbard': 183.9,
+  'Blake Corum': 171.9,
+  'Jadarian Price': 214.0,
+};
+
+describe('the headline column IS the draft board', () => {
+  const OUT = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+  const scoring = Object.fromEntries(
+    Object.entries(league.scoring_settings).filter(([k]) => !OUT.test(k)),
+  );
+  const inputs = rows.map((r) => {
+    const prior = priorStats[r.id] || null;
+    return {
+      id: r.id, name: r.name, pos: r.pos, team: 'FA',
+      games: Number(r.line.gp) || 17,
+      proj: r.line, sleeperPts: r.published,
+      prior, priorGames: prior ? Number(prior.gp ?? prior.gms_active ?? 0) || 0 : 0,
+    };
+  });
+  const board = buildSheet(inputs, scoring, league.roster_positions.filter((p) => p !== 'IDP_FLEX'), 10);
+  const at = Object.fromEntries(board.rows.map((r) => [r.name, r]));
+
+  it('reproduces every number Ryan can read off his own draft room', () => {
+    for (const [name, pts] of Object.entries(SLEEPER_DRAFT_BOARD)) {
+      expect(at[name], `${name} is on the board`).toBeTruthy();
+      // EXACTLY. Not close, not within a tenth — the same number, because it is
+      // the same number: their projection, their league scoring, rounded the way
+      // they round it.
+      expect(at[name].sleeper, name).toBe(pts);
+    }
+  });
+
+  it('does NOT quietly improve on it with a backfill', () => {
+    // The backfill was the whole disagreement: it docked Josh Allen seven points
+    // for fumbles his projection never claimed he would make. That penalty is a
+    // real league rule and it now lives in its own column, where it can be read
+    // rather than absorbed.
+    expect(Math.abs(at['Josh Allen'].sleeper - 435.3)).toBeLessThanOrEqual(0.11);
+    expect(at['Josh Allen'].fumAdj).toBeLessThan(0);
+    expect(at['Josh Allen'].adjusted).toBeLessThan(at['Josh Allen'].sleeper);
+    expect(at['Josh Allen'].adjusted).toBeCloseTo(435.3 + at['Josh Allen'].fumAdj, 1);
+  });
+
+  it('keeps the fumble estimate out of the ranking, and never positive', () => {
+    for (const r of board.rows) expect(r.fumAdj, r.name).toBeLessThanOrEqual(0);
+    // A man with no prior season simply has none of it.
+    expect(board.rows.some((r) => r.fumAdj === 0)).toBe(true);
+  });
+
+  it('is the per-game rate times the games, and nothing else', () => {
+    for (const r of board.rows.slice(0, 40)) {
+      expect(Math.abs(r.sleeper - r.ours * r.games), r.name).toBeLessThanOrEqual(0.11);
+    }
+  });
+});
+
 describe('the three columns the board is built on', () => {
   const OUT = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
   const scoring = Object.fromEntries(
@@ -88,27 +161,26 @@ describe('the three columns the board is built on', () => {
   const built = buildSheet(inputs, scoring, league.roster_positions.filter((p) => p !== 'IDP_FLEX'), 10);
   const by = Object.fromEntries(built.rows.map((r) => [r.name, r]));
 
-  it('shows Sleeper’s own number as "they see", untouched', () => {
+  it('shows Sleeper’s own half-PPR number as the market price, untouched', () => {
     for (const r of built.rows.slice(0, 50)) {
-      if (r.theirsFrom !== 'sleeper') continue;
+      if (r.marketFrom !== 'sleeper') continue;
       const src = rows.find((x) => x.id === r.id);
-      expect(r.theirs, `${r.name}`).toBe(src.published);
+      expect(r.market, `${r.name}`).toBe(src.published);
     }
   });
 
-  it('says when the number is ours because Sleeper published none', () => {
-    const derived = built.rows.filter((r) => r.theirsFrom === 'derived');
+  it('says when the market number is ours because Sleeper published none', () => {
+    const derived = built.rows.filter((r) => r.marketFrom === 'derived');
     expect(derived.length).toBeGreaterThan(0);
-    for (const r of derived.slice(0, 5)) expect(r.theirs).toBeGreaterThanOrEqual(0);
-    // Everyone Sleeper actually projects is marked as theirs.
-    expect(built.rows.filter((r) => r.theirsFrom === 'sleeper').length).toBeGreaterThan(250);
+    for (const r of derived.slice(0, 5)) expect(r.market).toBeGreaterThanOrEqual(0);
+    expect(built.rows.filter((r) => r.marketFrom === 'sleeper').length).toBeGreaterThan(250);
   });
 
   it('is a season total, not a rate — games are already in it', () => {
     const a = by['Josh Allen'];
-    expect(a.real).toBeCloseTo(a.ours * a.games, 0);
-    expect(a.real).toBeGreaterThan(300);
-    expect(a.gap).toBeCloseTo(a.real - a.theirs, 1);
+    expect(a.sleeper).toBeCloseTo(a.ours * a.games, 0);
+    expect(a.sleeper).toBeGreaterThan(300);
+    expect(a.gap).toBeCloseTo(a.sleeper - a.market, 1);
   });
 
   it('lifts the whole board by about a quarter', () => {
@@ -128,7 +200,7 @@ describe('the three columns the board is built on', () => {
     const top = built.rows.slice().sort((x, y) => y.edgePts - x.edgePts).slice(0, 15);
     expect(top.every((r) => r.pos === 'RB'), 'the top of Edge is backs').toBe(true);
 
-    const bottom = built.rows.filter((r) => r.theirs > 0).sort((x, y) => x.edgePts - y.edgePts).slice(0, 10);
+    const bottom = built.rows.filter((r) => r.market > 0).sort((x, y) => x.edgePts - y.edgePts).slice(0, 10);
     expect(bottom.every((r) => r.pos === 'QB'), 'the bottom of Edge is quarterbacks').toBe(true);
 
     // Named, so the day this stops being true somebody has to look at it.
@@ -147,7 +219,7 @@ describe('the three columns the board is built on', () => {
   });
 
   it('has the edge sum to roughly nothing — it is a deviation, not a bonus', () => {
-    const scored = built.rows.filter((r) => r.theirs > 0);
+    const scored = built.rows.filter((r) => r.market > 0);
     const med = scored.map((r) => r.edgePts).sort((a, b) => a - b)[Math.floor(scored.length / 2)];
     expect(Math.abs(med)).toBeLessThan(2);
   });
