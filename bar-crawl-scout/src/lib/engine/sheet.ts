@@ -100,6 +100,14 @@ export interface SheetInput {
    * is the whole reason it can be wrong for us. Null/999 when unranked.
    */
   adp?: number | null;
+  /**
+   * The MAINSTREAM price — `adp_half_ppr`, the ADP the rest of the fantasy world
+   * quotes. Not what our draft room shows, but the number every ranking, article
+   * and mock you read outside Sleeper is talking about, so it is worth seeing
+   * next to ours: the difference between the two is what our format alone does
+   * to a man's price before anybody has scored a point.
+   */
+  adpMarket?: number | null;
 }
 
 export interface SheetRow {
@@ -142,8 +150,10 @@ export interface SheetRow {
   adjusted: number;
 
   // ---- WHAT THE MARKET PAYS vs WHAT HE IS WORTH HERE ----
-  /** Where he actually goes in drafts. Null when the market has no read on him. */
+  /** Where he actually goes in OUR draft room's format. Null when unpriced. */
   adp: number | null;
+  /** Where the mainstream half-PPR world drafts him. Null when unpriced. */
+  adpMarket: number | null;
   /** His rank by that price, among the men who have one. */
   adpRank: number | null;
   /** His rank by VORP, among the same men. */
@@ -402,6 +412,8 @@ export function buildSheet(
       // 700" came out two hundred places underpriced. The cap is twice the picks
       // in our own draft, which is past anywhere a real pick happens.
       adp: Number.isFinite(p.adp) && Number(p.adp) > 0 && Number(p.adp) <= adpCap ? Number(p.adp) : null,
+      adpMarket: Number.isFinite(p.adpMarket) && Number(p.adpMarket) > 0 && Number(p.adpMarket) <= adpCap
+        ? Number(p.adpMarket) : null,
       adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
       marketFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
       // Our half-PPR re-score should BE Sleeper's published one. Where it isn't,

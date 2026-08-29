@@ -158,6 +158,8 @@
         // The PRICE. Set by every league in the world, not by ours — which is
         // exactly why it can be wrong here.
         adp: Number(line[adpKey]) || null,
+        // And the mainstream half-PPR price, for the same player, alongside it.
+        adpMarket: Number(line.adp_half_ppr) || null,
       });
     }
     return out;
@@ -260,9 +262,9 @@
     ['team', 'Tm', 'l', 'His NFL club.'],
     ['games', 'G', '', 'Games Sleeper expects him to play. Everything to the right is over this many games.'],
     ['sleeper', 'Sleeper', '', 'WHAT YOUR LEAGUEMATES SEE. Exactly the PTS number in your Sleeper draft room — their projection, scored under our league rules by them. This column IS that column, digit for digit.'],
-    ['fumAdj', 'Fum', '', 'The one rule their number cannot carry: we dock a point per fumble AND a point for losing it, but no projection counts plain fumbles. Estimated from his own last season. Always a cost.'],
-    ['adjusted', 'Actual', '', 'THE REAL PROJECTION. Sleeper\u2019s number with that fumble rule put back — every scored rule in the league, applied. This is what he actually projects to here.'],
-    ['adp', 'ADP', '', 'Where he actually gets drafted, across every league in the world. This is his PRICE — and nothing about it knows our thirty keepers are gone or how our lineup is shaped.'],
+    ['adjusted', 'Actual', '', 'THE REAL PROJECTION — every scored rule in the league, applied. Sleeper\u2019s number plus the one rule they cannot carry: we dock a point per fumble as well as for losing it, and no projection counts plain fumbles. Usually a point or two, occasionally seven.'],
+    ['adp', 'ADP', '', 'The ADP in YOUR draft room. Sleeper serves the one matching our format — IDP with one quarterback — and this is the price you will actually pay. Nothing about it knows our thirty keepers are gone.'],
+    ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes. The gap to the column on its left is what our format alone does to his price.'],
     ['vorpSeason', 'VORP', '', 'Season points over a replacement starter AT HIS POSITION, from the pool you can really draft. What taking him actually wins you. Sleeper does not compute this at all.'],
     ['slip', 'Value', '', 'HOW UNDERVALUED HE IS, in draft places: how much later the market lets him go than his VORP says he is worth. Positive is cheap.'],
     ['surplus', 'Gain', '', 'AND BY HOW MUCH, in points: how much more he wins you than the man the market prices him alongside. A big slip is worth nothing if the two men are worth the same \u2014 this is the number that says whether it matters.'],
@@ -365,14 +367,14 @@
           numbers and then does the two things they never do.
         </p>
         <p class="muted">
-          <b>Actual</b> is their projection with the one rule they cannot carry put back — we dock a point per
-          fumble as well as for losing it, and no projection counts plain fumbles.
+          <b>Actual</b> is their projection with the one rule they cannot carry folded in — we dock a point per
+          fumble as well as for losing it, and no projection counts plain fumbles. It is usually a point or two.
           <b>Value</b> and <b>Gain</b> are the answer to the only question a draft board can really help with:
           who the market lets you have later than he is worth here, and by how many points.
         </p>
         <p class="muted">
           {built.rows.length} players scored · {built.rows.filter((r) => r.partial).length} on a part-season projection (held out of replacement)
-          {#if fumbled} · {fumbled} carry a fumble estimate in their own column, never in the ranking{/if}.
+          {#if fumbled} · {fumbled} carry a fumble estimate inside <b>Actual</b>{/if}.
         </p>
         {#if cov.missing.length}
           <p class="muted bad" data-testid="sheet-missing">
@@ -443,9 +445,9 @@
               <td class="l muted">{r.team}</td>
               <td class="muted">{r.games}</td>
               <td class="big" title="the PTS column in your Sleeper draft room">{n1(r.sleeper)}</td>
-              <td class="fum" title={r.fumAdj ? 'fumbles his projection does not price' : 'no prior season to estimate from'}>{r.fumAdj ? r.fumAdj.toFixed(1) : ''}</td>
               <td class="big">{n1(r.adjusted)}</td>
               <td class="muted">{r.adp != null ? r.adp.toFixed(1) : '—'}</td>
+              <td class="muted alt" title={r.adp != null && r.adpMarket != null ? `${(r.adpMarket - r.adp).toFixed(1)} places later in the wider market` : 'no mainstream price'}>{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
               <td class="edge" class:up={r.slip > 12} class:dn={r.slip < -12} title={r.slip != null ? `the market has him ${r.adpRank}th, this board has him ${r.valueRank}th` : ''}>{r.slip != null ? plus(r.slip) : ''}</td>
               <td class="gain" class:up={r.surplus > 8} class:dn={r.surplus < -8}>{r.surplus != null ? plus(r.surplus) : ''}</td>
@@ -538,6 +540,7 @@
   /* The three that matter read as a group: what they see, what it really is,
      and the gap — so the eye tracks left to right across one story. */
   td.theirs { color: var(--muted); }
+  td.alt { color: var(--muted); opacity: .7; }
   td.fum { color: var(--stamp-red); opacity: .75; font-size: 10.5px; }
   td.theirs .q { font-style: normal; color: var(--brass); font-size: 9px; margin-left: 2px; }
   td.gap { color: var(--purp); }

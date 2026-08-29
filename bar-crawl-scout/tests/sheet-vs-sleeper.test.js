@@ -382,3 +382,49 @@ describe('what Sleeper is not doing, measured', () => {
     }
   });
 });
+
+describe('both prices, side by side', () => {
+  const OUT3 = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+  const sc = Object.fromEntries(Object.entries(league.scoring_settings).filter(([k]) => !OUT3.test(k)));
+  const SLOTS = league.roster_positions.filter((p) => p !== 'IDP_FLEX');
+  const key = adpKeyFor(league.roster_positions, league.scoring_settings);
+  const built = buildSheet(rows.map((r) => ({
+    id: r.id, name: r.name, pos: r.pos, team: 'FA',
+    games: Number(r.line.gp) || 17, proj: r.line, sleeperPts: r.published,
+    adp: Number(r.line[key]) || null,
+    adpMarket: Number(r.line.adp_half_ppr) || null,
+  })), sc, SLOTS, 10, 17, null, 300);
+  const at = Object.fromEntries(built.rows.map((r) => [r.name, r]));
+
+  it('carries our room’s price AND the mainstream one', () => {
+    // Both real, both Sleeper's own, and deliberately different numbers.
+    expect(at['Josh Allen'].adp).toBe(16.4);
+    expect(at['Josh Allen'].adpMarket).toBe(20.9);
+    expect(at['Trey McBride'].adp).toBe(19.1);
+    expect(at['Trey McBride'].adpMarket).toBe(23.2);
+  });
+
+  it('and they disagree for most of the board, which is the point', () => {
+    const both = built.rows.filter((r) => r.adp != null && r.adpMarket != null);
+    expect(both.length).toBeGreaterThan(100);
+    const differ = both.filter((r) => Math.abs(r.adp - r.adpMarket) > 1);
+    expect(differ.length / both.length).toBeGreaterThan(0.5);
+  });
+
+  it('prices Value off OUR room, not the mainstream one', () => {
+    // The slip has to be measured against what you will actually pay.
+    const priced = built.rows.filter((r) => r.adp != null);
+    const byAdp = priced.slice().sort((a, b) => a.adp - b.adp);
+    expect(byAdp[0].adpRank).toBe(1);
+    for (const r of built.rows) {
+      if (r.adp == null) expect(r.slip).toBeNull();
+    }
+  });
+
+  it('caps the mainstream column on the same filler rule', () => {
+    for (const r of built.rows) {
+      if (r.adpMarket != null) expect(r.adpMarket).toBeLessThanOrEqual(300);
+    }
+    expect(built.rows.some((r) => r.adpMarket == null)).toBe(true);
+  });
+});

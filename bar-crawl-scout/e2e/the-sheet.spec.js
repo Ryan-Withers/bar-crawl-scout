@@ -85,8 +85,8 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
   // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
-  const SLEEPER = 6; const FUM = 7; const ACTUAL = 8; const ADP = 9; const VORP = 10;
-  const VALUE = 11; const GAIN = 12; const MARKET = 13; const OURS = 14; const FD = 15;
+  const SLEEPER = 6; const ACTUAL = 7; const ADP = 8; const ADP_HALF = 9;
+  const VORP = 10; const VALUE = 11; const GAIN = 12; const MARKET = 13; const OURS = 14; const FD = 15;
 
   // Identical yards and scores, so a stock board cannot separate them...
   // ...and the column the league is looking at cannot either: it is the same
@@ -268,7 +268,7 @@ test('the three columns are season totals, and the gap between them is the ruleb
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
-  const SLEEPER = 6; const ACTUAL = 8; const MARKET = 13; const G = 5;
+  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 13; const G = 5;
 
   const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
   const market = await num('Gunslinger', MARKET);
@@ -321,7 +321,7 @@ test('hovering a column does not sort it — the explainer is not a click', asyn
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
   const before = await page.locator('[data-testid="sheet-table"] tbody tr').first().innerText();
-  await page.locator('thead th', { hasText: /^ADP/ }).hover();
+  await page.locator('thead th').filter({ hasText: /^\s*ADP\s*$/ }).hover();
   await expect(page.locator('.tip')).toBeVisible();
   await expect(page.locator('[data-testid="sheet-table"] tbody tr').first()).toHaveText(before);
 });
@@ -379,4 +379,33 @@ test('the live toggle is off until you ask for it', async ({ page }) => {
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-live')).not.toBeChecked();
+});
+
+test('every column has a header, and every header a column', async ({ page }) => {
+  // Caught a real one: adding the second ADP column put a cell in every row and
+  // no label above it, so from ADP rightwards every heading named the column to
+  // its left — VORP over the ADP figures, Value over VORP. Nothing failed, the
+  // board just quietly lied about which number was which.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const table = page.getByTestId('sheet-table');
+  await expect(table).toBeVisible();
+  const headers = await table.locator('thead th').count();
+  const cells = await table.locator('tbody tr').first().locator('td').count();
+  expect(cells).toBe(headers);
+});
+
+test('shows the price in your room AND the one the rest of the world quotes', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const labels = await page.locator('[data-testid="sheet-table"] thead th').allTextContents();
+  const trimmed = labels.map((t) => t.replace(/[▼▲]/g, '').trim());
+  expect(trimmed).toContain('ADP');
+  expect(trimmed).toContain('ADP½');
+  // Side by side, so the gap between them is readable at a glance.
+  expect(trimmed.indexOf('ADP½') - trimmed.indexOf('ADP')).toBe(1);
+
+  await page.locator('thead th').filter({ hasText: /^\s*ADP½/ }).hover();
+  await expect(page.locator('.tip')).toContainText('mainstream half-PPR');
 });
