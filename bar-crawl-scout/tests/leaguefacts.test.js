@@ -18,7 +18,7 @@ import traded from '../src/lib/api/fixtures/traded_picks-2026.json';
 import txns from '../src/lib/api/fixtures/transactions-2026-1.json';
 import { userHandleMap } from '../src/api/league';
 import { capitalFor } from '../src/lib/engine/picks';
-import { CAPITAL, REBUILD, CONTEND, MGRS, TEAMS } from '../src/lib/data.js';
+import { CAPITAL, REBUILD, CONTEND, MGRS, PERSONA, TEAMS } from '../src/lib/data.js';
 
 const uh = userHandleMap(users);
 const rosterHandle = Object.fromEntries(rosters.map((r) => [r.roster_id, uh[r.owner_id]]));
@@ -132,6 +132,46 @@ describe('the scouting notes do not describe a season that is over', () => {
       expect(m.tend.length, `${m.h} tendency`).toBeGreaterThan(20);
       expect(m.note.length, `${m.h} note`).toBeGreaterThan(20);
       expect(m.tags.length, `${m.h} tags`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('the mock GMs draft like the men they are', () => {
+  it('gives every manager a dial, and no two the same flat 50', () => {
+    expect(Object.keys(PERSONA).sort()).toEqual([...handles].sort());
+    const flat = handles.filter((h) => PERSONA[h].window === 50 && PERSONA[h].chaos === 50);
+    // Only Ryan's, and only because it is his own seat.
+    expect(flat).toEqual(['Ryan']);
+  });
+
+  it('puts every rebuilder on the future side of the dial', () => {
+    for (const h of REBUILD) expect(PERSONA[h].window, `${h} drafts for next year`).toBeGreaterThan(60);
+  });
+
+  it('puts the three who spent their futures on the win-now side', () => {
+    for (const h of ['ImyHunter', 'ShaydenB', 'ATorelli4']) {
+      expect(PERSONA[h].window, `${h} drafts for this year`).toBeLessThan(50);
+    }
+  });
+
+  it('has joshleota as the most future-facing GM in the room', () => {
+    // He sold Jefferson and Nacua and holds four 2027 firsts. If anyone in this
+    // league is drafting for next season it is him.
+    const others = handles.filter((h) => h !== 'joshleota');
+    for (const h of others) expect(PERSONA.joshleota.window, `vs ${h}`).toBeGreaterThan(PERSONA[h].window);
+  });
+
+  it('and ImyHunter as the most win-now', () => {
+    const others = handles.filter((h) => h !== 'ImyHunter');
+    for (const h of others) expect(PERSONA.ImyHunter.window, `vs ${h}`).toBeLessThan(PERSONA[h].window);
+  });
+
+  it('keeps every dial in range', () => {
+    for (const h of handles) {
+      expect(PERSONA[h].window).toBeGreaterThanOrEqual(0);
+      expect(PERSONA[h].window).toBeLessThanOrEqual(100);
+      expect(PERSONA[h].chaos).toBeGreaterThanOrEqual(0);
+      expect(PERSONA[h].chaos).toBeLessThanOrEqual(100);
     }
   });
 });

@@ -27,7 +27,13 @@ test('the whole loop: lobby -> start -> your turn -> queue -> draft -> sim to en
   await expect(page.getByText(/THE WAR ROOM/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /the league/i })).toHaveCount(0); // hub chrome hidden
   await expect(page.getByTestId('gm-list').locator('li')).toHaveCount(10);
-  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Balanced · mostly disciplined/);
+  // Ten managers, ten different men. joshleota has sold Jefferson and Nacua for
+  // four 2027 firsts, so the room describes him as drafting for next year — and
+  // ImyHunter, who emptied his futures buying Lamb and Flowers, as the opposite.
+  await expect(page.getByTestId('gm-phrase-joshleota')).toHaveText(/Future-first/);
+  await expect(page.getByTestId('gm-phrase-ImyHunter')).toHaveText(/Win-now/);
+  const phrases = await page.getByTestId('gm-list').locator('li').allTextContents();
+  expect(new Set(phrases).size, 'the GMs are not ten clones').toBeGreaterThan(4);
   await expect(page.getByTestId('customise-gms').locator('input[type=range]')).toHaveCount(20);
 
   await page.getByTestId('start').click();

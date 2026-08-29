@@ -177,7 +177,10 @@
         {/each}
       </ul>
       <p class="note">
-        Your three keepers — {(ledger[RYAN] || []).map((m) => m.name).join(', ') || '—'} —
+        <!-- Counted, not assumed: it is three today because that is what he
+             declared, and the board reads declarations rather than the settled
+             squads. -->
+        Your {(ledger[RYAN] || []).length} keepers — {(ledger[RYAN] || []).map((m) => m.name).join(', ') || '—'} —
         sit at {(keeperCells(board).filter((c) => c.handle === RYAN).map((c) => pickCode(c.pickNo, board.teams)).join(', ')) || '—'}.
       </p>
     {:else}

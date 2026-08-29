@@ -223,6 +223,32 @@ export const LEAN={Ryan:{RB:0,WR:1},joshleota:{RB:1,WR:1},WinzTheBrah:{WR:1,QB:1
 // nothing left in 2027; they were written down as rebuilders.
 export const REBUILD=new Set(["joshleota","jpdonners"]);
 export const CONTEND=new Set(["ImyHunter","ShaydenB","ATorelli4","WinzTheBrah","jduddy9","JohnnyDuff"]);
+// HOW EACH GM DRAFTS, for the mock room. window: 0 = win-now, 50 = balanced,
+// 100 = future. chaos: 0 = by the book, 100 = total chaos.
+//
+// Every GM used to default to 50/50, so the lobby described ten identical
+// managers as "Balanced · mostly disciplined" and the bots all drafted the same
+// board. That is not this room. joshleota has sold Jefferson and Nacua and is
+// playing for next year; ImyHunter has emptied his futures buying Lamb and
+// Flowers and has to win now or not at all. A mock that cannot tell those two
+// apart is not worth running.
+//
+// Grounded in the August trade log — see tests/leaguefacts.test.js, which holds
+// each window to the side of the fence that manager's trades put him on. The
+// chaos column is a read on temperament and is nobody's fact but ours.
+export const PERSONA={
+ joshleota:{window:90,chaos:55},      // tanking: two studs sold, four 2027 firsts
+ jpdonners:{window:80,chaos:60},      // sold two keepers, drafting a squad from scratch
+ JShrimp341:{window:65,chaos:40},     // 5-10 seller, earliest pick a second
+ JohnnyDuff:{window:55,chaos:30},     // nothing early this year, 2027 intact
+ WinzTheBrah:{window:45,chaos:15},    // hasn't traded all off-season; by the book
+ ATorelli4:{window:40,chaos:70},      // 22 picks for 15 spots — he can afford to reach
+ ShaydenB:{window:25,chaos:45},       // paid his 2027 first for Jefferson
+ jduddy9:{window:20,chaos:55},        // clears the RB tier fast, spends every dollar
+ ImyHunter:{window:8,chaos:65},       // all-in: futures board empty, five keepers
+ Ryan:{window:50,chaos:50},           // your seat — only used when you spectate
+};
+
 // THE ROOM, as it stands a week out — rewritten off the August trade log rather
 // than off last season's impression. Records and points are Sleeper's; the
 // capital claims are reconciled against traded_picks by tests/leaguefacts.test.js.
