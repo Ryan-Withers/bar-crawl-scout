@@ -111,6 +111,17 @@ export function recordsFromRosters(
     const h = userHandle[r.owner_id];
     if (!h) continue;
     const s = r.settings || ({} as SleeperRoster['settings']);
+    // A roster that has not played is not a 0-0 record, it is NO record.
+    //
+    // Sleeper zeroes every roster the moment a new league season is created, so
+    // in the pre-draft window this returned ten rows of 0-0, .000, 0 PF — and
+    // because the callers only checked "did any rows come back", the Standings,
+    // Power Rankings, Playoff picture and the championship odds on The Book all
+    // rendered a league that had played no football, hiding last season's real
+    // records that the static fallback holds correctly.
+    const played = (s.wins || 0) + (s.losses || 0) + (s.ties || 0) > 0
+      || (s.fpts || 0) > 0 || (s.fpts_against || 0) > 0;
+    if (!played) continue;
     out[h] = {
       wins: s.wins || 0,
       losses: s.losses || 0,

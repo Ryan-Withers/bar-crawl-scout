@@ -15,7 +15,7 @@ import { draftSlotBoard, userHandleMap } from '../src/api/league';
 import {
   slotAt, pickNoAt, pickCode, allCells, derivePlacement, keeperBoard,
   liveCells, keeperCells, livePicksFor, liveSequence, livePickCounts,
-  fullyLiveRounds, keeperLedger, keptIds, keptNames, incompleteKeepers,
+  fullyLiveRounds, keeperLedger, keptIds, keptNames, incompleteKeepers, liveSequenceMeta,
 } from '../src/lib/engine/keepers';
 
 const draft = drafts.find((d) => d && d.draft_order);
@@ -358,5 +358,42 @@ describe('the contract clock, derived rather than typed', () => {
   it('handles an empty or missing keeper list', () => {
     expect(contracts([], prior, 1)).toEqual([]);
     expect(contracts(null, prior, 1)).toEqual([]);
+  });
+});
+
+describe('the sequence carries its own coordinates', () => {
+  // This is the guard against the bug the ragged board caused: 120 divides by
+  // 10, so a board that recovers round and column from the sequence index draws
+  // a plausible 12x10 grid and files round 13's two live picks under other
+  // managers. The metadata is the only thing standing between us and that
+  // returning, so it gets tested rather than trusted.
+  const meta = liveSequenceMeta(board);
+
+  it('runs parallel to the live sequence, pick for pick', () => {
+    const seq = liveSequence(board);
+    expect(meta).toHaveLength(seq.length);
+    meta.forEach((m, i) => expect(m.handle).toBe(seq[i]));
+  });
+
+  it('spans FIFTEEN board rounds even though there are only 120 live picks', () => {
+    expect(meta).toHaveLength(120);
+    expect(Math.max(...meta.map((m) => m.round))).toBe(13);
+    // ...which is exactly why 120/10 = 12 was the wrong answer.
+    expect(meta.filter((m) => m.round === 13)).toHaveLength(2);
+    expect(meta.filter((m) => m.round === 12)).toHaveLength(8);
+  });
+
+  it('never names a cell a keeper is already sitting on', () => {
+    const spent = new Set(keeperCells(board).map((c) => c.pickNo));
+    for (const m of meta) expect(spent.has(m.pickNo), `pick ${m.pickNo} is live`).toBe(false);
+  });
+
+  it('gives every entry a real coordinate', () => {
+    for (const m of meta) {
+      expect(m.round).toBeGreaterThanOrEqual(1);
+      expect(m.slot).toBeGreaterThanOrEqual(1);
+      expect(m.slot).toBeLessThanOrEqual(10);
+      expect(pickNoAt(m.round, m.slot, 10)).toBe(m.pickNo);
+    }
   });
 });

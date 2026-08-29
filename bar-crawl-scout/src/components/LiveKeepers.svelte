@@ -53,11 +53,13 @@
     };
     const ledger = keeperLedger(rosters, userHandleMap(users), nameOf);
     const live = toStoreShape(ledger);
-    // Only take the wheel when the league has actually declared. A half-set
-    // league would otherwise wipe good projections for the managers who have not
-    // locked yet, which is strictly worse than the guess it replaced.
-    const declared = Object.values(live).filter((rows) => rows[0][0]).length;
-    keepers.setLive(declared === TEAMS.length ? live : null);
+    // MERGE, don't switch. An all-or-nothing swap meant one manager who hadn't
+    // declared dropped the whole league back to guesses — so nine known answers
+    // were thrown away to avoid admitting one unknown. Take the truth wherever
+    // it exists and leave the projection standing only where it doesn't; the
+    // Keepers page names anyone still short.
+    const declared = Object.keys(live).filter((h) => live[h][0][0]);
+    keepers.setLive(declared.length ? live : null);
   }
 
   // PICK CAPITAL, this season and next. The futures column matters as much as

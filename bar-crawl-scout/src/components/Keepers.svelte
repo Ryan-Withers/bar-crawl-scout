@@ -37,6 +37,7 @@
   $: uh = userHandleMap(users);
   $: maxKeepers = Number($leagueQ.data?.settings?.max_keepers ?? 3);
   $: live = $keepersSource === 'live';
+  $: mixed = $keepersSource === 'mixed';
 
   $: nameOf = (id) => {
     const p = $playersQ.data?.[String(id)];
@@ -61,10 +62,11 @@
   // WHO CAME BACK. Every man on a roster who is not one of the thirty returns to
   // the pool, and the good ones are the whole story of this draft.
   $: keptIdSet = new Set(Object.values(ledger).flat().map((m) => m.playerId));
-  $: backInPool = (() => {
-    if (!rosters.length || !$playersQ.data) return [];
+  $: returning = (() => {
+    if (!rosters.length || !$playersQ.data) return { ranked: [], offBoard: [] };
     const seen = new Set();
-    const out = [];
+    const ranked = [];
+    const offBoard = [];
     for (const r of rosters) {
       for (const id of r.players || []) {
         const key = String(id);
@@ -73,12 +75,19 @@
         const p = $playersQ.data[key];
         if (!p) continue;
         const row = byName(p[0]);
-        if (!row) continue;                       // not on the top-200 board
-        out.push({ id: key, name: row[1], pos: row[2], team: row[3], adp: row[5] });
+        // Anyone off the 200-row board still goes back in the pool — dropping
+        // them silently hid two dozen men, the whole defensive cohort among
+        // them, from a page whose one job is to say who is coming back.
+        if (row) ranked.push({ id: key, name: row[1], pos: row[2], team: row[3], adp: row[5] });
+        else offBoard.push({ id: key, name: p[0], pos: p[1] || '?', team: p[2] || 'FA' });
       }
     }
-    return out.sort((a, b) => a.adp - b.adp);
+    ranked.sort((a, b) => a.adp - b.adp);
+    offBoard.sort((a, b) => (a.pos === b.pos ? a.name.localeCompare(b.name) : a.pos.localeCompare(b.pos)));
+    return { ranked, offBoard };
   })();
+  $: backInPool = returning.ranked;
+  $: offBoardPool = returning.offBoard;
 
   const teamName = (h) => TEAMSHORT[h] || h;
   // The projection fallback still uses the old store shape.
@@ -94,6 +103,11 @@
       <b>Locked.</b> All {TEAMS.length} managers have declared their {maxKeepers}, straight from
       Sleeper — {Object.values(ledger).flat().length} men off the board. Everyone else
       on every roster goes back into the draft.
+    </p>
+  {:else if mixed}
+    <p class="warn">
+      <b>Partly locked.</b> Sleeper has answered for some managers and not others.
+      Anyone still short of {maxKeepers} below is showing a <b>projection</b>, not a fact.
     </p>
   {:else}
     <p class="warn">
@@ -118,7 +132,7 @@
 
         {#if h === RYAN && !$unlocked && !live}
           <div class="sealed">🔒 <b>CLASSIFIED.</b> The commissioner's ledger is sealed. Go beat someone you can read.</div>
-        {:else if live && men.length}
+        {:else if men.length}
           {#each cs as c, i}
             {@const m = men[i]}
             <div class="row" style="--pos:{POS_INK[m.pos] || 'var(--line)'}">
@@ -147,13 +161,13 @@
     {/each}
   </div>
 
-  {#if live && backInPool.length}
+  {#if (live || mixed) && backInPool.length}
     <div class="poolhead">
       <button class="ptoggle" on:click={() => (poolOpen = !poolOpen)} aria-expanded={poolOpen}>
-        {poolOpen ? '▾' : '▸'} Back in the pool ({backInPool.length})
+        {poolOpen ? '▾' : '▸'} Back in the pool ({backInPool.length + offBoardPool.length})
       </button>
       <p class="note">
-        Every man on a roster who was not one of the {Object.values(ledger).flat().length} kept.
+        Every man on a roster who was not one of the {Object.values(ledger).flat().length} kept, ranked by ADP.
         These are not free agents — they are the league's own players, returning to the draft.
       </p>
     </div>
@@ -169,6 +183,13 @@
       </ol>
       {#if backInPool.length > 60}
         <p class="note">…and {backInPool.length - 60} more. The full ordering lives on the <a href="/board" use:link>Big Board</a>.</p>
+      {/if}
+      {#if offBoardPool.length}
+        <p class="note">
+          Plus <b>{offBoardPool.length}</b> returning who sit outside the top-200 board, so they carry no ADP here —
+          mostly defenders, for the IDP seat:
+          {offBoardPool.slice(0, 24).map((p) => `${p.name} (${p.pos})`).join(', ')}{#if offBoardPool.length > 24}, and {offBoardPool.length - 24} more{/if}.
+        </p>
       {/if}
     {/if}
   {/if}

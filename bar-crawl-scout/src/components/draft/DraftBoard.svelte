@@ -43,7 +43,7 @@
     ? (metaIndex.has(`${r + 1}:${c + 1}`) ? metaIndex.get(`${r + 1}:${c + 1}`) : -1)
     : idxOf(r, c, N, boardType));
   // The pick's real code (13.01), not one recomputed from its position in the log.
-  $: codeOf = (idx, p) => (meta && meta[idx] ? pickCode(meta[idx].pickNo, N) : pickCode(p.overall, N));
+  $: codeOf = (idx, p) => (meta && meta[idx] ? pickCode(meta[idx].pickNo, N) : pickCode(p.boardPick ?? p.overall, N));
 
   // Keep the cell on the clock centred as the picks tick through.
   export function follow() {

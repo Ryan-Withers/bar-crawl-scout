@@ -48,7 +48,16 @@ function initKS(existing) {
 function keeperStore() {
   const local = persisted('hq_keepers_v6', initKS(readJSON('hq_keepers_v6')));
   const live = writable(null);
-  const view = derived([live, local], ([$live, $local]) => $live || $local);
+  // Per-manager merge rather than a wholesale swap: Sleeper's answer wins for
+  // everyone who has declared, and the projection is left standing only for
+  // anyone who hasn't. Throwing away nine known answers to avoid admitting one
+  // unknown was the wrong trade.
+  const view = derived([live, local], ([$live, $local]) => {
+    if (!$live) return $local;
+    const out = { ...$local };
+    for (const [h, rows] of Object.entries($live)) if (rows[0] && rows[0][0]) out[h] = rows;
+    return out;
+  });
   return {
     subscribe: view.subscribe,
     set: local.set,
@@ -60,9 +69,14 @@ function keeperStore() {
 }
 export const keepers = keeperStore();
 
-// 'live' once Sleeper's locked keepers are in hand, 'projection' until then.
-// The UI says which, rather than presenting a guess as a fact.
-export const keepersSource = derived(keepers.live, ($l) => ($l ? 'live' : 'projection'));
+// 'live' when every manager's keepers came off Sleeper, 'mixed' when some are
+// still projections, 'projection' when none arrived. The UI says which, rather
+// than presenting a guess as a fact.
+export const keepersSource = derived(keepers.live, ($l) => {
+  if (!$l) return 'projection';
+  const declared = Object.values($l).filter((rows) => rows[0] && rows[0][0]).length;
+  return declared >= TEAMS.length ? 'live' : 'mixed';
+});
 
 // PICK CAPITAL, live. Same argument as the keepers: data.js hand-counts who
 // holds which early picks, and it had gone stale for four of the ten managers

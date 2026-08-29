@@ -39,7 +39,16 @@ export interface MockConfig {
   sequenceMeta?: Array<{ round: number; slot: number; pickNo: number }>;
 }
 export interface MockPick {
-  overall: number;
+  overall: number;              // 1-based position in the LIVE sequence
+  /**
+   * Where this pick actually sits on the board, when the config carries real
+   * coordinates. On the ragged live board these diverge from `overall` the
+   * moment a keeper cell is skipped: live pick 115 is board pick 116, and the
+   * gap widens. The clock, the feed, the reveal cards and the recap all print
+   * board codes, so they need the board number, not the counter.
+   */
+  boardPick?: number;
+  boardRound?: number;
   round: number;
   handle: string;
   player: MockPlayer;
@@ -187,8 +196,22 @@ export function createMock(cfg: MockConfig): MockState {
 }
 
 export const currentHandle = (s: MockState): string | null => (s.done ? null : s.seq[s.cursor] ?? null);
-export const roundOf = (s: MockState, cursor = s.cursor): number =>
-  Math.floor(cursor / s.cfg.order.length) + 1;
+export const roundOf = (s: MockState, cursor = s.cursor): number => {
+  // On a real board the rounds are ragged — keepers eat part of round 12 and
+  // most of 13 — so dividing the cursor by the team count runs out at 12 and
+  // announces two round-13 picks as round 12. The coordinates know better.
+  const meta = s.cfg.sequenceMeta?.[cursor];
+  if (meta) return meta.round;
+  return Math.floor(cursor / s.cfg.order.length) + 1;
+};
+
+/**
+ * The board pick number for the cursor — what belongs on the clock and in the
+ * recap. Falls back to the live counter for a mock with no real coordinates,
+ * where the two are the same thing.
+ */
+export const boardPickAt = (s: MockState, cursor = s.cursor): number =>
+  s.cfg.sequenceMeta?.[cursor]?.pickNo ?? cursor + 1;
 
 /**
  * THE CHAOS DIAL'S RESPONSE CURVE.
@@ -276,7 +299,14 @@ export function makePick(s: MockState, playerName?: string): MockState {
     .slice()
     .sort((a, b) => b.v.balanced - a.v.balanced)
     .findIndex((p) => p.name === player.name) + 1;
-  const pick: MockPick = { overall: s.log.length + 1, round: roundOf(s), handle: h, player, boardRank };
+  const meta = s.cfg.sequenceMeta?.[s.cursor];
+  const pick: MockPick = {
+    overall: s.log.length + 1,
+    round: meta ? meta.round : roundOf(s),
+    boardPick: meta ? meta.pickNo : undefined,
+    boardRound: meta ? meta.round : undefined,
+    handle: h, player, boardRank,
+  };
   const next: MockState = {
     ...s,
     rng,
@@ -323,8 +353,8 @@ export function recapText(
     const haul = s.log.filter((p) => p.handle === opts.seat).slice(0, 5).map((p) => shortName(p.player.name));
     if (mine) lines.push(`MY HAUL (${nm(opts.seat)} · ${mine.grade}): ${haul.join(', ')}${s.log.filter((p) => p.handle === opts.seat).length > 5 ? '…' : ''}`);
   }
-  if (g.steals[0]) lines.push(`💎 Steal of the draft: ${g.steals[0].player.name} to ${nm(g.steals[0].handle)} @ pick ${g.steals[0].overall} (board #${g.steals[0].boardRank})`);
-  if (g.reaches[0]) lines.push(`🚨 Reach of the draft: ${g.reaches[0].player.name} by ${nm(g.reaches[0].handle)} @ pick ${g.reaches[0].overall} (board #${g.reaches[0].boardRank})`);
+  if (g.steals[0]) lines.push(`💎 Steal of the draft: ${g.steals[0].player.name} to ${nm(g.steals[0].handle)} @ pick ${g.steals[0].boardPick ?? g.steals[0].overall} (board #${g.steals[0].boardRank})`);
+  if (g.reaches[0]) lines.push(`🚨 Reach of the draft: ${g.reaches[0].player.name} by ${nm(g.reaches[0].handle)} @ pick ${g.reaches[0].boardPick ?? g.reaches[0].overall} (board #${g.reaches[0].boardRank})`);
   if (opts.url) lines.push(`Run yours: ${opts.url}`);
   return lines.join('\n');
 }

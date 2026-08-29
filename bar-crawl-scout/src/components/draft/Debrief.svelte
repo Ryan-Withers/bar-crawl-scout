@@ -98,7 +98,7 @@
     <div>
       <div class="sethd big">💎 Steals</div>
       {#each grades.steals as p}
-        <div class="srow">{p.player.name} <small>to {nm(p.handle)} — {pickCode(p.overall, teamsN)}, board #{p.boardRank}</small></div>
+        <div class="srow">{p.player.name} <small>to {nm(p.handle)} — {pickCode(p.boardPick ?? p.overall, teamsN)}, board #{p.boardRank}</small></div>
       {:else}
         <div class="srow muted">None — a disciplined room.</div>
       {/each}
@@ -106,7 +106,7 @@
     <div>
       <div class="sethd big">🚨 Reaches</div>
       {#each grades.reaches as p}
-        <div class="srow">{p.player.name} <small>by {nm(p.handle)} — {pickCode(p.overall, teamsN)}, board #{p.boardRank}</small></div>
+        <div class="srow">{p.player.name} <small>by {nm(p.handle)} — {pickCode(p.boardPick ?? p.overall, teamsN)}, board #{p.boardRank}</small></div>
       {:else}
         <div class="srow muted">None flagged.</div>
       {/each}
@@ -119,7 +119,7 @@
       <div class="focus">
         {#each myPicks as p}
           <div class="hrow">
-            <span class="code">{pickCode(p.overall, teamsN)}</span>
+            <span class="code">{pickCode(p.boardPick ?? p.overall, teamsN)}</span>
             <span class="posb" style="--pc:{posColor(p.player.pos)}">{p.player.pos}</span>
             <PlayerChip name={p.player.name} />
             <span class="rank">board #{p.boardRank}</span>

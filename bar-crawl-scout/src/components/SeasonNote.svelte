@@ -10,10 +10,19 @@
   const leagueQ = createQuery(leagueQuery());
   const stateQ = createQuery(stateQuery());
 
-  // 'draft' before/at the draft; 'season' once games are being played.
+  // 'draft' before/at the draft; 'season' once games are being PLAYED.
+  //
+  // `week > 0` was not that test. Sleeper counts preseason weeks too, so a
+  // captured state of { week: 3, season_type: 'pre' } read as in-season while
+  // the league still said pre_draft — and the Keepers page, whose entire point
+  // is that the keepers are locked for the coming draft, printed "keeper
+  // planning for next season". The season type is the field that actually
+  // answers the question.
   $: status = $leagueQ.data?.status || '';
+  $: seasonType = $stateQ.data?.season_type || '';
   $: week = $stateQ.data?.week ?? 0;
-  $: phase = status === 'in_season' || status === 'complete' || status === 'post_season' || week > 0 ? 'season' : 'draft';
+  $: playing = (seasonType === 'regular' || seasonType === 'post') && week > 0;
+  $: phase = status === 'in_season' || status === 'complete' || status === 'post_season' || playing ? 'season' : 'draft';
 </script>
 
 <div class="note snote {phase}">
