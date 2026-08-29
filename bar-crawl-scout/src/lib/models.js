@@ -171,11 +171,31 @@ export const rosterOwner = (own, name) => (own ? (own[nameKey(name)] || null) : 
 // Redaction + trade helpers.
 export const isRyanPlayer = (ks, name) => { const o = ownerOf(ks, name); return !!o && o.owner === RYAN; };
 export const draftable = (ks) => PLAYERS.filter((p) => !isKept(ks, p[1]));
-// A pick is valued as the real player you would land after ~30 keepers are gone.
-export function pickValue(season, round, ks, mode) {
-  const pv = draftable(ks).map((p) => windowVal(p, ks, mode)).sort((a, b) => b - a);
-  const slot = (round - 1) * 10 + 4;
-  let base = pv[Math.min(slot, pv.length - 1)] || 0;
-  if (String(season) === '2027') base = Math.round(base * 0.6);
+// The draftable board, best first — what a pick actually lands.
+export const boardValues = (ks, mode) =>
+  draftable(ks).map((p) => windowVal(p, ks, mode)).sort((a, b) => b - a);
+
+/**
+ * A pick is valued as the real player you would land with it.
+ *
+ * `slot` is the seat it belongs to and it matters: the draft snakes, so slot 4
+ * in round 2 is the SEVENTH pick of that round. This used to hard-code slot 4
+ * and a linear board, which meant the Trade page valued both sides of a deal as
+ * if every pick were Ryan's, and the error changed sign every round.
+ *
+ * Pass `teams`/`type` from the live draft. With no seat named the price is taken
+ * at the middle of the round — a stated average rather than somebody's seat.
+ */
+export function pickValue(season, round, ks, mode, opts = {}) {
+  const pv = boardValues(ks, mode);
+  const teams = opts.teams > 0 ? opts.teams : 10;
+  const type = opts.type === 'linear' ? 'linear' : 'snake';
+  const slot = Number.isFinite(opts.slot) ? opts.slot : Math.ceil(teams / 2);
+  const idx = type === 'snake' && round % 2 === 0 ? teams - slot : slot - 1;
+  const overall = (round - 1) * teams + idx + 1;
+  if (overall > pv.length) return 0;             // nobody left to land
+  let base = pv[overall - 1] || 0;
+  const current = Number(opts.season || 2026);
+  if (Number(season) > current) base = Math.round(base * 0.6);
   return Math.round(base);
 }
