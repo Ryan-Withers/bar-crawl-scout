@@ -24,7 +24,8 @@
   import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { draftSheetQuery, playersQuery } from '../api/queries';
   import { userHandleMap } from '../api/league';
-  import { TEAMSHORT } from '../lib/data.js';
+  import { TEAMSHORT, byName } from '../lib/data.js';
+  import { board } from '../lib/store.js';
   import {
     buildSheet, applyOrder, moveInOrder, coverage, slotDemand, adpKeyFor, STOCK_SCORING,
   } from '../lib/engine/sheet.ts';
@@ -160,6 +161,11 @@
         adp: Number(line[adpKey]) || null,
         // And the mainstream half-PPR price, for the same player, alongside it.
         adpMarket: Number(line.adp_half_ppr) || null,
+        adpPpr: Number(line.adp_ppr) || null,
+        // The only number on the board that is not Sleeper's opinion of itself:
+        // the FantasyPros consensus, which aggregates ESPN, Yahoo, CBS and NFL.
+        // Sleeper's API publishes no other site's ADP, so this is what there is.
+        adpConsensus: (byName(info[0]) || [])[5] || null,
       });
     }
     return out;
@@ -203,12 +209,76 @@
   $: offenceSlots = (rosterPos || []).filter((p) => !IDP_SLOTS.has(p));
   $: demand = offenceSlots.length ? slotDemand(offenceSlots, teams) : { dedicated: {}, flexes: [] };
 
+  // ---- FAVOURITES AND YOUR OWN TAGS ----
+  //
+  // Both live on the existing board record, keyed by player name, so a star put
+  // on a man here is the same star the Big Board knows about. Free text rather
+  // than a fixed list: the useful tag on draft night is "handcuff for Gibbs" or
+  // "ask Imy about", and no list written in advance contains those.
+  $: favs = new Set($board.favs || []);
+  $: customTags = $board.custom || {};
+  const isFav = (n) => favs.has(n);
+  const toggleFav = (n) => board.update((b) => {
+    const list = Array.isArray(b.favs) ? b.favs.slice() : [];
+    const i = list.indexOf(n);
+    if (i >= 0) list.splice(i, 1); else list.push(n);
+    return { ...b, favs: list };
+  });
+  $: tagsOf = (n) => customTags[n] || [];
+  const addTag = (n, raw) => {
+    const t = String(raw || '').trim().slice(0, 24);
+    if (!t) return;
+    board.update((b) => {
+      const c = { ...(b.custom || {}) };
+      const cur = (c[n] || []).slice();
+      if (!cur.includes(t)) cur.push(t);
+      c[n] = cur;
+      return { ...b, custom: c };
+    });
+  };
+  const dropTag = (n, t) => board.update((b) => {
+    const c = { ...(b.custom || {}) };
+    const cur = (c[n] || []).filter((x) => x !== t);
+    if (cur.length) c[n] = cur; else delete c[n];
+    return { ...b, custom: c };
+  });
+  // Remembered, because a page you have to re-collapse every visit is a page
+  // that annoys you every visit.
+  const NOTES_LS = 'bcs_sheet_notes_v1';
+  let showNotes = (() => { try { return localStorage.getItem(NOTES_LS) === '1'; } catch { return false; } })();
+  const setNotes = (v) => { showNotes = v; try { localStorage.setItem(NOTES_LS, v ? '1' : '0'); } catch { /* blocked */ } };
+
+  let openTag = null;
+  let tagDraft = '';
+  // Every tag anyone has actually used, so the filter row is yours rather than
+  // a menu of options nobody picked.
+  $: allTags = [...new Set(Object.values(customTags).flat())].sort();
+  $: rookieCount = built.rows.filter((r) => r.rookie).length;
+
+  // What the Status column used to say, moved onto the row itself: the column
+  // was a third of the board's width for a fact you need once a pick.
+  $: statusOf = (r) => {
+    const g = gone[r.id];
+    if (g) {
+      const who = g.by ? ` — ${TEAMSHORT[g.by] || g.by}` : '';
+      return g.keeper ? `Kept${who}` : `Drafted ${pickCodeOf(g)}${who}`;
+    }
+    const o = ownerById[r.id];
+    return o ? `On ${TEAMSHORT[o] || o}'s roster now, but not kept — he goes back in the pool` : '';
+  };
+
   // ---- filters + sort ----
-  const POS_TABS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
+  // FLEX is a real seat in this lineup — two of them — so it is a real way to
+  // look at the board: everyone who can fill one, ranked against each other.
+  const POS_TABS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX'];
+  const FLEX_POS = new Set(['RB', 'WR', 'TE']);
   let posf = 'ALL';
   let q = '';
   let hideOwned = false;
   let hidePartial = false;
+  let rookiesOnly = false;
+  let favsOnly = false;
+  let tagFilter = '';
   let sortKey = 'vorpSeason';
   let sortDir = -1;
   let limit = 300;
@@ -216,9 +286,12 @@
 
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
-    if (posf !== 'ALL' && r.pos !== posf) return false;
+    if (posf === 'FLEX' ? !FLEX_POS.has(r.pos) : posf !== 'ALL' && r.pos !== posf) return false;
     if (hideOwned && (gone[r.id] || (anyKept ? keptById[r.id] : ownerById[r.id]))) return false;
     if (hidePartial && r.partial) return false;
+    if (rookiesOnly && !r.rookie) return false;
+    if (favsOnly && !favs.has(r.name)) return false;
+    if (tagFilter && !tagsOf(r.name).includes(tagFilter)) return false;
     const n = q.trim().toLowerCase();
     if (n && !r.name.toLowerCase().includes(n) && r.team.toLowerCase() !== n) return false;
     return true;
@@ -264,15 +337,14 @@
     ['sleeper', 'Sleeper', '', 'WHAT YOUR LEAGUEMATES SEE. Exactly the PTS number in your Sleeper draft room — their projection, scored under our league rules by them. This column IS that column, digit for digit.'],
     ['adjusted', 'Actual', '', 'THE REAL PROJECTION — every scored rule in the league, applied. Sleeper\u2019s number plus the one rule they cannot carry: we dock a point per fumble as well as for losing it, and no projection counts plain fumbles. Usually a point or two, occasionally seven.'],
     ['adp', 'ADP', '', 'The ADP in YOUR draft room. Sleeper serves the one matching our format — IDP with one quarterback — and this is the price you will actually pay. Nothing about it knows our thirty keepers are gone.'],
-    ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes. The gap to the column on its left is what our format alone does to his price.'],
+    ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes.'],
+    ['adpPpr', 'ADP1', '', 'Full-PPR ADP. Our scoring is half a point a catch plus half a point a first down, so it sits BETWEEN half and full PPR — these two bracket where he really belongs.'],
+    ['adpConsensus', 'FP', '', 'The FantasyPros consensus half-PPR ADP, which aggregates ESPN, Yahoo, CBS and NFL. The only price here that is not Sleeper marking its own homework.'],
     ['vorpSeason', 'VORP', '', 'Season points over a replacement starter AT HIS POSITION, from the pool you can really draft. What taking him actually wins you. Sleeper does not compute this at all.'],
     ['slip', 'Value', '', 'HOW UNDERVALUED HE IS, in draft places: how much later the market lets him go than his VORP says he is worth. Positive is cheap.'],
     ['surplus', 'Gain', '', 'AND BY HOW MUCH, in points: how much more he wins you than the man the market prices him alongside. A big slip is worth nothing if the two men are worth the same \u2014 this is the number that says whether it matters.'],
     ['market', 'Market', '', 'The same player under standard half-PPR, which is what ADP is built from. Shown because it explains the price, not because anyone in our room drafts on it.'],
     ['ours', 'PPG', '', 'The Sleeper number, per game.'],
-    ['fd', '1D', '', 'Points per game that come purely from first downs — a rule no public ranking prices.'],
-    ['posRank', 'PosRk', '', 'His rank at his own position on this board.'],
-    ['owner', 'Status', 'l', 'Kept, or the pick he was drafted at and who took him. Blank means still on the board.'],
   ];
 
   // THE COLUMN EXPLAINER. Rendered OUTSIDE the scrollport and positioned fixed,
@@ -313,7 +385,13 @@
   {:else if !built.rows.length}
     <p class="note">No projections came back for {raw?.season}. Sleeper publishes the season set closer to the year; hit Refresh later.</p>
   {:else}
-    <!-- WHAT MAKES THIS LEAGUE DIFFERENT -->
+    <!-- WHAT MAKES THIS LEAGUE DIFFERENT.
+         Collapsed by default and remembered: it is worth reading once and then
+         being out of the way, because the board is what you came for. -->
+    <button class="explain" data-testid="sheet-explain" on:click={() => setNotes(!showNotes)} aria-expanded={showNotes}>
+      {showNotes ? '▾' : '▸'} how this board works
+    </button>
+    {#if showNotes}
     <div class="strips">
       <div class="strip">
         <div class="sh">The rulebook</div>
@@ -387,6 +465,7 @@
         {/if}
       </div>
     </div>
+    {/if}
 
     <div class="bar">
       <span class="tabs">
@@ -395,6 +474,15 @@
         {/each}
       </span>
       <input class="srch" placeholder="search name or team…" bind:value={q} data-testid="sheet-search" />
+      <button class="chip" class:on={rookiesOnly} data-testid="sheet-rookies" on:click={() => (rookiesOnly = !rookiesOnly)}>
+        rookies{#if rookieCount}<b class="ct">{rookieCount}</b>{/if}
+      </button>
+      <button class="chip" class:on={favsOnly} data-testid="sheet-favs" on:click={() => (favsOnly = !favsOnly)} disabled={!favs.size}>
+        ★ favs{#if favs.size}<b class="ct">{favs.size}</b>{/if}
+      </button>
+      {#each allTags as t}
+        <button class="chip tagchip" class:on={tagFilter === t} on:click={() => (tagFilter = tagFilter === t ? '' : t)}>{t}</button>
+      {/each}
       <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
@@ -425,7 +513,6 @@
                 on:focus={(e) => showTip(e, tipText)}
                 on:blur={hideTip}
                 tabindex="0"
-                title={tipText}
               >
                 {label}{sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
               </th>
@@ -440,14 +527,25 @@
                 <button on:click={() => bump(r.id, -1)} aria-label="Move {r.name} up" data-testid={'up-' + r.id}>▲</button>
                 <button on:click={() => bump(r.id, 1)} aria-label="Move {r.name} down" data-testid={'down-' + r.id}>▼</button>
               </td>
-              <td class="l nm">{r.name}{#if r.partial}<em class="tag" title="part-season projection">{r.games}G</em>{/if}</td>
+              <td class="l nm" title={statusOf(r)}>
+                <button class="fav" class:on={isFav(r.name)} on:click|stopPropagation={() => toggleFav(r.name)}
+                        aria-label={isFav(r.name) ? `Unstar ${r.name}` : `Star ${r.name}`} data-testid={'fav-' + r.id}>{isFav(r.name) ? '★' : '☆'}</button>
+                <span class="pn">{r.name}</span>
+                {#if r.rookie}<em class="tag rk" title="2026 rookie — from Sleeper's years of experience, not a guess">R</em>{/if}
+                {#if r.partial}<em class="tag" title="part-season projection">{r.games}G</em>{/if}
+                {#each tagsOf(r.name) as t}<em class="tag ct">{t}</em>{/each}
+                <button class="tagbtn" on:click|stopPropagation={() => (openTag = openTag === r.name ? null : r.name)}
+                        aria-label="Tag {r.name}" data-testid={'tag-' + r.id}>⚑</button>
+              </td>
               <td class="l"><span class="pos">{r.pos}</span></td>
               <td class="l muted">{r.team}</td>
               <td class="muted">{r.games}</td>
               <td class="big" title="the PTS column in your Sleeper draft room">{n1(r.sleeper)}</td>
               <td class="big">{n1(r.adjusted)}</td>
               <td class="muted">{r.adp != null ? r.adp.toFixed(1) : '—'}</td>
-              <td class="muted alt" title={r.adp != null && r.adpMarket != null ? `${(r.adpMarket - r.adp).toFixed(1)} places later in the wider market` : 'no mainstream price'}>{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
+              <td class="muted alt">{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
+              <td class="muted alt">{r.adpPpr != null ? r.adpPpr.toFixed(1) : '—'}</td>
+              <td class="muted alt">{r.adpConsensus != null ? r.adpConsensus.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
               <td class="edge" class:up={r.slip > 12} class:dn={r.slip < -12} title={r.slip != null ? `the market has him ${r.adpRank}th, this board has him ${r.valueRank}th` : ''}>{r.slip != null ? plus(r.slip) : ''}</td>
               <td class="gain" class:up={r.surplus > 8} class:dn={r.surplus < -8}>{r.surplus != null ? plus(r.surplus) : ''}</td>
@@ -455,30 +553,41 @@
                 {n0(r.market)}{#if r.marketFrom === 'derived'}<em class="q">?</em>{/if}
               </td>
               <td class="muted">{n2(r.ours)}</td>
-              <td class:pos-good={r.fd > 0}>{r.fd ? n2(r.fd) : ''}</td>
-              <td class="muted">{r.pos}{r.posRank}</td>
-              <td class="l muted stat" class:kept={!!gone[r.id]?.keeper}>
-                {#if gone[r.id]}
-                  {#if gone[r.id].keeper}KEPT{:else}<b>{pickCodeOf(gone[r.id])}</b>{/if}
-                  {#if gone[r.id].by}<span class="by">{TEAMSHORT[gone[r.id].by] || gone[r.id].by}</span>{/if}
-                {:else if ownerById[r.id]}
-                  <span class="onros" title="on his roster now, but not kept — he goes back in the pool">{TEAMSHORT[ownerById[r.id]] || ownerById[r.id]}</span>
-                {/if}
-              </td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
+    {#if openTag}
+      <!-- Rendered outside the scrollport for the same reason the tooltip is:
+           a popover inside an overflow box is clipped by it. -->
+      <div class="tagbox" data-testid="tagbox">
+        <div class="tbhd">{openTag}</div>
+        <div class="tbtags">
+          {#each tagsOf(openTag) as t}
+            <button class="tg on" on:click={() => dropTag(openTag, t)} title="remove">{t} ×</button>
+          {/each}
+          {#if !tagsOf(openTag).length}<span class="muted">no tags yet</span>{/if}
+        </div>
+        <form on:submit|preventDefault={() => { addTag(openTag, tagDraft); tagDraft = ''; }}>
+          <input bind:value={tagDraft} placeholder="add a tag…" maxlength="24" data-testid="tag-input" />
+          <button type="submit" class="chip">add</button>
+          <button type="button" class="chip" on:click={() => { openTag = null; tagDraft = ''; }}>done</button>
+        </form>
+        <p class="muted">Yours, saved in this browser. Anything you like — "handcuff", "ask Imy", "do not".</p>
+      </div>
+    {/if}
+
     {#if tip}
       <div class="tip" style="left:{tip.x}px; top:{tip.y}px" role="tooltip">{tip.text}</div>
     {/if}
 
     <p class="foot muted">
-      Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room.
-      <b>Market</b> is their half-PPR total, what ADP is priced on. <b>Fum</b> is the one league rule no projection can carry, estimated from {raw.prior} actuals and kept out of the ranking.
-      VORP is season points over the replacement level for that position, from a greedy fill of the real lineup.
-      Your order is saved in this browser only.
+      Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room, and <b>ADP</b> the price beside it.
+      <b>Actual</b> adds the one league rule no projection carries: a point per fumble as well as for losing it, estimated from {raw.prior}.
+      <b>ADP½</b>, <b>ADP1</b> and <b>FP</b> are the half-PPR, full-PPR and FantasyPros consensus prices — our scoring sits between the first two, so they bracket him.
+      <b>VORP</b> is season points over replacement at his position, from a greedy fill of the real lineup with the men already gone taken out.
+      Hover any heading for what it means. Stars, tags and your order are saved in this browser only.
     </p>
   {/if}
 </section>
@@ -563,6 +672,50 @@
   }
   thead th:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
   .chk.live { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; }
+
+  /* Open the page on the board; the explanation is one tap away and stays shut. */
+  .explain {
+    font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+    background: none; border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 10px; cursor: pointer; margin-bottom: 8px; min-height: 30px;
+  }
+  .explain:hover { color: var(--blue-deep); border-color: var(--blue); }
+
+  .nm .pn { vertical-align: middle; }
+  .fav {
+    background: none; border: 0; cursor: pointer; padding: 0 4px 0 0;
+    color: var(--line-strong, #c9d4de); font-size: 12px; line-height: 1;
+  }
+  .fav.on { color: var(--brass); }
+  .fav:hover { color: var(--brass); }
+  .tagbtn {
+    background: none; border: 0; cursor: pointer; padding: 0 0 0 5px;
+    color: var(--line-strong, #c9d4de); font-size: 10px; opacity: 0;
+  }
+  tbody tr:hover .tagbtn, .tagbtn:focus-visible { opacity: 1; }
+  .tagbtn:hover { color: var(--blue); }
+  .tag.rk { background: var(--purp); }
+  .tag.ct { background: var(--blue-wash); color: var(--blue-deep); font-weight: 700; }
+  .tagchip { border-color: var(--blue-sky); }
+  .chip b.ct { margin-left: 5px; font-size: 9.5px; opacity: .8; }
+
+  .tagbox {
+    position: fixed; z-index: 70; left: 50%; transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: min(360px, calc(100vw - 24px));
+    background: #fff; border: 1px solid var(--blue); border-radius: 10px;
+    padding: 10px 12px; box-shadow: 0 10px 30px rgba(28, 78, 116, .22);
+  }
+  .tbhd { font-family: var(--body); font-weight: 700; font-size: 13px; color: var(--ink); margin-bottom: 6px; }
+  .tbtags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; font-size: 11px; }
+  .tbtags .tg {
+    font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--blue-sky);
+    background: var(--blue-wash); color: var(--blue-deep); border-radius: 6px;
+    padding: 3px 7px; cursor: pointer; min-height: 26px;
+  }
+  .tagbox form { display: flex; gap: 5px; }
+  .tagbox input { flex: 1 1 auto; min-width: 0; font-size: 12px; min-height: 32px; }
+  .tagbox p { font-size: 10px; margin: 7px 0 0; line-height: 1.5; }
   .pos-good { color: var(--good); }
   .nrw { width: 30px; }
   .mv { white-space: nowrap; }

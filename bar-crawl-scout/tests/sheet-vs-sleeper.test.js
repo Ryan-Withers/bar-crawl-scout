@@ -22,6 +22,7 @@ import blob from '../src/lib/api/fixtures/players-trimmed.json';
 import league from '../src/lib/api/fixtures/league.json';
 import priorStats from '../src/lib/api/fixtures/season-stats-2025.json';
 import rostersFixture from '../src/lib/api/fixtures/rosters-2026.json';
+import { PLAYERS, byName, nameKey } from '../src/lib/data.js';
 import { STOCK_SCORING, buildSheet, edgePoints } from '../src/lib/engine/sheet';
 import { scoreStats } from '../src/lib/engine/scoring';
 
@@ -426,5 +427,88 @@ describe('both prices, side by side', () => {
       if (r.adpMarket != null) expect(r.adpMarket).toBeLessThanOrEqual(300);
     }
     expect(built.rows.some((r) => r.adpMarket == null)).toBe(true);
+  });
+});
+
+describe('rookies, from the data rather than from memory', () => {
+  it('agrees with every hand-tagged rookie on the board, and finds more', () => {
+    // The board carries a hand-written stage tag, which is somebody's memory of
+    // a draft class and goes stale the moment one changes. years_exp is
+    // Sleeper's own count. They agree on all twenty, with no false positives
+    // across the other hundred and eighty — so the data can simply replace the
+    // memory, and it knows about twenty-five more nobody had tagged.
+    const byKey = {};
+    for (const id in blob) if (blob[id].full_name) byKey[nameKey(blob[id].full_name)] = blob[id];
+
+    const handRookies = PLAYERS.filter((p) => p[6] === 'rookie');
+    expect(handRookies.length).toBe(20);
+    for (const p of handRookies) {
+      const sleeperSays = byKey[nameKey(p[1])];
+      expect(sleeperSays, `${p[1]} is in the blob`).toBeTruthy();
+      expect(Number(sleeperSays.years_exp), `${p[1]} is a rookie to Sleeper too`).toBe(0);
+    }
+
+    const wronglyFlagged = PLAYERS.filter((p) => p[6] && p[6] !== 'rookie')
+      .filter((p) => { const s = byKey[nameKey(p[1])]; return s && Number(s.years_exp) === 0; });
+    expect(wronglyFlagged.map((p) => p[1])).toEqual([]);
+  });
+
+  it('flags them on the sheet off years_exp, not off the stage tag', () => {
+    const OUT4 = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+    const sc = Object.fromEntries(Object.entries(league.scoring_settings).filter(([k]) => !OUT4.test(k)));
+    const built = buildSheet(rows.map((r) => ({
+      id: r.id, name: r.name, pos: r.pos, team: 'FA',
+      exp: blob[r.id].years_exp, games: Number(r.line.gp) || 17,
+      proj: r.line, sleeperPts: r.published,
+    })), sc, league.roster_positions.filter((p) => p !== 'IDP_FLEX'), 10);
+
+    const flagged = built.rows.filter((r) => r.rookie);
+    expect(flagged.length).toBeGreaterThan(35);
+    for (const r of flagged) expect(Number(blob[r.id].years_exp)).toBe(0);
+    // A known veteran is not one, whatever else changes.
+    expect(built.rows.find((r) => r.name === 'Josh Allen').rookie).toBe(false);
+  });
+});
+
+describe('the other prices', () => {
+  const OUT5 = /^(idp_|def_|pts_allow|yds_allow|st_|blk_kick|sack|tkl|int_ret|ff$|fum_rec$|safe$|qb_hit)/;
+  const sc = Object.fromEntries(Object.entries(league.scoring_settings).filter(([k]) => !OUT5.test(k)));
+  const key = adpKeyFor(league.roster_positions, league.scoring_settings);
+  const built = buildSheet(rows.map((r) => ({
+    id: r.id, name: r.name, pos: r.pos, team: 'FA',
+    games: Number(r.line.gp) || 17, proj: r.line, sleeperPts: r.published,
+    adp: Number(r.line[key]) || null,
+    adpMarket: Number(r.line.adp_half_ppr) || null,
+    adpPpr: Number(r.line.adp_ppr) || null,
+    adpConsensus: (byName(r.name) || [])[5] || null,
+  })), sc, league.roster_positions.filter((p) => p !== 'IDP_FLEX'), 10, 17, null, 300);
+  const at = Object.fromEntries(built.rows.map((r) => [r.name, r]));
+
+  it('brackets our scoring between half and full PPR', () => {
+    // Half a point a catch PLUS half a point a first down puts us between the
+    // two, so both prices are worth having rather than either alone.
+    expect(at['Josh Allen'].adpMarket).toBe(20.9);
+    expect(at['Josh Allen'].adpPpr).toBe(21.3);
+    const both = built.rows.filter((r) => r.adpMarket != null && r.adpPpr != null);
+    expect(both.length).toBeGreaterThan(100);
+  });
+
+  it('carries a consensus price that is NOT Sleeper marking its own homework', () => {
+    // FantasyPros aggregates ESPN, Yahoo, CBS and NFL. Sleeper's API publishes
+    // no other site's ADP, so this is the one outside read available.
+    const priced = built.rows.filter((r) => r.adp != null);
+    const withFp = priced.filter((r) => r.adpConsensus != null);
+    expect(withFp.length / priced.length).toBeGreaterThan(0.9);
+    expect(at['Josh Allen'].adpConsensus).toBeGreaterThan(0);
+    // And it is a genuinely different opinion, not a copy.
+    const differ = withFp.filter((r) => Math.abs(r.adpConsensus - r.adp) > 2);
+    expect(differ.length).toBeGreaterThan(20);
+  });
+
+  it('caps the filler on the Sleeper columns but keeps the consensus honest', () => {
+    for (const r of built.rows) {
+      if (r.adpPpr != null) expect(r.adpPpr).toBeLessThanOrEqual(300);
+      if (r.adpMarket != null) expect(r.adpMarket).toBeLessThanOrEqual(300);
+    }
   });
 });

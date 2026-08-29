@@ -60,6 +60,14 @@ async function mockSheet(page, { proj = PROJ, picks = null } = {}) {
   });
 }
 
+// The four explainer strips are collapsed by default now — the board is what
+// you open the page for — so anything asserting on them has to open them first.
+const openNotes = async (page) => {
+  const btn = page.getByTestId('sheet-explain');
+  await expect(btn).toBeVisible();
+  if ((await btn.getAttribute('aria-expanded')) !== 'true') await btn.click();
+};
+
 const cell = (page, name, col) =>
   page.locator('[data-testid="sheet-table"] tbody tr', { hasText: name }).locator('td').nth(col);
 
@@ -85,19 +93,23 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
   // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
-  const SLEEPER = 6; const ACTUAL = 7; const ADP = 8; const ADP_HALF = 9;
-  const VORP = 10; const VALUE = 11; const GAIN = 12; const MARKET = 13; const OURS = 14; const FD = 15;
+  const SLEEPER = 6; const ACTUAL = 7; const ADP = 8; const ADP_HALF = 9; const ADP_PPR = 10;
+  const FP = 11; const VORP = 12; const VALUE = 13; const GAIN = 14; const MARKET = 15; const OURS = 16;
 
-  // Identical yards and scores, so a stock board cannot separate them...
-  // ...and the column the league is looking at cannot either: it is the same
-  // number for both, because a first down is worth nothing on a stock board.
+  // Identical yards and scores, so the scoring the MARKET prices them on cannot
+  // separate them at all — the same number for both, because a first down is
+  // worth nothing on a stock board.
   await expect(cell(page, 'Chain Mover', MARKET)).toHaveText(await cell(page, 'Big Play', MARKET).innerText());
-  // ...but ours can, by exactly the first-down difference: 51 * 0.5 / 17 = 1.5
+  // ...but our league's does, by exactly the first-down difference: the chain
+  // mover has 51 more at half a point, which is 25.5 across the season and 1.5
+  // a game. (The 1D column that used to show this is gone; the difference it
+  // was pointing at is still the whole reason the two men are not equal.)
   const chains = Number(await cell(page, 'Chain Mover', OURS).innerText());
   const boom = Number(await cell(page, 'Big Play', OURS).innerText());
   expect(chains - boom).toBeCloseTo(1.5, 2);
-  await expect(cell(page, 'Chain Mover', FD)).toHaveText('3.00');
-  await expect(cell(page, 'Big Play', FD)).toHaveText('1.50');
+  const chainsSeason = Number(await cell(page, 'Chain Mover', SLEEPER).innerText());
+  const boomSeason = Number(await cell(page, 'Big Play', SLEEPER).innerText());
+  expect(chainsSeason - boomSeason).toBeCloseTo(25.5, 1);
 
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
@@ -114,6 +126,7 @@ test('defenders are off the board entirely, and it says why', async ({ page }) =
   await expect(page.getByTestId('sheet-pos-idp')).toHaveCount(0);
 
   // The lineup is still reported honestly, with the exclusion stated once.
+  await openNotes(page);
   await expect(page.getByTestId('sheet')).toContainText('IDP_FLEX');
   await expect(page.getByTestId('sheet')).toContainText("isn't modelled");
 });
@@ -122,6 +135,7 @@ test('the unmodelled IDP_FLEX sets no replacement level of its own', async ({ pa
   await mockSheet(page);
   await page.goto('./sheet');
   // By testid, not by text: the lineup strip also says 'no replacement level'.
+  await openNotes(page);
   const repl = page.getByTestId('sheet-replacement');
   await expect(repl).toContainText('QB');          // offence is levelled
   await expect(repl).not.toContainText('LB');      // the LB in the feed sets nothing
@@ -140,6 +154,7 @@ test('the coverage panel judges only the rules this board actually scores', asyn
   // Every IDP rule is scored by the league and unprojected on this board, but
   // they're out of scope by choice — reporting them would bury a real gap under
   // ten lines of noise. (fum IS reported: nobody in this feed has one projected.)
+  await openNotes(page);
   const missing = page.getByTestId('sheet-missing');
   await expect(missing).toBeVisible();
   await expect(missing).not.toContainText('idp_');
@@ -151,6 +166,7 @@ test('a genuinely unbacked offensive rule IS called out', async ({ page }) => {
   const thin = { p1: { gp: 17, rush_yd: 1700, rush_td: 17, rush_fd: 102 } };
   await mockSheet(page, { proj: thin });
   await page.goto('./sheet');
+  await openNotes(page);
   const missing = page.getByTestId('sheet-missing');
   await expect(missing).toBeVisible();
   await expect(missing).toContainText('rec');
@@ -226,6 +242,7 @@ test('a part-season projection is flagged and kept out of replacement', async ({
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Half Season' })).toContainText('6G');
+  await openNotes(page);
   await expect(page.getByTestId('sheet')).toContainText('held out of replacement');
 });
 
@@ -249,10 +266,10 @@ test('a rostered man who was NOT kept stays on the board', async ({ page }) => {
 test('the kept man is marked as kept, not merely as owned', async ({ page }) => {
   await mockSheet(page);
   await page.goto('./sheet');
-  const kept = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Big Play' });
-  await expect(kept).toContainText('KEPT');
-  const notKept = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
-  await expect(notKept).not.toContainText('KEPT');
+  // On the name now that the Status column is gone.
+  const nameOf = (who) => page.locator('[data-testid="sheet-table"] tbody tr', { hasText: who }).locator('td.nm');
+  await expect(nameOf('Big Play')).toHaveAttribute('title', /^Kept/);
+  await expect(nameOf('Chain Mover')).not.toHaveAttribute('title', /^Kept/);
 });
 
 
@@ -268,7 +285,7 @@ test('the three columns are season totals, and the gap between them is the ruleb
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
-  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 13; const G = 5;
+  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 15; const G = 5;
 
   const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
   const market = await num('Gunslinger', MARKET);
@@ -340,18 +357,19 @@ test('a drafted man is struck off with the pick he went at and who took him', as
   const table = page.getByTestId('sheet-table');
   await expect(table).toBeVisible();
 
+  // The Status column is gone — it cost a sixth of the board's width for a fact
+  // you need once a pick — so what it said now hangs off the name.
+  const nameCell = (who) => page.locator('[data-testid="sheet-table"] tbody tr', { hasText: who }).locator('td.nm');
   const taken = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
-  await expect(taken).toContainText('1.07');            // round 1, slot 7
-  await expect(taken).toContainText('Buckle Up!');       // joshleota's team
-  await expect(taken).toHaveClass(/owned/);             // greyed, not hidden
+  await expect(nameCell('Chain Mover')).toHaveAttribute('title', /Drafted 1\.07/);
+  await expect(nameCell('Chain Mover')).toHaveAttribute('title', /Buckle Up!/);   // joshleota's team
+  await expect(taken).toHaveClass(/owned/);             // still greyed, not hidden
 
   // A keeper is still a keeper, even though he arrives down the same feed.
-  await expect(page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Big Play' })).toContainText('KEPT');
+  await expect(nameCell('Big Play')).toHaveAttribute('title', /^Kept/);
 
-  // Someone nobody has taken says nothing at all — the status cell is empty,
-  // which is what "still on the board" should look like.
-  const STATUS = 17;
-  expect((await cell(page, 'Gunslinger', STATUS).innerText()).trim()).toBe('');
+  // Someone nobody has taken says nothing at all.
+  await expect(nameCell('Gunslinger')).toHaveAttribute('title', '');
 });
 
 test('the board counts what is gone, and hides it on request', async ({ page }) => {
@@ -408,4 +426,124 @@ test('shows the price in your room AND the one the rest of the world quotes', as
 
   await page.locator('thead th').filter({ hasText: /^\s*ADP½/ }).hover();
   await expect(page.locator('.tip')).toContainText('mainstream half-PPR');
+});
+
+// ---------------------------------------------------------------------------
+// THE BOARD IS THE PAGE. Filters that answer a draft-day question, a star and a
+// tag you can put on a man, and four explainer strips folded out of the way.
+
+test('the page opens on the board, with the explanation one tap away', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  // Collapsed to start: the strips are worth reading once, not every visit.
+  await expect(page.getByTestId('sheet-replacement')).toHaveCount(0);
+  await page.getByTestId('sheet-explain').click();
+  await expect(page.getByTestId('sheet-replacement')).toBeVisible();
+  // And it is remembered, so it stays how you left it.
+  await page.reload();
+  await expect(page.getByTestId('sheet-replacement')).toBeVisible();
+});
+
+test('one tooltip, not two', async ({ page }) => {
+  // The headings carried a native title AND the custom explainer, so hovering
+  // printed the same sentence twice, in two boxes, on top of the board.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const th = page.locator('thead th', { hasText: /^VORP/ });
+  await expect(th).not.toHaveAttribute('title', /./);
+  await th.hover();
+  await expect(page.locator('.tip')).toHaveCount(1);
+});
+
+test('FLEX is a filter, because it is a seat', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await page.getByTestId('sheet-pos-flex').click();
+  const posCells = await page.locator('[data-testid="sheet-table"] tbody tr td:nth-child(4)').allTextContents();
+  expect(posCells.length).toBeGreaterThan(0);
+  for (const p of posCells) expect(['RB', 'WR', 'TE']).toContain(p.trim());
+  // The quarterback is a real player and is not eligible for the seat.
+  await expect(page.getByTestId('sheet-table')).not.toContainText('Gunslinger');
+});
+
+test('rookies filter off Sleeper’s own years of experience', async ({ page }) => {
+  // PLAYERS_BLOB gives Half Season years_exp 1 and the rest more, so nobody in
+  // this feed is a rookie — the filter has to say so rather than show everyone.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const before = await page.locator('[data-testid="sheet-table"] tbody tr').count();
+  await page.getByTestId('sheet-rookies').click();
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr')).toHaveCount(0);
+  await page.getByTestId('sheet-rookies').click();
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr')).toHaveCount(before);
+});
+
+test('star a man, filter to your stars, and they survive a reload', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-favs')).toBeDisabled();   // nothing starred yet
+
+  await page.getByTestId('fav-p3').click();                      // Gunslinger
+  await expect(page.getByTestId('sheet-favs')).toBeEnabled();
+  await page.getByTestId('sheet-favs').click();
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Gunslinger');
+
+  await page.reload();
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-favs')).toBeEnabled();
+  await page.getByTestId('fav-p3').click();                      // unstar
+  await expect(page.getByTestId('sheet-favs')).toBeDisabled();
+});
+
+test('put your own words on a player and filter by them', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  await page.getByTestId('tag-p1').click();
+  await expect(page.getByTestId('tagbox')).toContainText('Chain Mover');
+  await page.getByTestId('tag-input').fill('handcuff');
+  await page.getByTestId('tag-input').press('Enter');
+  await expect(page.getByTestId('tagbox')).toContainText('handcuff');
+  await page.getByRole('button', { name: 'done' }).click();
+
+  // It shows on the row and becomes a filter of its own.
+  const row = page.locator('[data-testid="sheet-table"] tbody tr', { hasText: 'Chain Mover' });
+  await expect(row).toContainText('handcuff');
+  const chip = page.locator('.chip.tagchip', { hasText: 'handcuff' });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(page.locator('[data-testid="sheet-table"] tbody tr')).toHaveCount(1);
+});
+
+test('shows four prices: your room, half PPR, full PPR and the consensus', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const labels = (await page.locator('[data-testid="sheet-table"] thead th').allTextContents())
+    .map((t) => t.replace(/[▼▲]/g, '').trim());
+  const want = ['ADP', 'ADP½', 'ADP1', 'FP'];
+  for (const w of want) expect(labels, w).toContain(w);
+  // Adjacent and in that order, so the spread reads left to right.
+  const at = want.map((w) => labels.indexOf(w));
+  expect(at).toEqual([at[0], at[0] + 1, at[0] + 2, at[0] + 3]);
+
+  await page.locator('thead th').filter({ hasText: /^\s*FP\s*$/ }).hover();
+  await expect(page.locator('.tip')).toContainText('ESPN, Yahoo, CBS');
+});
+
+test('1D, PosRk and Status are gone', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const labels = (await page.locator('[data-testid="sheet-table"] thead th').allTextContents())
+    .map((t) => t.replace(/[▼▲]/g, '').trim());
+  for (const gone of ['1D', 'PosRk', 'Status']) expect(labels).not.toContain(gone);
 });
