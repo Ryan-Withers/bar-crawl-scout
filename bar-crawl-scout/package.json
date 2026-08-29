@@ -9,6 +9,7 @@
     "build": "vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:crawl": "CRAWL=1 playwright test e2e/the-inspector-crawl.spec.js",

@@ -416,7 +416,7 @@ export function gradeMock(s: MockState): { rows: GradeRow[]; steals: MockPick[];
     const perPick = picks.length ? surplus / picks.length : 0;
     return {
       handle: t.handle, team: t.team, total, winnow, future,
-      lean: leanPct > 0.56 ? 'WIN-NOW' : leanPct < 0.44 ? 'FUTURE' : 'BALANCED',
+      lean: (leanPct > 0.56 ? 'WIN-NOW' : leanPct < 0.44 ? 'FUTURE' : 'BALANCED') as GradeRow['lean'],
       posCounts, grade: '',
       picks: picks.length, kept, squad: total + kept,
       surplus: Math.round(surplus), perPick: Math.round(perPick * 10) / 10,
