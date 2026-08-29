@@ -142,6 +142,20 @@ test('the captured league renders end to end, and the numbers hold', async ({ pa
 
   expect(errors, errors.join('\n')).toHaveLength(0);
 
+  await page.goto('./managers');
+  await page.waitForTimeout(3500);
+  // The manager folders must show the LOCKED keepers, not the old projections.
+  const mgr = page.getByTestId('content');
+  await expect(mgr).toContainText('DeVonta Smith');   // joshleota's real third
+  await expect(mgr).not.toContainText('Drake London'); // the guess he replaced
+  await expect(mgr).toContainText('Keepers');            // not "Projected keepers"
+  // joshleota holds a 2026 first and four 2027 firsts, so he is not STRIPPED —
+  // the stamp used to read off the stale hand-counted constant.
+  const josh = page.locator('article', { hasText: '@joshleota' });
+  await expect(josh).not.toContainText('STRIPPED');
+  await expect(josh).toContainText('2027: 4');
+  await page.screenshot({ path: 'shots/managers.png', fullPage: true });
+
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('./draftboard');
   await page.waitForTimeout(2000);

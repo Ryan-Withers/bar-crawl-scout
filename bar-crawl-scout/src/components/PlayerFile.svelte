@@ -214,7 +214,7 @@
   .plate.free { color: #2f7fb8; border-color: #2f7fb8; }
   /* Phones: the status plate can't sit beside the name — let the header wrap it below. */
   @media (max-width: 560px) { .hbar { flex-wrap: wrap; gap: 10px; } .plate { white-space: normal; } }
-  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3a352a; padding: 16px 0 4px; line-height: 1.7; }
+  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--muted); padding: 16px 0 4px; line-height: 1.7; }
   .coasters { display: flex; gap: 14px; flex-wrap: wrap; margin: 18px 0; }
 
   .chalk { background: #1a211d; border-radius: 6px; padding: 16px 18px; margin: 6px 0 4px; box-shadow: inset 0 0 0 2px rgba(216,222,230,.06); }
@@ -225,7 +225,7 @@
   .cnote { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9fb0a5; margin-top: 8px; line-height: 1.6; }
 
   .cmpbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); }
-  .cmpbar input { min-height: 44px; background: rgba(255,255,255,.45); border: 1px solid rgba(28,26,22,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
+  .cmpbar input { min-height: 44px; background: rgba(255,255,255,.45); border: 1px solid rgba(22, 32, 43,.28); border-radius: 4px; padding: 6px 9px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink); }
   .cmpbar button { min-height: 44px; background: #2f7fb8; color: #fff; border: none; border-radius: 4px; padding: 6px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
   .jumpnav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 151px; z-index: 3; padding: 10px 0; margin-top: 8px; background: linear-gradient(var(--barroom) 78%, transparent); }
   .jumpnav button { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); background: var(--barroom-lift); border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px; cursor: pointer; line-height: 1; }

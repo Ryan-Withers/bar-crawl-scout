@@ -127,10 +127,10 @@
   .blurb a { color: var(--neon); }
   .livedot { color: #4fb286; margin-left: 4px; }
 
-  .ledger { background: var(--paper); color: var(--ink); border-radius: 6px; padding: 8px 10px; box-shadow: 0 12px 26px rgba(0,0,0,.4); background-image: repeating-linear-gradient(rgba(28,26,22,.035) 0 1px, transparent 1px 34px); }
-  .lrow { display: grid; grid-template-columns: 30px minmax(150px, 1fr) 62px 52px 56px 56px 60px 44px; align-items: center; gap: 8px; padding: 9px 8px; border-bottom: 1px dashed rgba(28,26,22,.18); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  .ledger { background: var(--paper); color: var(--ink); border-radius: 6px; padding: 8px 10px; box-shadow: 0 12px 26px rgba(0,0,0,.4); background-image: repeating-linear-gradient(rgba(22, 32, 43,.035) 0 1px, transparent 1px 34px); }
+  .lrow { display: grid; grid-template-columns: 30px minmax(150px, 1fr) 62px 52px 56px 56px 60px 44px; align-items: center; gap: 8px; padding: 9px 8px; border-bottom: 1px dashed rgba(22, 32, 43,.18); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
   .lrow:last-child { border-bottom: none; }
-  .lrow.head { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); border-bottom: 1.5px solid rgba(28,26,22,.4); }
+  .lrow.head { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); border-bottom: 1.5px solid rgba(22, 32, 43,.4); }
   .lrow.leader { background: rgba(201,164,92,.14); border-radius: 4px; }
   .lrow.you { background: rgba(130,201,252,.1); border-radius: 4px; }
   .rk { font-weight: 700; color: var(--ink-soft); text-align: center; }

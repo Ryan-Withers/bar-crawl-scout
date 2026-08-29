@@ -189,14 +189,14 @@
   .back { display: inline-flex; align-items: center; min-height: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--neon); text-decoration: none; }
   .stub { padding: 40px 0; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
   .stub a { color: var(--neon); display: block; margin-top: 10px; }
-  .folder { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 24px; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); background-image: repeating-linear-gradient(rgba(28,26,22,.04) 0 1px, transparent 1px 30px); }
+  .folder { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 24px; box-shadow: 0 12px 26px rgba(22, 32, 43, 0.12); background-image: repeating-linear-gradient(rgba(22, 32, 43,.04) 0 1px, transparent 1px 30px); }
   .hd { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-  .avatar { position: relative; overflow: hidden; width: 64px; height: 64px; border-radius: 50%; background: #22303f; color: var(--neon-hot); display: grid; place-items: center; font-family: 'Archivo Black', sans-serif; font-size: 20px; box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px rgba(28,26,22,.25); }
+  .avatar { position: relative; overflow: hidden; width: 64px; height: 64px; border-radius: 50%; background: var(--blue-deep); color: var(--on-neon); display: grid; place-items: center; font-family: 'Archivo Black', sans-serif; font-size: 20px; box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px rgba(22, 32, 43,.25); }
   .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .who .tm { font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; line-height: 1; }
   .who .handle { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
   .cs { margin-left: auto; }
-  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3a352a; line-height: 1.7; padding: 12px 0; }
+  .sealed { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--muted); line-height: 1.7; padding: 12px 0; }
   .coasters { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
   .stamps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
   /* Stacked on a phone; on a wide desk the panels sit side by side so the
@@ -205,23 +205,23 @@
   @media (min-width: 900px) {
     .secs { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); column-gap: 30px; align-items: start; }
   }
-  .sec { border-top: 1px dashed rgba(28,26,22,.2); padding: 12px 0; min-width: 0; }
+  .sec { border-top: 1px dashed rgba(22, 32, 43,.2); padding: 12px 0; min-width: 0; }
   .sec h4 { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 6px; }
   .sec h4 small { text-transform: none; letter-spacing: 0; }
   .sec p { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6; margin: 4px 0; color: #2a271f; }
   .note2 { color: #4a4636 !important; }
   .keeps { list-style: none; margin: 0; padding: 0; }
-  .keeps li { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed rgba(28,26,22,.14); }
+  .keeps li { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed rgba(22, 32, 43,.14); }
   .keeps .clk { font-size: 10px; color: #2f7fb8; text-transform: uppercase; letter-spacing: .04em; }
   .keeps .muted { color: var(--ink-soft); }
   .needs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .need { font-family: 'IBM Plex Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; }
   .need span { color: var(--ink-soft); width: 22px; }
-  .need i { flex: 1; height: 6px; border-radius: 3px; background: rgba(28,26,22,.14); position: relative; }
+  .need i { flex: 1; height: 6px; border-radius: 3px; background: rgba(22, 32, 43,.14); position: relative; }
   .need i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: #2f7fb8; border-radius: 3px; }
   .incomplete { display: flex; align-items: center; gap: 8px; color: var(--ink-soft) !important; }
   .rivals { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 6px; }
-  .riv { display: grid; grid-template-columns: 22px 1fr auto 52px; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed rgba(28,26,22,.14); color: #2a271f; }
+  .riv { display: grid; grid-template-columns: 22px 1fr auto 52px; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed rgba(22, 32, 43,.14); color: #2a271f; }
   .riv .rres { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 4px; font-size: 10px; font-weight: 700; color: #fff; }
   .rres.w { background: #1d8a4e; } .rres.l { background: #b5442f; } .rres.t { background: #4a4636; }
   .riv .rnm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -233,6 +233,6 @@
   .fchip.w { background: #0c8c4a; } .fchip.l { background: #b8442f; } .fchip.t { background: #4a4636; }
   .curstreak { font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-left: 8px; }
   .curstreak.w { color: #0c8c4a; } .curstreak.l { color: #b8442f; } .curstreak.t { color: #4a4636; }
-  textarea { width: 100%; min-height: 70px; background: rgba(255,255,255,.4); border: 1px solid rgba(28,26,22,.25); border-radius: 4px; padding: 8px; font-family: 'Caveat', cursive; font-size: 18px; color: #2a271f; resize: vertical; }
+  textarea { width: 100%; min-height: 70px; background: rgba(255,255,255,.4); border: 1px solid rgba(22, 32, 43,.25); border-radius: 4px; padding: 8px; font-family: 'Caveat', cursive; font-size: 18px; color: #2a271f; resize: vertical; }
   textarea:focus { outline: 2px solid #2f7fb8; }
 </style>

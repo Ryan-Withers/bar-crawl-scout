@@ -33,9 +33,9 @@
 <style>
   .gl { margin-top: 2px; }
   .hd { font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--chalk); margin-bottom: 12px; }
-  .receipt { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 12px 14px; box-shadow: inset 0 0 0 1px rgba(28,26,22,.12); }
-  .rrow { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 5px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; border-bottom: 1px dashed rgba(28,26,22,.18); }
-  .rrow.head { font-size: 9px; letter-spacing: .12em; color: var(--ink-soft); border-bottom: 1px solid rgba(28,26,22,.35); }
+  .receipt { background: var(--paper); color: var(--ink); border-radius: 5px; padding: 12px 14px; box-shadow: inset 0 0 0 1px rgba(22, 32, 43,.12); }
+  .rrow { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 5px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; border-bottom: 1px dashed rgba(22, 32, 43,.18); }
+  .rrow.head { font-size: 9px; letter-spacing: .12em; color: var(--ink-soft); border-bottom: 1px solid rgba(22, 32, 43,.35); }
   .rrow:last-child { border-bottom: none; }
   .wk { font-weight: 700; color: var(--ink-soft); }
   .ln { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -44,7 +44,7 @@
   .rrow.dnp .ln, .rrow.dnp .pt { text-decoration: line-through; text-decoration-thickness: 1px; }
   .rrow.best .pt { color: #b5442f; }
   .rrow.best .wk { color: #b5442f; }
-  .rrow.tot { border-top: 2px solid rgba(28,26,22,.5); margin-top: 3px; padding-top: 8px; font-weight: 700; }
+  .rrow.tot { border-top: 2px solid rgba(22, 32, 43,.5); margin-top: 3px; padding-top: 8px; font-weight: 700; }
   .rrow.tot .ln { font-size: 11px; color: var(--ink-soft); }
   .empty { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted); }
 </style>

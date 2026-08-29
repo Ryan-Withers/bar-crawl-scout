@@ -56,7 +56,7 @@
     background: var(--paper); color: var(--ink); border-radius: 5px; padding: 12px 14px;
     box-shadow: 0 14px 30px rgba(28,46,64,.16); transform: rotate(-1.2deg);
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    background-image: repeating-linear-gradient(rgba(28, 26, 22, 0.04) 0 1px, transparent 1px 22px);
+    background-image: repeating-linear-gradient(rgba(22, 32, 43, 0.04) 0 1px, transparent 1px 22px);
   }
   .pos { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
   .nm { font-family: 'Archivo Black', sans-serif; font-size: 18px; text-transform: uppercase; line-height: 1; margin: 3px 0 8px; }
@@ -66,6 +66,6 @@
   .plate { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 3px; border: 1.5px solid; margin-top: 8px; }
   .plate.kept, .plate.cls { color: #b5442f; border-color: #b5442f; }
   .plate.free { color: #2f7fb8; border-color: #2f7fb8; }
-  .one { font-size: 10.5px; color: #3a352a; margin-top: 8px; line-height: 1.5; }
+  .one { font-size: 10.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
   .hint { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin-top: 8px; }
 </style>
