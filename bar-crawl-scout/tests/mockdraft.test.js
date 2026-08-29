@@ -754,3 +754,30 @@ describe('the chaos dial response curve', () => {
   });
 });
 
+
+describe('the saved queue survives a spelling change', () => {
+  // The queue persists across sessions and across data refreshes, and it stores
+  // names. An exact compare meant the day Sleeper's spelling reached the board —
+  // "Kenneth Walker III" becoming "Kenneth Walker" — your starred man silently
+  // left the queue and Tidy deleted him as "already off the board".
+  const board = [P('Kenneth Walker III', 'RB', 80, 80, 80), P('A.J. Brown', 'WR', 70, 70, 70)];
+
+  it('still finds a queued man spelled the other way', () => {
+    expect(queueTop(board, ['Kenneth Walker'])).toBe('Kenneth Walker III');
+    expect(queueTop(board, ['AJ Brown'])).toBe('A.J. Brown');
+  });
+
+  it('keeps him on a tidy, and rewrites him to the board spelling', () => {
+    expect(pruneQueue(['Kenneth Walker', 'A Nobody'], board)).toEqual(['Kenneth Walker III']);
+  });
+
+  it('does not queue the same man twice under two spellings', () => {
+    const q = toggleQueued(['Kenneth Walker III'], 'Kenneth Walker');
+    expect(q).toEqual([]);                       // toggled OFF, not added again
+  });
+
+  it('still drops a man who is genuinely off the board', () => {
+    expect(pruneQueue(['Someone Else'], board)).toEqual([]);
+    expect(queueTop(board, ['Someone Else'])).toBeNull();
+  });
+});

@@ -1,5 +1,5 @@
 <script>
-  import { PLAYERS, BYUNAME, TAGS, TAGTXT, RYAN } from '../lib/data.js';
+  import { PLAYERS, BYUNAME, TAGS, TAGTXT, RYAN, byName, nameKey } from '../lib/data.js';
   import {
     windowVal, r26, r27, pts26, pts27, isAvailable, isFinalYr, ownerOf, rosterOwner,
   } from '../lib/models.js';
@@ -38,10 +38,23 @@
   const tm = (p) => (p[3] === 'FA' ? 'FA' : p[3] + ' · bye ' + p[4]);
   const tagsOf = (name) => bd.tags[name] || [];
   const seedOrder = (ks, md) => PLAYERS.map((p) => ({ p, w: windowVal(p, ks, md) })).sort((a, b) => b.w - a.w).map((x) => x.p[1]);
+  // Bring a saved board back in line with the current player table.
+  //
+  // This used to drop any saved name that was not an EXACT match, then re-append
+  // the man from the seed order — so the day a spelling changes ("Kenneth Walker
+  // III" -> "Kenneth Walker" on a fresh capture) he is silently deleted from a
+  // hand-ranked board the user built by hand and re-added at the bottom, with
+  // no warning and no way to notice. Matching on the normalised key keeps him
+  // where he was put, and rewriting him to the board's current spelling means
+  // the next reconcile finds him too.
   function reconcile(view, ks, md) {
-    const names = new Set(PLAYERS.map((p) => p[1]));
-    const ord = (view.order || []).filter((n) => names.has(n));
-    const have = new Set(ord);
+    const canonical = new Map(PLAYERS.map((p) => [nameKey(p[1]), p[1]]));
+    const ord = [];
+    const have = new Set();
+    for (const n of view.order || []) {
+      const canon = canonical.get(nameKey(n));
+      if (canon && !have.has(canon)) { ord.push(canon); have.add(canon); }
+    }
     seedOrder(ks, md).forEach((n) => { if (!have.has(n)) ord.push(n); });
     return ord;
   }
@@ -72,7 +85,7 @@
   function computeRows(ks, md, own, bd, av, sortKey, viewSort, posFilter, poolOnly, hideDrafted, q, tagFilter) {
     let list;
     if (av) {
-      list = reconcile(av, ks, md).map((n) => BYUNAME[n.toLowerCase()]).filter(Boolean);
+      list = reconcile(av, ks, md).map((n) => byName(n)).filter(Boolean);
       if (viewSort) list = sortByKey(list, viewSort, ks, md);
     } else {
       list = sortByKey(PLAYERS, sortKey, ks, md);
