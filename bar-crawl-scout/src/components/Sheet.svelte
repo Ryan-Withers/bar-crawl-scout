@@ -19,7 +19,7 @@
   //
   // Refresh re-pulls everything. Your own order is yours, saved locally, and
   // one button puts the standard board back.
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { link } from '../lib/router.js';
   import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { draftSheetQuery, playersQuery } from '../api/queries';
@@ -98,6 +98,16 @@
   });
   // Up and down move him one place on YOUR board. They do nothing to anybody
   // else and nothing to the sort, which is the entire point.
+  // FLICK. Sorted by My, moving a man moves his ROW — so the next click lands on
+  // whoever slid into that spot instead of on him. Putting the focus back on the
+  // same button after the move means you can hit it four times and send him four
+  // places, which is the whole point of an arrow.
+  async function flick(r, d) {
+    bumpFav(r.name, d);
+    await tick();
+    const btn = document.querySelector(`[data-testid="${d < 0 ? 'up' : 'down'}-${r.id}"]`);
+    if (btn && !btn.disabled) btn.focus();
+  }
   const bumpFav = (n, d) => board.update((b) => {
     const list = Array.isArray(b.favs) ? b.favs.slice() : [];
     const i = list.indexOf(n);
@@ -600,14 +610,6 @@
                         title={isFav(r.name) ? 'On your board — click to take him off' : 'Put him on your board'}
                         aria-label={isFav(r.name) ? `Take ${r.name} off your board` : `Put ${r.name} on your board`}
                         data-testid={'fav-' + r.id}>{isFav(r.name) ? '★' : '☆'}</button>
-                {#if r.myRank}
-                  <span class="mv">
-                    <button on:click|stopPropagation={() => bumpFav(r.name, -1)} disabled={r.myRank === 1}
-                            title="Up your board" aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
-                    <button on:click|stopPropagation={() => bumpFav(r.name, 1)} disabled={r.myRank === myBoard.length}
-                            title="Down your board" aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
-                  </span>
-                {/if}
                 <span class="pn">{r.name}</span>
                 {#if r.rookie}<em class="tag rk" title="2026 rookie — from Sleeper's years of experience, not a guess">R</em>{/if}
                 {#if r.partial}<em class="tag" title="part-season projection">{r.games}G</em>{/if}
@@ -625,7 +627,17 @@
               <td class="muted alt">{r.adpPpr != null ? r.adpPpr.toFixed(1) : '—'}</td>
               <td class="muted alt">{r.adpConsensus != null ? r.adpConsensus.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
-              <td class="my" class:mine={r.myRank}>{r.myRank ?? ''}</td>
+              <td class="my" class:mine={r.myRank}>
+                {#if r.myRank}
+                  <span class="mv">
+                    <button on:click|stopPropagation={() => flick(r, -1)} disabled={r.myRank === 1}
+                            title="Up your board" aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
+                    <b>{r.myRank}</b>
+                    <button on:click|stopPropagation={() => flick(r, 1)} disabled={r.myRank === myBoard.length}
+                            title="Down your board" aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
+                  </span>
+                {/if}
+              </td>
               <td class="edge" class:up={r.slip > 12} class:dn={r.slip < -12} title={r.slip != null ? `the market has him ${r.adpRank}th, this board has him ${r.valueRank}th` : ''}>{r.slip != null ? plus(r.slip) : ''}</td>
               <td class="gain" class:up={r.surplus > 8} class:dn={r.surplus < -8}>{r.surplus != null ? plus(r.surplus) : ''}</td>
               <td class="theirs" title={r.marketFrom === 'derived' ? 'Sleeper publishes no half-PPR projection for him — this is our own score of the same stats' : 'Sleeper’s published half-PPR projection, what ADP is built on'}>
@@ -775,7 +787,7 @@
   td.my { color: var(--muted); }
   .hint { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
   td.my.mine { color: var(--brass); font-weight: 700; }
-  .mvoff { color: var(--line); font-size: 9px; }
+
   .chip b.ct { margin-left: 5px; font-size: 9.5px; opacity: .8; }
 
   .tagbox {
@@ -797,8 +809,17 @@
   .tagbox p { font-size: 10px; margin: 7px 0 0; line-height: 1.5; }
   .pos-good { color: var(--good); }
   .nrw { width: 30px; }
-  .mv { white-space: nowrap; }
-  .mv button { border: 1px solid var(--line); background: #fff; color: var(--muted); border-radius: 4px; width: 18px; height: 18px; font-size: 8px; line-height: 1; cursor: pointer; padding: 0; }
-  .mv button:hover { border-color: var(--blue); color: var(--blue); }
+  /* Sat in the name cell, twelve columns from the number they change. They live
+     with My now, and are big enough to hit twice in a hurry. */
+  .mv { white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
+  .mv b { min-width: 12px; text-align: center; }
+  .mv button {
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: 5px; width: 22px; height: 22px; font-size: 9px; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  .mv button:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: var(--blue-wash); }
+  .mv button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .mv button:disabled { opacity: .3; cursor: default; }
   .foot { font-size: 10.5px; line-height: 1.6; margin-top: 8px; max-width: 110ch; }
 </style>

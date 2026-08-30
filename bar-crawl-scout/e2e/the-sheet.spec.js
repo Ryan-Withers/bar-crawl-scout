@@ -629,11 +629,13 @@ test('your rank shows in every sort instead of replacing one', async ({ page }) 
   const myCol = labels.indexOf('My');
   expect(myCol, 'the My column exists').toBeGreaterThan(-1);
   const mine = async () => (await page.locator(
-    `[data-testid="sheet-table"] tbody tr td:nth-child(${myCol + 1})`,
-  ).allTextContents()).map((t) => t.trim());
+    '[data-testid="sheet-table"] tbody tr td.my',
+  ).allTextContents()).map((t) => t.replace(/[^0-9]/g, ''));
+  // The My cell carries the stepper now — the arrows live with the number they
+  // change rather than twelve columns away in the name cell.
   const rankOf = async (id) => (await page.locator(
-    `[data-testid="sheet-table"] tbody tr:has([data-testid="fav-${id}"]) td:nth-child(${myCol + 1})`,
-  ).innerText()).trim();
+    `[data-testid="sheet-table"] tbody tr:has([data-testid="fav-${id}"]) td.my`,
+  ).innerText()).replace(/[^0-9]/g, '');
 
   // Nothing on your board, and the arrows say so rather than pretending.
   await expect(page.getByTestId('sheet-mine-hint')).toBeVisible();
@@ -774,9 +776,11 @@ test('an empty board says how to start one rather than greying out', async ({ pa
   await page.getByTestId('fav-p1').click();
   await expect(page.getByTestId('sheet-mine-hint')).toHaveCount(0);
   await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
-  const cell = page.locator('[data-testid="sheet-table"] tbody tr:has([data-testid="fav-p1"]) td.nm');
-  await expect(cell.getByTestId('up-p1')).toBeVisible();
-  await expect(cell.getByTestId('down-p1')).toBeVisible();
+  // The stepper sits in the My cell, beside the number it changes.
+  const my = page.locator('[data-testid="sheet-table"] tbody tr:has([data-testid="fav-p1"]) td.my');
+  await expect(my.getByTestId('up-p1')).toBeVisible();
+  await expect(my.getByTestId('down-p1')).toBeVisible();
+  await expect(page.locator('[data-testid="sheet-table"] td.nm [data-testid^="up-"]')).toHaveCount(0);
 });
 
 test('the long explainer is folded away with the rest of the notes', async ({ page }) => {
@@ -788,4 +792,45 @@ test('the long explainer is folded away with the rest of the notes', async ({ pa
   await openNotes(page);
   await expect(page.getByTestId('sheet-foot')).toBeVisible();
   await expect(page.getByTestId('sheet-foot')).toContainText('FantasyPros');
+});
+
+test('you can flick a man up your board without chasing his row', async ({ page }) => {
+  // Sorted by My, moving a man moves his ROW — so the next click lands on
+  // whoever slid into that spot instead of on him, and sending someone four
+  // places meant four clicks in four different places. The focus follows the
+  // player now, so the same button can be hit until he is where you want him.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
+
+  // Star everyone on the board, in screen order, then sort by My.
+  const ids = await page.locator('[data-testid^="fav-"]').evaluateAll(
+    (els) => els.map((e) => e.dataset.testid.slice(4)),
+  );
+  for (const id of ids) await page.getByTestId('fav-' + id).click();
+  await page.getByTestId('sheet-mine').click();
+
+  const order = async () => page.locator('[data-testid^="fav-"]').evaluateAll(
+    (els) => els.map((e) => e.dataset.testid.slice(4)),
+  );
+  expect(await order()).toEqual(ids);
+
+  // The last man, flicked to the top by hitting ONE button repeatedly.
+  const last = ids[ids.length - 1];
+  for (let i = 0; i < ids.length - 1; i++) await page.getByTestId('up-' + last).click();
+  expect((await order())[0]).toBe(last);
+
+  // And the ends stop him rather than losing him.
+  await expect(page.getByTestId('up-' + last)).toBeDisabled();
+});
+
+test('the stepper is big enough to hit in a hurry', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await page.getByTestId('fav-p1').click();
+  const box = await page.getByTestId('up-p1').boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(20);
+  expect(box.height).toBeGreaterThanOrEqual(20);
 });
