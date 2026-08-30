@@ -7,16 +7,31 @@
   import { rosters } from '../lib/store.js';
   import { foundingQuery } from '../api/queries';
   import NeonSign from './NeonSign.svelte';
+  import { usePhase } from '../lib/usePhase.js';
 
   const founding = createQuery(foundingQuery());
   $: year = $founding.data;
   $: sub = (year ? `EST. ${year} · ` : '') + '10 SEATS · HALF-PPR · KEEPER LEAGUE';
   $: synced = $rosters && $rosters.byHandle && Object.keys($rosters.byHandle).length > 0;
 
-  const STEPS = [
+  // THE FRONT DOOR CHANGES JOB WHEN THE LEAGUE DOES.
+  //
+  // Six days before the draft, "run a mock" is the most useful thing on this
+  // page. Six minutes after it, it is the least — and the thing everybody wants
+  // is the verdict on the night. Nobody should have to go and find it, and
+  // nobody should have to deploy a change to make it appear.
+  const phaseStore = usePhase();
+  $: planning = $phaseStore.planning;
+  $: drafting = $phaseStore.drafting;
+  $: countdown = $phaseStore.countdown;
+
+  const PREP_STEP = { n: 3, t: 'Prep for the draft', d: 'Run a full mock draft against ten computer GMs you can tune.', to: '/mock', cta: 'Run a mock draft' };
+  const LIVE_STEP = { n: 3, t: 'The draft is on', d: 'The live board, with every man struck off as he goes.', to: '/draftboard', cta: 'Open the draft board' };
+  const DONE_STEP = { n: 3, t: 'See how the draft went', d: "Every manager graded on the picks they actually made, against the value board.", to: '/grades', cta: 'Read the grades' };
+  $: STEPS = [
     { n: 1, t: 'Check your team', d: 'Your lineup, your matchup and the points you might be leaving on the bench.', to: '/myteam', cta: 'Open my lineup' },
     { n: 2, t: 'Scout the league', d: 'Standings, power rankings and a dossier on every rival manager.', to: '/standings', cta: 'See the standings' },
-    { n: 3, t: 'Prep for the draft', d: 'Run a full mock draft against ten computer GMs you can tune.', to: '/mock', cta: 'Run a mock draft' },
+    planning ? DONE_STEP : drafting ? LIVE_STEP : PREP_STEP,
   ];
 </script>
 
@@ -24,9 +39,20 @@
   <div class="hero">
     <NeonSign {sub} />
     <p class="tag">Your league's headquarters — lineups, scouting, the draft room and the side bets, all in one place.</p>
+    {#if drafting}
+      <p class="phase live" data-testid="phase-note">● The draft is under way.</p>
+    {:else if planning}
+      <p class="phase" data-testid="phase-note">The draft's done — <a href="/grades" use:link>see how everyone graded</a>.</p>
+    {:else if countdown}
+      <p class="phase" data-testid="phase-note">Draft <b>{countdown}</b>.</p>
+    {/if}
     <div class="ctas">
       <a class="cta primary" href="/myteam" use:link>🏈 Set my lineup</a>
-      <a class="cta" href="/mock" use:link>🏟️ Run a mock draft</a>
+      {#if planning}
+        <a class="cta" href="/grades" use:link>🎓 Draft grades</a>
+      {:else}
+        <a class="cta" href="/mock" use:link>🏟️ Run a mock draft</a>
+      {/if}
       <a class="cta ghost" href="/standings" use:link>📊 League standings</a>
     </div>
     {#if !synced}
@@ -70,6 +96,9 @@
 </section>
 
 <style>
+  .phase { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); margin: -4px 0 10px; }
+  .phase.live { color: #4fb286; font-weight: 700; }
+  .phase a { color: var(--neon); }
   .home { padding-top: 4px; }
 
   .hero { margin-bottom: 22px; }

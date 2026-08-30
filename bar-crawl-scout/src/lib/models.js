@@ -67,6 +67,22 @@ export const watchName = (ks, h) => {
 };
 // Keeper-based pool: rostered non-keepers stay available for mocks; live ownership is display-only.
 export const isAvailable = (ks, name) => !isKept(ks, name);
+
+// WHAT "IN THE POOL" MEANS, AND IT CHANGES ONCE.
+//
+// Before the draft it means "not kept": of the 144 rostered men only 30 are
+// actually off the board, because everyone redrafts the other eleven. That is
+// why isAvailable ignores rosters.
+//
+// The moment the draft ends that reading is not just stale, it is wrong — every
+// one of those 144 is now somebody's, and a board still offering them would put
+// men you cannot have at the top of the free-agent list. So in planning mode the
+// pool is the waiver wire: anybody nobody rosters.
+//
+// `own` is name -> handle. Without it there is nothing better to say than the
+// keeper answer, so the old reading stands rather than emptying the board.
+export const inPool = (phase, ks, own, name) =>
+  (phase === 'planning' && own ? !rosterOwner(own, name) : isAvailable(ks, name));
 export const isFinalYr = (ks, n) => isKept(ks, n) && yearsLeft(n) === 1;
 
 // ROOKIE YEAR-ONE RISK, SCALED BY DRAFT CAPITAL.
