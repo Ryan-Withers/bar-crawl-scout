@@ -94,7 +94,8 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
 
   // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
   const SLEEPER = 6; const ACTUAL = 7; const ADP = 8; const ADP_HALF = 9; const ADP_PPR = 10;
-  const FP = 11; const VORP = 12; const VALUE = 13; const GAIN = 14; const MARKET = 15; const OURS = 16;
+  const FP = 11; const VORP = 12; const MY = 13; const VALUE = 14; const GAIN = 15;
+  const MARKET = 16; const OURS = 17; const PPG1 = 18;
 
   // Identical yards and scores, so the scoring the MARKET prices them on cannot
   // separate them at all — the same number for both, because a first down is
@@ -172,92 +173,6 @@ test('a genuinely unbacked offensive rule IS called out', async ({ page }) => {
   await expect(missing).toContainText('rec');
   await expect(missing).toContainText("missing from Sleeper's number too");
   await expect(missing).not.toContainText('idp_');
-});
-
-test('you can reorder, keep your list, and put the standard board back', async ({ page }) => {
-  await mockSheet(page);
-  await page.goto('./sheet');
-  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
-  const OFFENCE = Object.keys(PROJ).length - 1;   // the LB is filtered off the board
-  await expect(rows).toHaveCount(OFFENCE);   // settled board first
-
-  // Read the id off the row itself — never map a name back to an id by hand.
-  const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
-  const topBefore = await idAt(0);
-  const second = await idAt(1);
-
-  // Move the second man to the top.
-  await page.getByTestId('up-' + second).click();
-  await expect.poll(() => idAt(0)).toBe(second);
-  await expect(page.getByTestId('sheet-mine')).toHaveClass(/on/);
-
-  // It survives a reload — it's your list, not the run's.
-  await page.reload();
-  await expect(rows).toHaveCount(OFFENCE);
-  await expect.poll(() => idAt(0)).toBe(second);
-
-  // And one button hands the standard board back.
-  await page.getByTestId('sheet-standard').click();
-  await expect.poll(() => idAt(0)).toBe(topBefore);
-});
-
-test('your order counts the men you MOVED, not the whole board', async ({ page }) => {
-  // It read "my list (3045)" after one nudge, because seeding the order needs
-  // every id to keep a move stable. That number is an implementation detail and
-  // it looked like a list you had built.
-  await mockSheet(page);
-  await page.goto('./sheet');
-  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
-  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
-  const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
-
-  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
-  await page.getByTestId('up-' + (await idAt(1))).click();
-  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
-  await page.getByTestId('up-' + (await idAt(3))).click();
-  await expect(page.getByTestId('sheet-mine')).toContainText('(2)');
-});
-
-test('sorting a column leaves your order rather than being ignored by it', async ({ page }) => {
-  // THE ONE THAT MATTERED. Your order was applied OVER the top of whatever
-  // column you had sorted by, so a single accidental nudge froze the board and
-  // every sort after it silently did nothing — while the heading still drew an
-  // arrow claiming otherwise.
-  await mockSheet(page);
-  await page.goto('./sheet');
-  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
-  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
-  const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
-
-  const heads = page.locator('[data-testid="sheet-table"] thead th');
-  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
-  const sleeperCol = labels.indexOf('Sleeper');
-  const ptsIn = async () => (await page.locator(
-    `[data-testid="sheet-table"] tbody tr td:nth-child(${sleeperCol + 1})`,
-  ).allTextContents()).map(Number);
-
-  await heads.nth(sleeperCol).click();
-  const sortedPts = await ptsIn();
-  expect([...sortedPts].sort((a, b) => b - a)).toEqual(sortedPts);
-
-  // Nudge somebody. The board switches to your order and SAYS it has.
-  await page.getByTestId('up-' + (await idAt(2))).click();
-  await expect(page.getByTestId('sheet-minenote')).toBeVisible();
-  await expect(heads.nth(sleeperCol)).not.toContainText('▼');    // no arrow it cannot honour
-
-  // Sort again: the click is obeyed, your order steps aside, and it says so.
-  // (Same column twice flips the direction, which is the ordinary behaviour —
-  // the point is that the click DOES something now.)
-  await heads.nth(sleeperCol).click();
-  await expect(page.getByTestId('sheet-minenote')).toHaveCount(0);
-  await expect(heads.nth(sleeperCol)).toContainText('▲');
-  const after = await ptsIn();
-  expect([...after].sort((a, b) => a - b)).toEqual(after);
-
-  // ...and the list is only set aside, not thrown away.
-  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
-  await page.getByTestId('sheet-mine').click();
-  await expect(page.getByTestId('sheet-minenote')).toBeVisible();
 });
 
 test('every filter actually filters', async ({ page }) => {
@@ -387,7 +302,7 @@ test('the three columns are season totals, and the gap between them is the ruleb
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
-  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 15; const G = 5;
+  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 16; const G = 5;
 
   const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
   const market = await num('Gunslinger', MARKET);
@@ -691,4 +606,132 @@ test('but points columns still open highest first', async ({ page }) => {
     await th.click();
     await expect(th, `${label} opens descending`).toContainText('▼');
   }
+});
+
+// ---------------------------------------------------------------------------
+// YOUR RANK IS A COLUMN, NOT A VIEW.
+//
+// Moving a player used to mean "put him at position N in a shadow copy of the
+// whole board", and that copy then had to REPLACE whatever you had sorted by —
+// so you could rank men yourself OR read the data in order, never both. A star
+// puts a man on your board and he takes the next number; the arrows move him
+// within it; the number shows on his row in every sort.
+
+test('your rank shows in every sort instead of replacing one', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
+
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  const myCol = labels.indexOf('My');
+  expect(myCol, 'the My column exists').toBeGreaterThan(-1);
+  const mine = async () => (await page.locator(
+    `[data-testid="sheet-table"] tbody tr td:nth-child(${myCol + 1})`,
+  ).allTextContents()).map((t) => t.trim());
+  const rankOf = async (id) => (await page.locator(
+    `[data-testid="sheet-table"] tbody tr:has([data-testid="fav-${id}"]) td:nth-child(${myCol + 1})`,
+  ).innerText()).trim();
+
+  // Nothing on your board, and the arrows say so rather than pretending.
+  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
+  expect((await mine()).every((v) => v === '')).toBe(true);
+  await expect(page.getByTestId('up-p1')).toHaveCount(0);
+
+  // Star two: they take the next numbers, in the order you starred them.
+  await page.getByTestId('fav-p3').click();
+  await page.getByTestId('fav-p1').click();
+  await expect(page.getByTestId('sheet-mine')).toContainText('(2)');
+  expect(await rankOf('p3')).toBe('1');
+  expect(await rankOf('p1')).toBe('2');
+
+  // The arrows move a man within YOUR board and touch nothing else.
+  await page.getByTestId('up-p1').click();
+  expect(await rankOf('p1')).toBe('1');
+  expect(await rankOf('p3')).toBe('2');
+
+  // THE POINT: sort by something else and your numbers are still there, beside
+  // the data, rather than replaced by it.
+  const sleeperCol = labels.indexOf('Sleeper');
+  await heads.nth(sleeperCol).click();
+  await expect(heads.nth(sleeperCol)).toContainText('▼');
+  expect(await rankOf('p1')).toBe('1');
+  expect(await rankOf('p3')).toBe('2');
+
+  // And sorting by My is just another sort, putting your board on top.
+  await page.getByTestId('sheet-mine').click();
+  const shown = await mine();
+  expect(shown.slice(0, 2)).toEqual(['1', '2']);
+  expect(shown.slice(2).every((v) => v === '')).toBe(true);
+});
+
+test('your board survives a reload, and one button clears it', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await page.getByTestId('fav-p1').click();
+  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
+
+  await page.reload();
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
+
+  await page.getByTestId('sheet-standard').click();
+  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
+  await expect(page.getByTestId('up-p1')).toHaveCount(0);
+});
+
+test('the ends of your board cannot be nudged off it', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await page.getByTestId('fav-p1').click();
+  await page.getByTestId('fav-p3').click();
+  await expect(page.getByTestId('up-p1')).toBeDisabled();      // already first
+  await expect(page.getByTestId('down-p3')).toBeDisabled();    // already last
+  await expect(page.getByTestId('down-p1')).toBeEnabled();
+});
+
+test('shows a full-PPR per-game rate beside our own', async ({ page }) => {
+  // Our rules pay half a point a catch AND half a point a first down, so a
+  // possession receiver scores here more like a full-PPR player than a half-PPR
+  // one. Both rates on the row, so which he is closer to is visible.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const labels = (await page.locator('[data-testid="sheet-table"] thead th').allTextContents())
+    .map((t) => t.replace(/[▼▲]/g, '').trim());
+  expect(labels).toContain('PPG');
+  expect(labels).toContain('PPG1');
+  expect(labels.indexOf('PPG1') - labels.indexOf('PPG')).toBe(1);
+  await page.locator('thead th').filter({ hasText: /^\s*PPG1\s*$/ }).hover();
+  await expect(page.locator('.tip')).toContainText('full PPR');
+});
+
+test('the board opens in draft order, on full-PPR ADP', async ({ page }) => {
+  // It opened on VORP, which is the most useful column and the wrong one to
+  // land on: VORP answers "who is worth the most" and the question in front of
+  // a draft board is "who is going soon".
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  const col = labels.indexOf('ADP1');
+  await expect(heads.nth(col), 'ADP1 carries the sort').toContainText('▲');
+  for (const other of ['VORP', 'Sleeper', 'ADP']) {
+    await expect(heads.nth(labels.indexOf(other)), other).not.toContainText('▲');
+    await expect(heads.nth(labels.indexOf(other)), other).not.toContainText('▼');
+  }
+
+  // Lowest first, because that is what a price means, and blanks still trail.
+  const shown = (await page.locator(
+    `[data-testid="sheet-table"] tbody tr td:nth-child(${col + 1})`,
+  ).allTextContents()).map((t) => t.trim());
+  const priced = shown.filter((t) => t && t !== '—').map(Number);
+  expect([...priced].sort((a, b) => a - b)).toEqual(priced);
+  const firstBlank = shown.findIndex((t) => !t || t === '—');
+  if (firstBlank > -1) expect(shown.slice(firstBlank).every((t) => !t || t === '—')).toBe(true);
 });

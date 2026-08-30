@@ -27,7 +27,7 @@
   import { TEAMSHORT, byName } from '../lib/data.js';
   import { board } from '../lib/store.js';
   import {
-    buildSheet, applyOrder, moveInOrder, coverage, slotDemand, adpKeyFor, STOCK_SCORING,
+    buildSheet, coverage, slotDemand, adpKeyFor, STOCK_SCORING,
   } from '../lib/engine/sheet.ts';
 
   const qc = useQueryClient();
@@ -55,46 +55,42 @@
   }
   onDestroy(() => { if (liveTimer) clearInterval(liveTimer); });
 
-  // ---- YOUR OWN ORDER, which is a MODE and not a decoration ----
+  // ---- YOUR BOARD, which is a COLUMN and not a MODE ----
   //
-  // This was quietly the worst bug on the page. Nudging one player seeds the
-  // saved order from the WHOLE board — it has to, or moving a quarterback on the
-  // QB tab hoists every quarterback above every back — and the view then applied
-  // that order OVER the top of whatever column you had sorted by. So one
-  // accidental click on a ▲ froze all three thousand rows into that instant's
-  // order, and from then on every sort silently did nothing. The chip read
-  // "my list (3045)" as though that were a feature.
+  // Moving a player used to mean "put him at position N in a shadow copy of the
+  // whole board", and that copy then had to REPLACE whatever you had sorted by.
+  // Hence the old bug, and hence the real question underneath it: how do you
+  // rank men yourself and still read the data in order?
   //
-  // Sorting by a column and using your own order are two ways of ordering the
-  // same board, so they are now two modes and only one can be on. Clicking a
-  // heading is you asking for that order, so it turns your list off; clicking
-  // the chip turns it back on. Nothing is lost either way — the list is still
-  // saved — and the board can no longer claim to be sorted while it isn't.
+  // By making your rank a column. A star puts a man on your board and he takes
+  // the next number; the arrows move him within it; and that number shows on his
+  // row in EVERY sort. Sort by My to see your board in your order. Sort by VORP
+  // or ADP and your numbers are still there, beside the data, so the places you
+  // disagree with the board are visible instead of hidden — a man you have third
+  // sitting fourteenth on VORP is you backing a hunch, and you can see it.
   //
-  // v2 because the v1 blob is that frozen full-board snapshot: it cannot be
-  // told apart from a deliberate list, and honouring it would reopen the bug on
-  // the one machine it matters on. The old key is left where it is, unread.
-  const LS = 'bcs_sheet_order_v2';
-  const readLS = () => {
-    try {
-      const v = JSON.parse(localStorage.getItem(LS) || 'null');
-      if (v && Array.isArray(v.order)) return { order: v.order, moved: Array.isArray(v.moved) ? v.moved : [] };
-    } catch { /* unreadable */ }
-    return { order: [], moved: [] };
-  };
-  let { order, moved } = readLS();
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify({ order, moved })); } catch { /* full */ } };
-  let useMine = moved.length > 0;
-  // The WHOLE board seeds the order, the filtered view decides the neighbour.
-  // `moved` is kept alongside it so the chip can say how many players you have
-  // actually put a hand on, rather than how many ids the algorithm needed.
-  function bump(id, d) {
-    order = moveInOrder(order, built.rows.map((r) => r.id), view.map((r) => r.id), id, d);
-    if (!moved.includes(id)) moved = [...moved, id];
-    useMine = true;
-    save();
-  }
-  function clearMine() { order = []; moved = []; useMine = false; save(); }
+  // Two ideas collapse into one, which is the other half of the fix: a favourite
+  // and a hand-ranked man were always the same thing.
+  $: myBoard = $board.favs || [];
+  $: myRankOf = (n) => { const i = myBoard.indexOf(n); return i < 0 ? null : i + 1; };
+  const onBoard = (n) => (($board.favs || []).indexOf(n) >= 0);
+  const toggleFav = (n) => board.update((b) => {
+    const list = Array.isArray(b.favs) ? b.favs.slice() : [];
+    const i = list.indexOf(n);
+    if (i >= 0) list.splice(i, 1); else list.push(n);
+    return { ...b, favs: list };
+  });
+  // Up and down move him one place on YOUR board. They do nothing to anybody
+  // else and nothing to the sort, which is the entire point.
+  const bumpFav = (n, d) => board.update((b) => {
+    const list = Array.isArray(b.favs) ? b.favs.slice() : [];
+    const i = list.indexOf(n);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= list.length) return b;
+    [list[i], list[j]] = [list[j], list[i]];
+    return { ...b, favs: list };
+  });
+  const clearMine = () => board.update((b) => ({ ...b, favs: [] }));
 
   // ---- raw -> rows ----
   $: raw = $sheetQ.data || null;
@@ -187,6 +183,7 @@
         // And the mainstream half-PPR price, for the same player, alongside it.
         adpMarket: Number(line.adp_half_ppr) || null,
         adpPpr: Number(line.adp_ppr) || null,
+        pprPts: Number(line.pts_ppr) || null,
         // The only number on the board that is not Sleeper's opinion of itself:
         // the FantasyPros consensus, which aggregates ESPN, Yahoo, CBS and NFL.
         // Sleeper's API publishes no other site's ADP, so this is what there is.
@@ -242,13 +239,7 @@
   // "ask Imy about", and no list written in advance contains those.
   $: favs = new Set($board.favs || []);
   $: customTags = $board.custom || {};
-  const isFav = (n) => favs.has(n);
-  const toggleFav = (n) => board.update((b) => {
-    const list = Array.isArray(b.favs) ? b.favs.slice() : [];
-    const i = list.indexOf(n);
-    if (i >= 0) list.splice(i, 1); else list.push(n);
-    return { ...b, favs: list };
-  });
+  const isFav = (n) => onBoard(n);
   $: tagsOf = (n) => customTags[n] || [];
   const addTag = (n, raw) => {
     const t = String(raw || '').trim().slice(0, 24);
@@ -304,9 +295,6 @@
   let rookiesOnly = false;
   let favsOnly = false;
   let tagFilter = '';
-  let sortKey = 'vorpSeason';
-  let sortDir = -1;
-  let limit = 300;
   // WHICH WAY IS "BEST" depends on the column, and a sort that opens the wrong
   // way makes you click twice every time. On every points column — Sleeper,
   // Actual, VORP, Value, Gain — more is better, so the first click puts the
@@ -314,18 +302,31 @@
   // he goes in the second round and an ADP of 200 means nobody wants him, so the
   // first click has to put the LOWEST first or the board opens on the men you
   // will never draft.
-  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus']);
+  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus', 'myRank']);
+
+  // THE BOARD OPENS IN DRAFT ORDER, on full-PPR ADP. It used to open on VORP,
+  // which is the most USEFUL column and the wrong one to land on: VORP answers
+  // "who is worth the most" and the question you have in front of a draft board
+  // is "who is going soon". Full PPR rather than half because our scoring pays
+  // half a point a catch AND half a point a first down, so of the two public
+  // prices it is the nearer one to how this room will actually draft.
+  //
+  // Derived rather than written twice, so a default can never disagree with the
+  // direction its own column opens in.
+  const DEFAULT_SORT = 'adpPpr';
+  let sortKey = DEFAULT_SORT;
+  let sortDir = ASC_FIRST.has(DEFAULT_SORT) ? 1 : -1;
+  let limit = 300;
   function sortBy(k) {
-    // Asking for a column IS asking to leave your own order. Silently ignoring
-    // the click was the bug; taking the list away would be worse, so it is only
-    // switched off and one tap on the chip brings it back.
-    useMine = false;
     if (sortKey === k) sortDir = -sortDir;
     else { sortKey = k; sortDir = ASC_FIRST.has(k) ? 1 : -1; }
   }
 
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
-  $: filtered = built.rows.filter((r) => {
+  // Your rank travels with the row, so it can be shown in any sort and sorted on
+  // like any other column.
+  $: ranked = built.rows.map((r) => ({ ...r, myRank: myRankOf(r.name) }));
+  $: filtered = ranked.filter((r) => {
     if (posf === 'FLEX' ? !FLEX_POS.has(r.pos) : posf !== 'ALL' && r.pos !== posf) return false;
     if (hideOwned && (gone[r.id] || (anyKept ? keptById[r.id] : ownerById[r.id]))) return false;
     if (hidePartial && r.partial) return false;
@@ -355,7 +356,7 @@
     });
     return rows;
   })();
-  $: view = useMine ? applyOrder(sorted, order) : sorted;
+  $: view = sorted;
   $: shown = view.slice(0, limit);
   $: pulled = raw?.pulledAt ? new Date(raw.pulledAt).toLocaleTimeString() : '';
 
@@ -381,10 +382,12 @@
     ['adpPpr', 'ADP1', '', 'Full-PPR ADP. Our scoring is half a point a catch plus half a point a first down, so it sits BETWEEN half and full PPR — these two bracket where he really belongs.'],
     ['adpConsensus', 'FP', '', 'The FantasyPros consensus half-PPR ADP, which aggregates ESPN, Yahoo, CBS and NFL. The only price here that is not Sleeper marking its own homework.'],
     ['vorpSeason', 'VORP', '', 'Season points over a replacement starter AT HIS POSITION, from the pool you can really draft. What taking him actually wins you. Sleeper does not compute this at all.'],
+    ['myRank', 'My', '', 'Where YOU have him. Star a man to put him on your board and he takes the next number; the arrows move him within it. It shows in every sort, so the places you disagree with the board stay visible — a man you have third sitting fourteenth on VORP is you backing a hunch.'],
     ['slip', 'Value', '', 'HOW UNDERVALUED HE IS, in draft places: how much later the market lets him go than his VORP says he is worth. Positive is cheap.'],
     ['surplus', 'Gain', '', 'AND BY HOW MUCH, in points: how much more he wins you than the man the market prices him alongside. A big slip is worth nothing if the two men are worth the same \u2014 this is the number that says whether it matters.'],
     ['market', 'Market', '', 'The same player under standard half-PPR, which is what ADP is built from. Shown because it explains the price, not because anyone in our room drafts on it.'],
-    ['ours', 'PPG', '', 'The Sleeper number, per game.'],
+    ['ours', 'PPG', '', 'The Sleeper number, per game — his rate under OUR rules.'],
+    ['pprPpg', 'PPG1', '', 'The same per-game rate under full PPR. A possession receiver scores here more like a full-PPR player than a half-PPR one, because we pay half a point a catch AND half a point a first down — so this is the closer public rate for him, and the further one for a back who never catches.'],
   ];
 
   // THE COLUMN EXPLAINER. Rendered OUTSIDE the scrollport and positioned fixed,
@@ -526,13 +529,11 @@
       <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
-      <button class="chip" class:on={useMine} data-testid="sheet-mine" on:click={() => (useMine = !useMine)} disabled={!moved.length}>
-        my list{moved.length ? ` (${moved.length})` : ''}
+      <button class="chip" class:on={sortKey === 'myRank'} data-testid="sheet-mine"
+              on:click={() => sortBy('myRank')} disabled={!myBoard.length}>
+        my board{myBoard.length ? ` (${myBoard.length})` : ''}
       </button>
-      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!moved.length}>back to standard</button>
-      {#if useMine}
-        <span class="minenote" data-testid="sheet-minenote">your order · sorting off</span>
-      {/if}
+      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!myBoard.length}>clear</button>
       <span class="muted" data-testid="sheet-count">
         {view.length} shown of {built.rows.length}{#if drafted} · <b>{drafted} drafted</b>{/if}
       </span>
@@ -549,7 +550,7 @@
             <th class="nrw">move</th>
             {#each COLS as [k, label, cls, tipText]}
               <th
-                class={cls} class:act={!useMine && sortKey === k}
+                class={cls} class:act={sortKey === k}
                 on:click={() => sortBy(k)}
                 on:mouseenter={(e) => showTip(e, tipText)}
                 on:mouseleave={hideTip}
@@ -557,7 +558,7 @@
                 on:blur={hideTip}
                 tabindex="0"
               >
-                {label}{!useMine && sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
+                {label}{sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
               </th>
             {/each}
           </tr>
@@ -567,8 +568,14 @@
             <tr class:owned={!!gone[r.id]} class:part={r.partial}>
               <td class="nrw muted">{i + 1}</td>
               <td class="nrw mv">
-                <button on:click={() => bump(r.id, -1)} aria-label="Move {r.name} up" data-testid={'up-' + r.id}>▲</button>
-                <button on:click={() => bump(r.id, 1)} aria-label="Move {r.name} down" data-testid={'down-' + r.id}>▼</button>
+                {#if r.myRank}
+                  <button on:click={() => bumpFav(r.name, -1)} disabled={r.myRank === 1}
+                          aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
+                  <button on:click={() => bumpFav(r.name, 1)} disabled={r.myRank === myBoard.length}
+                          aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
+                {:else}
+                  <span class="mvoff" title="star him to put him on your board, then these move him">·</span>
+                {/if}
               </td>
               <td class="l nm" title={statusOf(r)}>
                 <button class="fav" class:on={isFav(r.name)} on:click|stopPropagation={() => toggleFav(r.name)}
@@ -590,12 +597,14 @@
               <td class="muted alt">{r.adpPpr != null ? r.adpPpr.toFixed(1) : '—'}</td>
               <td class="muted alt">{r.adpConsensus != null ? r.adpConsensus.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
+              <td class="my" class:mine={r.myRank}>{r.myRank ?? ''}</td>
               <td class="edge" class:up={r.slip > 12} class:dn={r.slip < -12} title={r.slip != null ? `the market has him ${r.adpRank}th, this board has him ${r.valueRank}th` : ''}>{r.slip != null ? plus(r.slip) : ''}</td>
               <td class="gain" class:up={r.surplus > 8} class:dn={r.surplus < -8}>{r.surplus != null ? plus(r.surplus) : ''}</td>
               <td class="theirs" title={r.marketFrom === 'derived' ? 'Sleeper publishes no half-PPR projection for him — this is our own score of the same stats' : 'Sleeper’s published half-PPR projection, what ADP is built on'}>
                 {n0(r.market)}{#if r.marketFrom === 'derived'}<em class="q">?</em>{/if}
               </td>
               <td class="muted">{n2(r.ours)}</td>
+              <td class="muted alt">{r.pprPpg ? n2(r.pprPpg) : '—'}</td>
             </tr>
           {/each}
         </tbody>
@@ -741,10 +750,9 @@
   .tag.ct { background: var(--blue-wash); color: var(--blue-deep); font-weight: 700; }
   .tagchip { border-color: var(--blue-sky); }
   /* The board must never look sorted while it is showing your order instead. */
-  .minenote {
-    font-size: 10px; color: var(--brass); font-weight: 700;
-    border: 1px solid var(--brass); border-radius: 6px; padding: 3px 7px; white-space: nowrap;
-  }
+  td.my { color: var(--muted); }
+  td.my.mine { color: var(--brass); font-weight: 700; }
+  .mvoff { color: var(--line); font-size: 9px; }
   .chip b.ct { margin-left: 5px; font-size: 9.5px; opacity: .8; }
 
   .tagbox {
