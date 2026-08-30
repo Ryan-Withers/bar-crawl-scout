@@ -93,9 +93,10 @@ test('it prices the first-down rules a stock ranking cannot see', async ({ page 
   await expect(page.getByTestId('sheet-table')).toBeVisible();
 
   // #, move, name, pos, team, G, they-see, really, +pts, edge, ppg, 1D, vorp, …
-  const SLEEPER = 6; const ACTUAL = 7; const ADP = 8; const ADP_HALF = 9; const ADP_PPR = 10;
-  const FP = 11; const VORP = 12; const MY = 13; const VALUE = 14; const GAIN = 15;
-  const MARKET = 16; const OURS = 17; const PPG1 = 18;
+  // # Player Pos Tm G Sleeper Actual ADP ADP½ ADP1 FP VORP My Value Gain Market PPG PPG1
+  const SLEEPER = 5; const ACTUAL = 6; const ADP = 7; const ADP_HALF = 8; const ADP_PPR = 9;
+  const FP = 10; const VORP = 11; const MY = 12; const VALUE = 13; const GAIN = 14;
+  const MARKET = 15; const OURS = 16; const PPG1 = 17;
 
   // Identical yards and scores, so the scoring the MARKET prices them on cannot
   // separate them at all — the same number for both, because a first down is
@@ -186,7 +187,7 @@ test('every filter actually filters', async ({ page }) => {
   await expect(rows).toHaveCount(all);
 
   const posOf = async () => new Set((await page.locator(
-    '[data-testid="sheet-table"] tbody tr td:nth-child(4)',
+    '[data-testid="sheet-table"] tbody tr td:nth-child(3)',
   ).allTextContents()).map((t) => t.trim()));
 
   // Every man shown is of that position — and a tab with nobody in this feed
@@ -302,7 +303,7 @@ test('the three columns are season totals, and the gap between them is the ruleb
   await mockSheet(page);
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
-  const SLEEPER = 6; const ACTUAL = 7; const MARKET = 16; const G = 5;
+  const SLEEPER = 5; const ACTUAL = 6; const MARKET = 15; const G = 4;
 
   const num = async (name, col) => Number((await cell(page, name, col).innerText()).replace(/[^0-9.-]/g, ''));
   const market = await num('Gunslinger', MARKET);
@@ -479,7 +480,7 @@ test('FLEX is a filter, because it is a seat', async ({ page }) => {
   await page.goto('./sheet');
   await expect(page.getByTestId('sheet-table')).toBeVisible();
   await page.getByTestId('sheet-pos-flex').click();
-  const posCells = await page.locator('[data-testid="sheet-table"] tbody tr td:nth-child(4)').allTextContents();
+  const posCells = await page.locator('[data-testid="sheet-table"] tbody tr td:nth-child(3)').allTextContents();
   expect(posCells.length).toBeGreaterThan(0);
   for (const p of posCells) expect(['RB', 'WR', 'TE']).toContain(p.trim());
   // The quarterback is a real player and is not eligible for the seat.
@@ -635,18 +636,31 @@ test('your rank shows in every sort instead of replacing one', async ({ page }) 
   ).innerText()).trim();
 
   // Nothing on your board, and the arrows say so rather than pretending.
-  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
+  await expect(page.getByTestId('sheet-mine-hint')).toBeVisible();
+  await expect(page.getByTestId('sheet-mine')).toHaveCount(0);
   expect((await mine()).every((v) => v === '')).toBe(true);
   await expect(page.getByTestId('up-p1')).toHaveCount(0);
 
-  // Star two: they take the next numbers, in the order you starred them.
+  // Star two. A new man slots in where he SITS on screen, not on the end —
+  // starring the first, sixth and third rows used to leave your board reading
+  // first, sixth, third, and a pile of nudging to undo. Here p1 is above p3 on
+  // the board, so he takes 1 even though p3 was starred first.
+  const orderOnScreen = async () => (await page.locator(
+    '[data-testid="sheet-table"] tbody tr [data-testid^="fav-"]',
+  ).evaluateAll((els) => els.map((e) => e.dataset.testid.slice(4))));
+  const screen = await orderOnScreen();
+  expect(screen.indexOf('p1')).toBeLessThan(screen.indexOf('p3'));
+
   await page.getByTestId('fav-p3').click();
   await page.getByTestId('fav-p1').click();
   await expect(page.getByTestId('sheet-mine')).toContainText('(2)');
-  expect(await rankOf('p3')).toBe('1');
-  expect(await rankOf('p1')).toBe('2');
+  expect(await rankOf('p1'), 'higher on the board takes the lower number').toBe('1');
+  expect(await rankOf('p3')).toBe('2');
 
   // The arrows move a man within YOUR board and touch nothing else.
+  await page.getByTestId('down-p1').click();
+  expect(await rankOf('p1')).toBe('2');
+  expect(await rankOf('p3')).toBe('1');
   await page.getByTestId('up-p1').click();
   expect(await rankOf('p1')).toBe('1');
   expect(await rankOf('p3')).toBe('2');
@@ -678,7 +692,8 @@ test('your board survives a reload, and one button clears it', async ({ page }) 
   await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
 
   await page.getByTestId('sheet-standard').click();
-  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
+  await expect(page.getByTestId('sheet-mine')).toHaveCount(0);
+  await expect(page.getByTestId('sheet-mine-hint')).toBeVisible();
   await expect(page.getByTestId('up-p1')).toHaveCount(0);
 });
 
@@ -734,4 +749,43 @@ test('the board opens in draft order, on full-PPR ADP', async ({ page }) => {
   expect([...priced].sort((a, b) => a - b)).toEqual(priced);
   const firstBlank = shown.findIndex((t) => !t || t === '—');
   if (firstBlank > -1) expect(shown.slice(firstBlank).every((t) => !t || t === '—')).toBe(true);
+});
+
+test('an empty board says how to start one rather than greying out', async ({ page }) => {
+  // Ryan opened it and asked whether the arrows were broken. They were not —
+  // but a column of dots under a "move" heading and two greyed-out buttons is
+  // not an invitation, and being undiscoverable is a real fault however well
+  // the thing underneath works.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  await expect(page.getByTestId('sheet-mine-hint')).toBeVisible();
+  await expect(page.getByTestId('sheet-mine-hint')).toContainText('☆');
+
+  // No move column at all: the arrows live beside the star, which is the only
+  // control they belong to.
+  const labels = (await page.locator('[data-testid="sheet-table"] thead th').allTextContents())
+    .map((t) => t.trim());
+  expect(labels).not.toContain('move');
+  await expect(page.locator('[data-testid="sheet-table"] tbody td.mv')).toHaveCount(0);
+
+  // Star one and the controls appear, in the same cell as the star.
+  await page.getByTestId('fav-p1').click();
+  await expect(page.getByTestId('sheet-mine-hint')).toHaveCount(0);
+  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
+  const cell = page.locator('[data-testid="sheet-table"] tbody tr:has([data-testid="fav-p1"]) td.nm');
+  await expect(cell.getByTestId('up-p1')).toBeVisible();
+  await expect(cell.getByTestId('down-p1')).toBeVisible();
+});
+
+test('the long explainer is folded away with the rest of the notes', async ({ page }) => {
+  // It sat under the board as a wall of prose on every visit.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  await expect(page.getByTestId('sheet-foot')).toHaveCount(0);
+  await openNotes(page);
+  await expect(page.getByTestId('sheet-foot')).toBeVisible();
+  await expect(page.getByTestId('sheet-foot')).toContainText('FantasyPros');
 });

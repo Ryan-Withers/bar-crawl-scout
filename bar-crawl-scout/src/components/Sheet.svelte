@@ -74,10 +74,26 @@
   $: myBoard = $board.favs || [];
   $: myRankOf = (n) => { const i = myBoard.indexOf(n); return i < 0 ? null : i + 1; };
   const onBoard = (n) => (($board.favs || []).indexOf(n) >= 0);
+  // Starring a man puts him where he SITS, not on the end. You star while
+  // reading down a sorted board, so appending meant starring the 1st, 6th and
+  // 3rd rows left your board reading 1st, 6th, 3rd — and a pile of nudging to
+  // undo. He slots in ahead of the first man already on your board who sits
+  // below him in the current view, which leaves every ordering you HAVE done
+  // untouched and starts him somewhere sensible.
   const toggleFav = (n) => board.update((b) => {
     const list = Array.isArray(b.favs) ? b.favs.slice() : [];
     const i = list.indexOf(n);
-    if (i >= 0) list.splice(i, 1); else list.push(n);
+    if (i >= 0) { list.splice(i, 1); return { ...b, favs: list }; }
+    const onScreen = view.map((r) => r.name);
+    const mine = onScreen.indexOf(n);
+    let at = list.length;
+    if (mine >= 0) {
+      for (let k = 0; k < list.length; k++) {
+        const other = onScreen.indexOf(list[k]);
+        if (other > mine) { at = k; break; }
+      }
+    }
+    list.splice(at, 0, n);
     return { ...b, favs: list };
   });
   // Up and down move him one place on YOUR board. They do nothing to anybody
@@ -468,7 +484,7 @@
           {#each ['RB', 'WR', 'QB', 'TE'] as p}
             {#if built.levels[p] != null}
               <span class="rp">{p} <b>{n1(built.levels[p])}</b>{#if worldLevels[p] != null && Math.abs(worldLevels[p] - built.levels[p]) >= 0.05}<em class="wl" title="where it would sit if the {goneIds.size} men already gone were still available">was {n1(worldLevels[p])}</em>{/if}</span>
-            {/if}
+    {/if}
           {/each}
         </p>
         {#if goneIds.size}
@@ -508,6 +524,13 @@
         {/if}
       </div>
     </div>
+      <p class="foot muted" data-testid="sheet-foot">
+        Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room, and <b>ADP</b> the price beside it.
+        <b>Actual</b> adds the one league rule no projection carries: a point per fumble as well as for losing it, estimated from {raw.prior}.
+        <b>ADP½</b>, <b>ADP1</b> and <b>FP</b> are the half-PPR, full-PPR and FantasyPros consensus prices — our scoring sits between the first two, so they bracket him.
+        <b>VORP</b> is season points over replacement at his position, from a greedy fill of the real lineup with the men already gone taken out.
+        Hover any heading for what it means. Stars, tags and your order are saved in this browser only.
+      </p>
     {/if}
 
     <div class="bar">
@@ -529,11 +552,17 @@
       <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
-      <button class="chip" class:on={sortKey === 'myRank'} data-testid="sheet-mine"
-              on:click={() => sortBy('myRank')} disabled={!myBoard.length}>
-        my board{myBoard.length ? ` (${myBoard.length})` : ''}
-      </button>
-      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!myBoard.length}>clear</button>
+      {#if myBoard.length}
+        <button class="chip" class:on={sortKey === 'myRank'} data-testid="sheet-mine"
+                on:click={() => sortBy('myRank')}>
+          my board ({myBoard.length})
+        </button>
+        <button class="chip" data-testid="sheet-standard" on:click={clearMine}>clear</button>
+      {:else}
+        <!-- Two greyed-out buttons and a column of dots is not an invitation.
+             Until there is a board to sort, say how to start one. -->
+        <span class="hint" data-testid="sheet-mine-hint">tap ☆ to build your board</span>
+      {/if}
       <span class="muted" data-testid="sheet-count">
         {view.length} shown of {built.rows.length}{#if drafted} · <b>{drafted} drafted</b>{/if}
       </span>
@@ -547,7 +576,6 @@
         <thead>
           <tr>
             <th class="nrw">#</th>
-            <th class="nrw">move</th>
             {#each COLS as [k, label, cls, tipText]}
               <th
                 class={cls} class:act={sortKey === k}
@@ -567,19 +595,19 @@
           {#each shown as r, i (r.id)}
             <tr class:owned={!!gone[r.id]} class:part={r.partial}>
               <td class="nrw muted">{i + 1}</td>
-              <td class="nrw mv">
-                {#if r.myRank}
-                  <button on:click={() => bumpFav(r.name, -1)} disabled={r.myRank === 1}
-                          aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
-                  <button on:click={() => bumpFav(r.name, 1)} disabled={r.myRank === myBoard.length}
-                          aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
-                {:else}
-                  <span class="mvoff" title="star him to put him on your board, then these move him">·</span>
-                {/if}
-              </td>
               <td class="l nm" title={statusOf(r)}>
                 <button class="fav" class:on={isFav(r.name)} on:click|stopPropagation={() => toggleFav(r.name)}
-                        aria-label={isFav(r.name) ? `Unstar ${r.name}` : `Star ${r.name}`} data-testid={'fav-' + r.id}>{isFav(r.name) ? '★' : '☆'}</button>
+                        title={isFav(r.name) ? 'On your board — click to take him off' : 'Put him on your board'}
+                        aria-label={isFav(r.name) ? `Take ${r.name} off your board` : `Put ${r.name} on your board`}
+                        data-testid={'fav-' + r.id}>{isFav(r.name) ? '★' : '☆'}</button>
+                {#if r.myRank}
+                  <span class="mv">
+                    <button on:click|stopPropagation={() => bumpFav(r.name, -1)} disabled={r.myRank === 1}
+                            title="Up your board" aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
+                    <button on:click|stopPropagation={() => bumpFav(r.name, 1)} disabled={r.myRank === myBoard.length}
+                            title="Down your board" aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
+                  </span>
+                {/if}
                 <span class="pn">{r.name}</span>
                 {#if r.rookie}<em class="tag rk" title="2026 rookie — from Sleeper's years of experience, not a guess">R</em>{/if}
                 {#if r.partial}<em class="tag" title="part-season projection">{r.games}G</em>{/if}
@@ -634,13 +662,7 @@
       <div class="tip" style="left:{tip.x}px; top:{tip.y}px" role="tooltip">{tip.text}</div>
     {/if}
 
-    <p class="foot muted">
-      Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room, and <b>ADP</b> the price beside it.
-      <b>Actual</b> adds the one league rule no projection carries: a point per fumble as well as for losing it, estimated from {raw.prior}.
-      <b>ADP½</b>, <b>ADP1</b> and <b>FP</b> are the half-PPR, full-PPR and FantasyPros consensus prices — our scoring sits between the first two, so they bracket him.
-      <b>VORP</b> is season points over replacement at his position, from a greedy fill of the real lineup with the men already gone taken out.
-      Hover any heading for what it means. Stars, tags and your order are saved in this browser only.
-    </p>
+
   {/if}
 </section>
 
@@ -751,6 +773,7 @@
   .tagchip { border-color: var(--blue-sky); }
   /* The board must never look sorted while it is showing your order instead. */
   td.my { color: var(--muted); }
+  .hint { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
   td.my.mine { color: var(--brass); font-weight: 700; }
   .mvoff { color: var(--line); font-size: 9px; }
   .chip b.ct { margin-left: 5px; font-size: 9.5px; opacity: .8; }
