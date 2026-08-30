@@ -37,6 +37,7 @@
   const lazy = (loader) => Object.assign(loader, { __lazy: true });
   const MockDraft = lazy(() => import('./components/MockDraft.svelte'));
   const Vault = lazy(() => import('./components/Vault.svelte'));
+  const DraftGrades = lazy(() => import('./components/DraftGrades.svelte'));
   const DraftRoom = lazy(() => import('./components/DraftRoom.svelte'));
   const Sheet = lazy(() => import('./components/Sheet.svelte'));
   const TheBook = lazy(() => import('./components/TheBook.svelte'));
@@ -77,6 +78,7 @@
     '/power': PowerRankings,
     '/mock': MockDraft,
     '/vault': Vault,
+    '/grades': DraftGrades,
     '/draftboard': DraftRoom,
     // Hidden on purpose: a real route, deliberately absent from nav.js so the
     // app never links to it. Security by obscurity — the repo is public.

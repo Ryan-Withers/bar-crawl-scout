@@ -1,8 +1,10 @@
 <script>
   import { PLAYERS, BYUNAME, TAGS, TAGTXT, RYAN, byName, nameKey } from '../lib/data.js';
   import {
-    windowVal, r26, r27, pts26, pts27, isAvailable, isFinalYr, ownerOf, rosterOwner,
+    windowVal, r26, r27, pts26, pts27, isAvailable, inPool, isFinalYr, ownerOf, rosterOwner,
   } from '../lib/models.js';
+  import { usePhase } from '../lib/usePhase.js';
+  import { useOwners } from '../lib/useOwners.js';
   import { keepers, mode, board, rosterOwn, unlocked, keepersSource } from '../lib/store.js';
   import PlayerChip from './PlayerChip.svelte';
   import SeasonNote from './SeasonNote.svelte';
@@ -30,6 +32,15 @@
   $: ks = $keepers;
   $: md = $mode;
   $: own = $rosterOwn;
+
+  // WHAT "IN POOL" MEANS TODAY. Before the draft: not kept. After it: not on
+  // anybody's roster. The rule is in models.inPool and it swaps itself the
+  // moment the draft's status reads complete — see lib/engine/phase.ts.
+  const phaseStore = usePhase();
+  const ownersStore = useOwners();
+  $: phase = $phaseStore.phase;
+  // The live map first; the synced one is the fallback for an offline device.
+  $: poolOwn = $ownersStore || own;
   $: bd = $board;
   $: views = bd.views;
   $: av = sortKey.indexOf('view:') === 0 ? (views.find((v) => v.id === sortKey.slice(5)) || null) : null;
@@ -82,7 +93,7 @@
     return list.slice().sort((a, b) => { const va = val(a), vb = val(b); if (va < vb) return -1 * dir; if (va > vb) return dir; return a[5] - b[5]; });
   }
 
-  function computeRows(ks, md, own, bd, av, sortKey, viewSort, posFilter, poolOnly, hideDrafted, q, tagFilter) {
+  function computeRows(ks, md, own, bd, av, sortKey, viewSort, posFilter, poolOnly, hideDrafted, q, tagFilter, phase, poolOwn) {
     let list;
     if (av) {
       list = reconcile(av, ks, md).map((n) => byName(n)).filter(Boolean);
@@ -91,7 +102,7 @@
       list = sortByKey(PLAYERS, sortKey, ks, md);
     }
     list = list.filter((p) => {
-      if (poolOnly && !isAvailable(ks, p[1])) return false;
+      if (poolOnly && !inPool(phase, ks, poolOwn, p[1])) return false;
       if (posFilter === 'FLEX') { if (!['RB', 'WR', 'TE'].includes(p[2])) return false; }
       else if (posFilter !== 'ALL' && p[2] !== posFilter) return false;
       if (q && !p[1].toLowerCase().includes(q)) return false;
@@ -101,7 +112,7 @@
     });
     let prevW = null;
     return list.map((p) => {
-      const w = windowVal(p, ks, md), dr = bd.drafted.includes(p[1]), kept = !isAvailable(ks, p[1]);
+      const w = windowVal(p, ks, md), dr = bd.drafted.includes(p[1]), kept = !inPool(phase, ks, poolOwn, p[1]);
       let tier = false;
       if (!av && sortKey === 'win' && prevW !== null && !dr && (prevW - w) >= 14) tier = true;
       if (!dr) prevW = w;
@@ -109,7 +120,7 @@
     });
   }
 
-  $: rows = computeRows(ks, md, own, bd, av, sortKey, viewSort, posFilter, poolOnly, hideDrafted, q, tagFilter);
+  $: rows = computeRows(ks, md, own, bd, av, sortKey, viewSort, posFilter, poolOnly, hideDrafted, q, tagFilter, phase, poolOwn);
 
   const toggleDraft = (name) => board.update((b) => { const j = b.drafted.indexOf(name); if (j >= 0) b.drafted.splice(j, 1); else b.drafted.push(name); return b; });
   const toggleTag = (name, k) => board.update((b) => { const cur = b.tags[name] || []; const i = cur.indexOf(k); if (i >= 0) cur.splice(i, 1); else cur.push(k); if (cur.length) b.tags[name] = cur; else delete b.tags[name]; return b; });
@@ -182,7 +193,7 @@
       {#each POS as pos}<button type="button" class="chip" class:on={posFilter === pos} on:click={() => (posFilter = pos)}>{pos === 'ALL' ? 'All pos' : pos}</button>{/each}
     </div>
     <div class="chips">
-      <button type="button" class="chip" class:on={poolOnly} on:click={() => (poolOnly = !poolOnly)}>In pool only</button>
+      <button type="button" class="chip" class:on={poolOnly} on:click={() => (poolOnly = !poolOnly)}>{phase === 'planning' ? 'Free agents only' : 'In pool only'}</button>
       <button type="button" class="chip" class:on={hideDrafted} on:click={() => (hideDrafted = !hideDrafted)}>Hide drafted</button>
     </div>
     <select class="tagfiltersel" bind:value={tagFilter}>

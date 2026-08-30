@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PLAYERS, PROJ, TEAMS, REPLACEMENT, STAGE, GROWTH } from '../src/lib/data.js';
 import {
-  ownerOf, isKept, isAvailable, r26, r27, windowVal, yearsLeft, needScores,
+  ownerOf, isKept, isAvailable, inPool, r26, r27, windowVal, yearsLeft, needScores,
   tierFromADP, ADP_ANCHORS, rookieYearOne, ROOKIE_Y1, stageMult, stageYear2,
 } from '../src/lib/models.js';
 
@@ -330,3 +330,35 @@ describe('positional age curves', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// THE POOL, BEFORE AND AFTER THE DRAFT.
+//
+// This is the one piece of prep logic that becomes actively wrong the moment the
+// draft ends, rather than merely unhelpful.
+describe('inPool', () => {
+  const ks = { Ryan: [['Josh Allen', 'L'], ['Bijan Robinson', 'L'], ['', ''], ['', '']] };
+  const own = { 'josh allen': 'Ryan', 'bijan robinson': 'Ryan', 'drake london': 'joshleota' };
+
+  it('means "not kept" while the draft is still ahead', () => {
+    // Drake London is on a roster and is not kept, so he goes back in the pool.
+    // Getting this wrong hid the best draftable players on the board.
+    expect(inPool('prep', ks, own, 'Drake London')).toBe(true);
+    expect(inPool('prep', ks, own, 'Josh Allen')).toBe(false);
+    expect(inPool('drafting', ks, own, 'Drake London')).toBe(true);
+  });
+
+  it('means "nobody rosters him" once the draft is done', () => {
+    // Same man, same data, opposite answer — he has been drafted now.
+    expect(inPool('planning', ks, own, 'Drake London')).toBe(false);
+    expect(inPool('planning', ks, own, 'Josh Allen')).toBe(false);
+    expect(inPool('planning', ks, own, 'Some Waiver Guy')).toBe(true);
+  });
+
+  it('falls back to the keeper reading rather than emptying the board', () => {
+    // No ownership map means no answer about ownership. An empty board would be
+    // worse than a stale one.
+    expect(inPool('planning', ks, null, 'Drake London')).toBe(true);
+    expect(inPool('planning', ks, null, 'Josh Allen')).toBe(false);
+  });
+});
