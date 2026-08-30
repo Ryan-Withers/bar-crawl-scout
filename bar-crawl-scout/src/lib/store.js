@@ -116,12 +116,18 @@ function initBoard(existing) {
     drafted: Array.isArray(b.drafted) ? b.drafted : [],
     views: Array.isArray(b.views) ? b.views : [],
     tags: (b.tags && typeof b.tags === 'object') ? b.tags : {},
-    // FAVOURITES and FREE-TEXT TAGS, both keyed by player name so they mean the
-    // same thing on every page that reads them. Added to the existing board
-    // record rather than a new key so one saved blob still carries everything a
-    // draft is prepared with, and so an older saved board simply arrives with
-    // both empty rather than undefined.
+    // All keyed by player name, so they mean the same thing on every page that
+    // reads them, and all on the existing board record so one saved blob still
+    // carries everything a draft is prepared with.
+    //
+    // FAVOURITES: a plain set of men you like the look of. No order to it —
+    // ordering is what myOrder is for, and conflating the two meant a star had
+    // to mean two things at once.
     favs: Array.isArray(b.favs) ? b.favs : [],
+    // YOUR RANKING of the board, by player name. Empty until you move somebody,
+    // and then it is the whole order: every man has a number, because a ranking
+    // with holes in it is not a ranking.
+    myOrder: Array.isArray(b.myOrder) ? b.myOrder : [],
     custom: (b.custom && typeof b.custom === 'object') ? b.custom : {},
   };
 }

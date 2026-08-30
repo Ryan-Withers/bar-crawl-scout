@@ -55,68 +55,91 @@
   }
   onDestroy(() => { if (liveTimer) clearInterval(liveTimer); });
 
-  // ---- YOUR BOARD, which is a COLUMN and not a MODE ----
+  // ---- YOUR RANKING, which is a COLUMN and covers EVERYONE ----
   //
-  // Moving a player used to mean "put him at position N in a shadow copy of the
-  // whole board", and that copy then had to REPLACE whatever you had sorted by.
-  // Hence the old bug, and hence the real question underneath it: how do you
-  // rank men yourself and still read the data in order?
+  // MY starts as the board itself: every man has a number from the moment you
+  // open the page, and the arrows move him within that. It is not a shortlist
+  // you have to opt a player into — you cannot nudge somebody who has no
+  // position, and an empty column with nothing to grab was the reason none of
+  // this was findable.
   //
-  // By making your rank a column. A star puts a man on your board and he takes
-  // the next number; the arrows move him within it; and that number shows on his
-  // row in EVERY sort. Sort by My to see your board in your order. Sort by VORP
-  // or ADP and your numbers are still there, beside the data, so the places you
-  // disagree with the board are visible instead of hidden — a man you have third
-  // sitting fourteenth on VORP is you backing a hunch, and you can see it.
+  // The ranking is seeded from the DEFAULT order rather than whatever you are
+  // sorted by at the time, so it means the same thing every time you look at
+  // it. Nothing is saved until you actually move somebody; after that it is
+  // your order and it stays put even when ADP moves under it, which is the
+  // point of having your own.
   //
-  // Two ideas collapse into one, which is the other half of the fix: a favourite
-  // and a hand-ranked man were always the same thing.
-  $: myBoard = $board.favs || [];
-  $: myRankOf = (n) => { const i = myBoard.indexOf(n); return i < 0 ? null : i + 1; };
-  const onBoard = (n) => (($board.favs || []).indexOf(n) >= 0);
-  // Starring a man puts him where he SITS, not on the end. You star while
-  // reading down a sorted board, so appending meant starring the 1st, 6th and
-  // 3rd rows left your board reading 1st, 6th, 3rd — and a pile of nudging to
-  // undo. He slots in ahead of the first man already on your board who sits
-  // below him in the current view, which leaves every ordering you HAVE done
-  // untouched and starts him somewhere sensible.
-  const toggleFav = (n) => board.update((b) => {
-    const list = Array.isArray(b.favs) ? b.favs.slice() : [];
-    const i = list.indexOf(n);
-    if (i >= 0) { list.splice(i, 1); return { ...b, favs: list }; }
-    const onScreen = view.map((r) => r.name);
-    const mine = onScreen.indexOf(n);
-    let at = list.length;
-    if (mine >= 0) {
-      for (let k = 0; k < list.length; k++) {
-        const other = onScreen.indexOf(list[k]);
-        if (other > mine) { at = k; break; }
-      }
+  // The star is just a star again. It marks men you like the look of and has
+  // nothing to do with order — one control, one meaning.
+  $: defaultOrder = built.rows
+    .slice()
+    .sort((a, b) => {
+      const x = a.adpPpr; const y = b.adpPpr;
+      if (x == null && y == null) return a.ovRank - b.ovRank;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return x - y || a.ovRank - b.ovRank;
+    })
+    .map((r) => r.name);
+
+  // Your saved order first, then anybody it has never heard of — a man added to
+  // the player pool since you last touched this lands at his board position
+  // rather than vanishing or piling up at the end.
+  $: myRanks = (() => {
+    const saved = ($board.myOrder || []).filter((n) => n);
+    const m = new Map();
+    if (!saved.length) {
+      defaultOrder.forEach((n, i) => m.set(n, i + 1));
+      return m;
     }
-    list.splice(at, 0, n);
-    return { ...b, favs: list };
+    const seen = new Set(saved);
+    let i = 0;
+    for (const n of saved) m.set(n, ++i);
+    for (const n of defaultOrder) if (!seen.has(n)) m.set(n, ++i);
+    return m;
+  })();
+  $: myRankOf = (n) => myRanks.get(n) ?? null;
+  $: myCount = myRanks.size;
+
+  // Moving a man writes the WHOLE order down for the first time. It has to: a
+  // ranking is a sequence, and half of one cannot say where anybody sits.
+  const moveInMy = (n, d) => board.update((b) => {
+    const saved = (b.myOrder || []).filter((x) => x);
+    const list = saved.length ? saved.slice() : orderNow();
+    const i = list.indexOf(n);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= list.length) return b;
+    [list[i], list[j]] = [list[j], list[i]];
+    return { ...b, myOrder: list };
   });
-  // Up and down move him one place on YOUR board. They do nothing to anybody
-  // else and nothing to the sort, which is the entire point.
+  // The order as it stands right now, seeded or not, for the first write.
+  let orderNow = () => [];
+  $: orderNow = () => [...myRanks.entries()].sort((a, b) => a[1] - b[1]).map(([n]) => n);
+
   // FLICK. Sorted by My, moving a man moves his ROW — so the next click lands on
   // whoever slid into that spot instead of on him. Putting the focus back on the
   // same button after the move means you can hit it four times and send him four
   // places, which is the whole point of an arrow.
   async function flick(r, d) {
-    bumpFav(r.name, d);
+    moveInMy(r.name, d);
     await tick();
     const btn = document.querySelector(`[data-testid="${d < 0 ? 'up' : 'down'}-${r.id}"]`);
     if (btn && !btn.disabled) btn.focus();
   }
-  const bumpFav = (n, d) => board.update((b) => {
+
+  // Back to the board's own order.
+  const clearMine = () => board.update((b) => ({ ...b, myOrder: [] }));
+  $: touched = ($board.myOrder || []).length > 0;
+
+  // ---- FAVOURITES, which are only that ----
+  $: favs = new Set($board.favs || []);
+  const isFav = (n) => favs.has(n);
+  const toggleFav = (n) => board.update((b) => {
     const list = Array.isArray(b.favs) ? b.favs.slice() : [];
     const i = list.indexOf(n);
-    const j = i + d;
-    if (i < 0 || j < 0 || j >= list.length) return b;
-    [list[i], list[j]] = [list[j], list[i]];
+    if (i >= 0) list.splice(i, 1); else list.push(n);
     return { ...b, favs: list };
   });
-  const clearMine = () => board.update((b) => ({ ...b, favs: [] }));
 
   // ---- raw -> rows ----
   $: raw = $sheetQ.data || null;
@@ -210,6 +233,9 @@
         adpMarket: Number(line.adp_half_ppr) || null,
         adpPpr: Number(line.adp_ppr) || null,
         pprPts: Number(line.pts_ppr) || null,
+        // adp_dynasty and adp_rookie come back 999 for every skill player;
+        // adp_dynasty_half_ppr is the one Sleeper actually populates.
+        adpDyn: Number(line.adp_dynasty_half_ppr) || null,
         // The only number on the board that is not Sleeper's opinion of itself:
         // the FantasyPros consensus, which aggregates ESPN, Yahoo, CBS and NFL.
         // Sleeper's API publishes no other site's ADP, so this is what there is.
@@ -263,9 +289,7 @@
   // on a man here is the same star the Big Board knows about. Free text rather
   // than a fixed list: the useful tag on draft night is "handcuff for Gibbs" or
   // "ask Imy about", and no list written in advance contains those.
-  $: favs = new Set($board.favs || []);
   $: customTags = $board.custom || {};
-  const isFav = (n) => onBoard(n);
   $: tagsOf = (n) => customTags[n] || [];
   const addTag = (n, raw) => {
     const t = String(raw || '').trim().slice(0, 24);
@@ -328,7 +352,7 @@
   // he goes in the second round and an ADP of 200 means nobody wants him, so the
   // first click has to put the LOWEST first or the board opens on the men you
   // will never draft.
-  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus', 'myRank']);
+  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus', 'adpDyn', 'myRank']);
 
   // THE BOARD OPENS IN DRAFT ORDER, on full-PPR ADP. It used to open on VORP,
   // which is the most USEFUL column and the wrong one to land on: VORP answers
@@ -400,15 +424,16 @@
     ['name', 'Player', 'l', 'Who he is. Italic means Sleeper only projects him for part of the season.'],
     ['pos', 'Pos', 'l', 'What he plays.'],
     ['team', 'Tm', 'l', 'His NFL club.'],
-    ['games', 'G', '', 'Games Sleeper expects him to play. Everything to the right is over this many games.'],
     ['sleeper', 'Sleeper', '', 'WHAT YOUR LEAGUEMATES SEE. Exactly the PTS number in your Sleeper draft room — their projection, scored under our league rules by them. This column IS that column, digit for digit.'],
     ['adjusted', 'Actual', '', 'THE REAL PROJECTION — every scored rule in the league, applied. Sleeper\u2019s number plus the one rule they cannot carry: we dock a point per fumble as well as for losing it, and no projection counts plain fumbles. Usually a point or two, occasionally seven.'],
     ['adp', 'ADP', '', 'The ADP in YOUR draft room. Sleeper serves the one matching our format — IDP with one quarterback — and this is the price you will actually pay. Nothing about it knows our thirty keepers are gone.'],
     ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes.'],
     ['adpPpr', 'ADP1', '', 'Full-PPR ADP. Our scoring is half a point a catch plus half a point a first down, so it sits BETWEEN half and full PPR — these two bracket where he really belongs.'],
+    ['adpDyn', 'DYN', '', 'The DYNASTY price — what the market pays for his future rather than his season. We keep three men and the clock follows the player, so this is a real input: Derrick Henry goes 22nd in our room and 50th here.'],
+    ['keepGap', 'Keep', '', 'How many places EARLIER he goes in dynasty than in our own draft room. Positive means the market rates his future above his present, which is the question in a league where you keep three.'],
     ['adpConsensus', 'FP', '', 'The FantasyPros consensus half-PPR ADP, which aggregates ESPN, Yahoo, CBS and NFL. The only price here that is not Sleeper marking its own homework.'],
     ['vorpSeason', 'VORP', '', 'Season points over a replacement starter AT HIS POSITION, from the pool you can really draft. What taking him actually wins you. Sleeper does not compute this at all.'],
-    ['myRank', 'My', '', 'Where YOU have him. Star a man to put him on your board and he takes the next number; the arrows move him within it. It shows in every sort, so the places you disagree with the board stay visible — a man you have third sitting fourteenth on VORP is you backing a hunch.'],
+    ['myRank', 'My', '', 'YOUR ranking. It starts as the board and every man has a number; the arrows move him. It shows in every sort, so the places you disagree with the board stay visible — a man you have third sitting fourteenth on VORP is you backing a hunch.'],
     ['slip', 'Value', '', 'HOW UNDERVALUED HE IS, in draft places: how much later the market lets him go than his VORP says he is worth. Positive is cheap.'],
     ['surplus', 'Gain', '', 'AND BY HOW MUCH, in points: how much more he wins you than the man the market prices him alongside. A big slip is worth nothing if the two men are worth the same \u2014 this is the number that says whether it matters.'],
     ['market', 'Market', '', 'The same player under standard half-PPR, which is what ADP is built from. Shown because it explains the price, not because anyone in our room drafts on it.'],
@@ -538,6 +563,7 @@
         Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room, and <b>ADP</b> the price beside it.
         <b>Actual</b> adds the one league rule no projection carries: a point per fumble as well as for losing it, estimated from {raw.prior}.
         <b>ADP½</b>, <b>ADP1</b> and <b>FP</b> are the half-PPR, full-PPR and FantasyPros consensus prices — our scoring sits between the first two, so they bracket him.
+        <b>DYN</b> is the dynasty price and <b>Keep</b> how many places earlier he goes there than here: positive means the market rates his future over his present, which is what you are buying when you keep three.
         <b>VORP</b> is season points over replacement at his position, from a greedy fill of the real lineup with the men already gone taken out.
         Hover any heading for what it means. Stars, tags and your order are saved in this browser only.
       </p>
@@ -562,17 +588,13 @@
       <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
-      {#if myBoard.length}
-        <button class="chip" class:on={sortKey === 'myRank'} data-testid="sheet-mine"
-                on:click={() => sortBy('myRank')}>
-          my board ({myBoard.length})
-        </button>
-        <button class="chip" data-testid="sheet-standard" on:click={clearMine}>clear</button>
-      {:else}
-        <!-- Two greyed-out buttons and a column of dots is not an invitation.
-             Until there is a board to sort, say how to start one. -->
-        <span class="hint" data-testid="sheet-mine-hint">tap ☆ to build your board</span>
-      {/if}
+      <button class="chip" class:on={sortKey === 'myRank'} data-testid="sheet-mine"
+              on:click={() => sortBy('myRank')}>
+        my order
+      </button>
+      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!touched}>
+        reset
+      </button>
       <span class="muted" data-testid="sheet-count">
         {view.length} shown of {built.rows.length}{#if drafted} · <b>{drafted} drafted</b>{/if}
       </span>
@@ -581,7 +603,7 @@
       {/each}
     </div>
 
-    <div class="wrap">
+    <div class="wrap" style="--reserve:{showNotes ? 306 : 178}px">
       <table data-testid="sheet-table">
         <thead>
           <tr>
@@ -619,24 +641,23 @@
               </td>
               <td class="l"><span class="pos">{r.pos}</span></td>
               <td class="l muted">{r.team}</td>
-              <td class="muted">{r.games}</td>
               <td class="big" title="the PTS column in your Sleeper draft room">{n1(r.sleeper)}</td>
               <td class="big">{n1(r.adjusted)}</td>
               <td class="muted">{r.adp != null ? r.adp.toFixed(1) : '—'}</td>
               <td class="muted alt">{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
               <td class="muted alt">{r.adpPpr != null ? r.adpPpr.toFixed(1) : '—'}</td>
+              <td class="muted alt">{r.adpDyn != null ? r.adpDyn.toFixed(1) : '—'}</td>
+              <td class="edge" class:up={r.keepGap > 12} class:dn={r.keepGap < -12}>{r.keepGap != null ? plus(r.keepGap) : ''}</td>
               <td class="muted alt">{r.adpConsensus != null ? r.adpConsensus.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
-              <td class="my" class:mine={r.myRank}>
-                {#if r.myRank}
-                  <span class="mv">
-                    <button on:click|stopPropagation={() => flick(r, -1)} disabled={r.myRank === 1}
-                            title="Up your board" aria-label="Move {r.name} up your board" data-testid={'up-' + r.id}>▲</button>
-                    <b>{r.myRank}</b>
-                    <button on:click|stopPropagation={() => flick(r, 1)} disabled={r.myRank === myBoard.length}
-                            title="Down your board" aria-label="Move {r.name} down your board" data-testid={'down-' + r.id}>▼</button>
-                  </span>
-                {/if}
+              <td class="my" class:mine={touched}>
+                <span class="mv">
+                  <button on:click|stopPropagation={() => flick(r, -1)} disabled={r.myRank === 1}
+                          title="Up your order" aria-label="Move {r.name} up your order" data-testid={'up-' + r.id}>▲</button>
+                  <b>{r.myRank ?? ''}</b>
+                  <button on:click|stopPropagation={() => flick(r, 1)} disabled={r.myRank === myCount}
+                          title="Down your order" aria-label="Move {r.name} down your order" data-testid={'down-' + r.id}>▼</button>
+                </span>
               </td>
               <td class="edge" class:up={r.slip > 12} class:dn={r.slip < -12} title={r.slip != null ? `the market has him ${r.adpRank}th, this board has him ${r.valueRank}th` : ''}>{r.slip != null ? plus(r.slip) : ''}</td>
               <td class="gain" class:up={r.surplus > 8} class:dn={r.surplus < -8}>{r.surplus != null ? plus(r.surplus) : ''}</td>
@@ -713,7 +734,15 @@
   .spacer { flex: 1 1 auto; }
 
   /* The board is its own scrollport so the page never scrolls sideways. */
-  .wrap { overflow: auto; max-height: calc(100vh - 300px); border: 1px solid var(--line); border-radius: 8px; background: #fff; overscroll-behavior: contain; }
+  /* The board takes the height that is actually free. It reserved 300px for
+     four explainer strips that are collapsed by default now, so with them shut
+     a third of the screen sat empty under the table while the rows you wanted
+     were behind a scrollbar. --reserve is set from whether they are open. */
+  .wrap {
+    overflow: auto; max-height: calc(100vh - var(--reserve, 178px));
+    border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    overscroll-behavior: contain;
+  }
   table { border-collapse: collapse; width: 100%; font-size: 11.5px; font-variant-numeric: tabular-nums; }
   thead th {
     position: sticky; top: 0; z-index: 3; background: var(--field-3); color: var(--muted);

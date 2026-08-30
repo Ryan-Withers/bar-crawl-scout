@@ -113,6 +113,14 @@ export interface SheetInput {
   /** Sleeper's published FULL-PPR season total (`pts_ppr`). */
   pprPts?: number | null;
   /**
+   * DYNASTY ADP. This is a keeper league — three men carry over and the clock
+   * follows the player — so what the dynasty market pays is a real input and not
+   * a curiosity. `adp_dynasty` and `adp_rookie` are filler in Sleeper's feed
+   * (999 for every one of the 470 skill players checked); `adp_dynasty_half_ppr`
+   * is the populated one, so that is what this carries.
+   */
+  adpDyn?: number | null;
+  /**
    * A cross-site consensus ADP — FantasyPros, which aggregates ESPN, Yahoo, CBS
    * and NFL. Sleeper's API publishes only its own families, so this is the one
    * number on the board that is not Sleeper's opinion of itself.
@@ -175,6 +183,15 @@ export interface SheetRow {
   pprPpg: number;
   /** FantasyPros consensus (ESPN/Yahoo/CBS/NFL). Null when he is off that board. */
   adpConsensus: number | null;
+  /** What the dynasty market pays — the price of his future rather than his year. */
+  adpDyn: number | null;
+  /**
+   * How many places EARLIER he goes in dynasty than in our own draft room.
+   * Positive means the market rates his future above his present, which in a
+   * league where you keep three men is the whole question: Derrick Henry goes
+   * 22nd here and 50th in dynasty, Jeremiyah Love 23rd here and 12th there.
+   */
+  keepGap: number | null;
   /**
    * A 2026 rookie, from Sleeper's own `years_exp` rather than anybody's memory.
    * Checked against all twenty hand-tagged rookies on the board: twenty hits,
@@ -445,6 +462,7 @@ export function buildSheet(
       adpPpr: Number.isFinite(p.adpPpr) && Number(p.adpPpr) > 0 && Number(p.adpPpr) <= adpCap
         ? Number(p.adpPpr) : null,
       adpConsensus: Number.isFinite(p.adpConsensus) && Number(p.adpConsensus) > 0 ? Number(p.adpConsensus) : null,
+      adpDyn: Number.isFinite(p.adpDyn) && Number(p.adpDyn) > 0 && Number(p.adpDyn) <= adpCap ? Number(p.adpDyn) : null,
       pprPpg: p.games > 0 && Number(p.pprPts) > 0 ? Math.round((Number(p.pprPts) / p.games) * 100) / 100 : 0,
       rookie: Number(p.exp) === 0,
       adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
@@ -481,7 +499,7 @@ export function buildSheet(
       // worth nine games of it, and the board has to rank him that way or it
       // sends you into round two chasing somebody who plays half a season.
       vorpSeason: Math.round(vorp * r.games * 10) / 10,
-      posRank: 0, ovRank: 0, adpRank: null, valueRank: null, slip: null, surplus: null,
+      posRank: 0, ovRank: 0, adpRank: null, valueRank: null, slip: null, surplus: null, keepGap: null,
     };
   });
 
@@ -501,6 +519,21 @@ export function buildSheet(
   // What the market's price actually buys at that slot, so the gap can be stated
   // in points rather than in places.
   const valueOrder = priced.slice().sort((a, b) => b.vorpSeason - a.vorpSeason);
+  // The keeper read: his rank by our room's price against his rank by the
+  // dynasty one, both taken over the men who have BOTH so the comparison is
+  // like for like rather than a rank out of 186 against a rank out of 248.
+  const dual = rows.filter((r) => r.adp != null && r.adpDyn != null);
+  const nowRank = new Map<string, number>();
+  const dynRank = new Map<string, number>();
+  dual.slice().sort((a, b) => (a.adp as number) - (b.adp as number))
+    .forEach((r, i) => nowRank.set(r.id, i + 1));
+  dual.slice().sort((a, b) => (a.adpDyn as number) - (b.adpDyn as number))
+    .forEach((r, i) => dynRank.set(r.id, i + 1));
+  for (const r of rows) {
+    const a = nowRank.get(r.id); const b = dynRank.get(r.id);
+    r.keepGap = a != null && b != null ? a - b : null;
+  }
+
   for (const r of rows) {
     if (r.adpRank == null || r.valueRank == null) { r.slip = null; r.surplus = null; continue; }
     r.slip = r.adpRank - r.valueRank;
