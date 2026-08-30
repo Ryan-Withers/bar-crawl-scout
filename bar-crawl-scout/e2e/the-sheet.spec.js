@@ -201,6 +201,108 @@ test('you can reorder, keep your list, and put the standard board back', async (
   await expect.poll(() => idAt(0)).toBe(topBefore);
 });
 
+test('your order counts the men you MOVED, not the whole board', async ({ page }) => {
+  // It read "my list (3045)" after one nudge, because seeding the order needs
+  // every id to keep a move stable. That number is an implementation detail and
+  // it looked like a list you had built.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
+  const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
+
+  await expect(page.getByTestId('sheet-mine')).toBeDisabled();
+  await page.getByTestId('up-' + (await idAt(1))).click();
+  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
+  await page.getByTestId('up-' + (await idAt(3))).click();
+  await expect(page.getByTestId('sheet-mine')).toContainText('(2)');
+});
+
+test('sorting a column leaves your order rather than being ignored by it', async ({ page }) => {
+  // THE ONE THAT MATTERED. Your order was applied OVER the top of whatever
+  // column you had sorted by, so a single accidental nudge froze the board and
+  // every sort after it silently did nothing — while the heading still drew an
+  // arrow claiming otherwise.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  await expect(rows).toHaveCount(Object.keys(PROJ).length - 1);
+  const idAt = async (i) => (await rows.nth(i).locator('[data-testid^="up-"]').getAttribute('data-testid')).slice(3);
+
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  const sleeperCol = labels.indexOf('Sleeper');
+  const ptsIn = async () => (await page.locator(
+    `[data-testid="sheet-table"] tbody tr td:nth-child(${sleeperCol + 1})`,
+  ).allTextContents()).map(Number);
+
+  await heads.nth(sleeperCol).click();
+  const sortedPts = await ptsIn();
+  expect([...sortedPts].sort((a, b) => b - a)).toEqual(sortedPts);
+
+  // Nudge somebody. The board switches to your order and SAYS it has.
+  await page.getByTestId('up-' + (await idAt(2))).click();
+  await expect(page.getByTestId('sheet-minenote')).toBeVisible();
+  await expect(heads.nth(sleeperCol)).not.toContainText('▼');    // no arrow it cannot honour
+
+  // Sort again: the click is obeyed, your order steps aside, and it says so.
+  // (Same column twice flips the direction, which is the ordinary behaviour —
+  // the point is that the click DOES something now.)
+  await heads.nth(sleeperCol).click();
+  await expect(page.getByTestId('sheet-minenote')).toHaveCount(0);
+  await expect(heads.nth(sleeperCol)).toContainText('▲');
+  const after = await ptsIn();
+  expect([...after].sort((a, b) => a - b)).toEqual(after);
+
+  // ...and the list is only set aside, not thrown away.
+  await expect(page.getByTestId('sheet-mine')).toContainText('(1)');
+  await page.getByTestId('sheet-mine').click();
+  await expect(page.getByTestId('sheet-minenote')).toBeVisible();
+});
+
+test('every filter actually filters', async ({ page }) => {
+  // Audited one at a time after the board looked like none of them worked. They
+  // all did — it was the frozen order making every subset come out jumbled — but
+  // "I checked once" is not a thing a test suite can remember.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  const rows = page.locator('[data-testid="sheet-table"] tbody tr');
+  const all = Object.keys(PROJ).length - 1;
+  await expect(rows).toHaveCount(all);
+
+  const posOf = async () => new Set((await page.locator(
+    '[data-testid="sheet-table"] tbody tr td:nth-child(4)',
+  ).allTextContents()).map((t) => t.trim()));
+
+  // Every man shown is of that position — and a tab with nobody in this feed
+  // (there is no tight end in it) shows nobody rather than everybody.
+  for (const [tab, want] of [['qb', 'QB'], ['rb', 'RB'], ['wr', 'WR'], ['te', 'TE']]) {
+    await page.getByTestId('sheet-pos-' + tab).click();
+    for (const p of await posOf()) expect(p, tab).toBe(want);
+  }
+  await page.getByTestId('sheet-pos-te').click();
+  await expect(rows).toHaveCount(0);
+  await page.getByTestId('sheet-pos-flex').click();
+  for (const p of await posOf()) expect(['RB', 'WR', 'TE']).toContain(p);
+  await page.getByTestId('sheet-pos-all').click();
+  await expect(rows).toHaveCount(all);
+
+  // Search matches a name, and a team code exactly.
+  await page.getByTestId('sheet-search').fill('chain');
+  await expect(rows).toHaveCount(1);
+  await page.getByTestId('sheet-search').fill('BUF');
+  await expect(rows).toHaveCount(1);
+  await page.getByTestId('sheet-search').fill('');
+  await expect(rows).toHaveCount(all);
+
+  // Part-season men can be dropped, and there is exactly one in this feed.
+  const partial = page.locator('label.chk', { hasText: 'hide part-season' });
+  await partial.locator('input').check();
+  await expect(rows).toHaveCount(all - 1);
+  await partial.locator('input').uncheck();
+  await expect(rows).toHaveCount(all);
+});
+
 test('refresh re-pulls, and the filters narrow the board', async ({ page }) => {
   let pulls = 0;
   await mockSleeper(page);
