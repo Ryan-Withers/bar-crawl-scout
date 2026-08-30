@@ -547,3 +547,46 @@ test('1D, PosRk and Status are gone', async ({ page }) => {
     .map((t) => t.replace(/[▼▲]/g, '').trim());
   for (const gone of ['1D', 'PosRk', 'Status']) expect(labels).not.toContain(gone);
 });
+
+test('a price column opens lowest first — 16 is a second-rounder, 200 is nobody', async ({ page }) => {
+  // Every points column opens with the biggest at the top, which is right for
+  // points and exactly backwards for a price. Opening a price descending put
+  // the men nobody drafts on top and made you click twice, every time.
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  const numbersIn = async (col) => (await page.locator(
+    `[data-testid="sheet-table"] tbody tr td:nth-child(${col + 1})`,
+  ).allTextContents()).map((t) => Number(t.replace(/[^0-9.]/g, ''))).filter((n) => n > 0);
+
+  for (const label of ['ADP', 'ADP½', 'ADP1', 'FP']) {
+    const col = labels.indexOf(label);
+    expect(col, `${label} is on the board`).toBeGreaterThan(-1);
+    const th = heads.nth(col);
+    await th.click();
+    await expect(th, `${label} opens ascending`).toContainText('▲');
+    const vals = await numbersIn(col);
+    if (vals.length > 1) expect([...vals].sort((a, b) => a - b), `${label} ascends`).toEqual(vals);
+    // ...and a second click still flips it, so nothing is taken away.
+    await th.click();
+    await expect(th).toContainText('▼');
+  }
+});
+
+test('but points columns still open highest first', async ({ page }) => {
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  for (const label of ['Sleeper', 'Actual', 'VORP', 'Value', 'Gain']) {
+    const col = labels.indexOf(label);
+    expect(col, `${label} is on the board`).toBeGreaterThan(-1);
+    const th = heads.nth(col);
+    await th.click();
+    await expect(th, `${label} opens descending`).toContainText('▼');
+  }
+});

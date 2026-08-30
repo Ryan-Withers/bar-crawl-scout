@@ -282,7 +282,18 @@
   let sortKey = 'vorpSeason';
   let sortDir = -1;
   let limit = 300;
-  function sortBy(k) { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } }
+  // WHICH WAY IS "BEST" depends on the column, and a sort that opens the wrong
+  // way makes you click twice every time. On every points column — Sleeper,
+  // Actual, VORP, Value, Gain — more is better, so the first click puts the
+  // biggest at the top. On a PRICE it is the other way round: an ADP of 16 means
+  // he goes in the second round and an ADP of 200 means nobody wants him, so the
+  // first click has to put the LOWEST first or the board opens on the men you
+  // will never draft.
+  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus']);
+  function sortBy(k) {
+    if (sortKey === k) sortDir = -sortDir;
+    else { sortKey = k; sortDir = ASC_FIRST.has(k) ? 1 : -1; }
+  }
 
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
