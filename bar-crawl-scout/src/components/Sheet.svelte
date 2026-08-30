@@ -55,21 +55,46 @@
   }
   onDestroy(() => { if (liveTimer) clearInterval(liveTimer); });
 
-  // ---- your own list (saved locally, standard board one click away) ----
-  const LS = 'bcs_sheet_order_v1';
-  const readLS = () => { try { const v = localStorage.getItem(LS); const a = v ? JSON.parse(v) : []; return Array.isArray(a) ? a : []; } catch { return []; } };
-  let order = readLS();
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(order)); } catch { /* full */ } };
-  let useMine = order.length > 0;
+  // ---- YOUR OWN ORDER, which is a MODE and not a decoration ----
+  //
+  // This was quietly the worst bug on the page. Nudging one player seeds the
+  // saved order from the WHOLE board — it has to, or moving a quarterback on the
+  // QB tab hoists every quarterback above every back — and the view then applied
+  // that order OVER the top of whatever column you had sorted by. So one
+  // accidental click on a ▲ froze all three thousand rows into that instant's
+  // order, and from then on every sort silently did nothing. The chip read
+  // "my list (3045)" as though that were a feature.
+  //
+  // Sorting by a column and using your own order are two ways of ordering the
+  // same board, so they are now two modes and only one can be on. Clicking a
+  // heading is you asking for that order, so it turns your list off; clicking
+  // the chip turns it back on. Nothing is lost either way — the list is still
+  // saved — and the board can no longer claim to be sorted while it isn't.
+  //
+  // v2 because the v1 blob is that frozen full-board snapshot: it cannot be
+  // told apart from a deliberate list, and honouring it would reopen the bug on
+  // the one machine it matters on. The old key is left where it is, unread.
+  const LS = 'bcs_sheet_order_v2';
+  const readLS = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(LS) || 'null');
+      if (v && Array.isArray(v.order)) return { order: v.order, moved: Array.isArray(v.moved) ? v.moved : [] };
+    } catch { /* unreadable */ }
+    return { order: [], moved: [] };
+  };
+  let { order, moved } = readLS();
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify({ order, moved })); } catch { /* full */ } };
+  let useMine = moved.length > 0;
   // The WHOLE board seeds the order, the filtered view decides the neighbour.
-  // Seeding from the view alone meant nudging one quarterback on the QB tab
-  // hoisted all 42 of them above everyone else on the ALL board.
+  // `moved` is kept alongside it so the chip can say how many players you have
+  // actually put a hand on, rather than how many ids the algorithm needed.
   function bump(id, d) {
     order = moveInOrder(order, built.rows.map((r) => r.id), view.map((r) => r.id), id, d);
+    if (!moved.includes(id)) moved = [...moved, id];
     useMine = true;
     save();
   }
-  function clearMine() { order = []; useMine = false; save(); }
+  function clearMine() { order = []; moved = []; useMine = false; save(); }
 
   // ---- raw -> rows ----
   $: raw = $sheetQ.data || null;
@@ -282,7 +307,22 @@
   let sortKey = 'vorpSeason';
   let sortDir = -1;
   let limit = 300;
-  function sortBy(k) { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } }
+  // WHICH WAY IS "BEST" depends on the column, and a sort that opens the wrong
+  // way makes you click twice every time. On every points column — Sleeper,
+  // Actual, VORP, Value, Gain — more is better, so the first click puts the
+  // biggest at the top. On a PRICE it is the other way round: an ADP of 16 means
+  // he goes in the second round and an ADP of 200 means nobody wants him, so the
+  // first click has to put the LOWEST first or the board opens on the men you
+  // will never draft.
+  const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus']);
+  function sortBy(k) {
+    // Asking for a column IS asking to leave your own order. Silently ignoring
+    // the click was the bug; taking the list away would be worse, so it is only
+    // switched off and one tap on the chip brings it back.
+    useMine = false;
+    if (sortKey === k) sortDir = -sortDir;
+    else { sortKey = k; sortDir = ASC_FIRST.has(k) ? 1 : -1; }
+  }
 
   const val = (r, k) => (k === 'owner' ? (ownerById[r.id] || '') : k === 'name' || k === 'pos' || k === 'team' ? r[k] : r[k]);
   $: filtered = built.rows.filter((r) => {
@@ -486,10 +526,13 @@
       <label class="chk"><input type="checkbox" bind:checked={hideOwned} data-testid="sheet-hidegone" /> hide gone</label>
       <label class="chk"><input type="checkbox" bind:checked={hidePartial} /> hide part-season</label>
       <span class="spacer"></span>
-      <button class="chip" class:on={useMine} data-testid="sheet-mine" on:click={() => (useMine = !useMine)} disabled={!order.length}>
-        my list{order.length ? ` (${order.length})` : ''}
+      <button class="chip" class:on={useMine} data-testid="sheet-mine" on:click={() => (useMine = !useMine)} disabled={!moved.length}>
+        my list{moved.length ? ` (${moved.length})` : ''}
       </button>
-      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!order.length}>back to standard</button>
+      <button class="chip" data-testid="sheet-standard" on:click={clearMine} disabled={!moved.length}>back to standard</button>
+      {#if useMine}
+        <span class="minenote" data-testid="sheet-minenote">your order · sorting off</span>
+      {/if}
       <span class="muted" data-testid="sheet-count">
         {view.length} shown of {built.rows.length}{#if drafted} · <b>{drafted} drafted</b>{/if}
       </span>
@@ -506,7 +549,7 @@
             <th class="nrw">move</th>
             {#each COLS as [k, label, cls, tipText]}
               <th
-                class={cls} class:act={sortKey === k}
+                class={cls} class:act={!useMine && sortKey === k}
                 on:click={() => sortBy(k)}
                 on:mouseenter={(e) => showTip(e, tipText)}
                 on:mouseleave={hideTip}
@@ -514,7 +557,7 @@
                 on:blur={hideTip}
                 tabindex="0"
               >
-                {label}{sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
+                {label}{!useMine && sortKey === k ? (sortDir < 0 ? ' ▼' : ' ▲') : ''}
               </th>
             {/each}
           </tr>
@@ -697,6 +740,11 @@
   .tag.rk { background: var(--purp); }
   .tag.ct { background: var(--blue-wash); color: var(--blue-deep); font-weight: 700; }
   .tagchip { border-color: var(--blue-sky); }
+  /* The board must never look sorted while it is showing your order instead. */
+  .minenote {
+    font-size: 10px; color: var(--brass); font-weight: 700;
+    border: 1px solid var(--brass); border-radius: 6px; padding: 3px 7px; white-space: nowrap;
+  }
   .chip b.ct { margin-left: 5px; font-size: 9.5px; opacity: .8; }
 
   .tagbox {
