@@ -110,6 +110,8 @@ export interface SheetInput {
   adpMarket?: number | null;
   /** Full-PPR ADP. Our rules sit between the two, so both bracket the price. */
   adpPpr?: number | null;
+  /** Sleeper's published FULL-PPR season total (`pts_ppr`). */
+  pprPts?: number | null;
   /**
    * A cross-site consensus ADP — FantasyPros, which aggregates ESPN, Yahoo, CBS
    * and NFL. Sleeper's API publishes only its own families, so this is the one
@@ -164,6 +166,13 @@ export interface SheetRow {
   adpMarket: number | null;
   /** Full-PPR ADP — the other side of the bracket our scoring sits inside. */
   adpPpr: number | null;
+  /**
+   * Full-PPR points per game. Our rules give half a point a catch and half a
+   * point a first down, so a possession receiver scores here more like a full-PPR
+   * player than a half-PPR one — which makes this the closer of the two public
+   * rates for him, and the further one for a back who never catches.
+   */
+  pprPpg: number;
   /** FantasyPros consensus (ESPN/Yahoo/CBS/NFL). Null when he is off that board. */
   adpConsensus: number | null;
   /**
@@ -436,6 +445,7 @@ export function buildSheet(
       adpPpr: Number.isFinite(p.adpPpr) && Number(p.adpPpr) > 0 && Number(p.adpPpr) <= adpCap
         ? Number(p.adpPpr) : null,
       adpConsensus: Number.isFinite(p.adpConsensus) && Number(p.adpConsensus) > 0 ? Number(p.adpConsensus) : null,
+      pprPpg: p.games > 0 && Number(p.pprPts) > 0 ? Math.round((Number(p.pprPts) / p.games) * 100) / 100 : 0,
       rookie: Number(p.exp) === 0,
       adjusted: Math.round((sleeper + fumAdj) * 10) / 10,
       marketFrom: (published ? 'sleeper' : 'derived') as 'sleeper' | 'derived',
@@ -500,55 +510,10 @@ export function buildSheet(
   return { rows, levels, dry, medBoost, tide };
 }
 
-// ---- YOUR OWN LIST -------------------------------------------------------
-// The board's order is the standard; a custom order is a list of ids laid over
-// the top. Anyone not in the list keeps standard order behind those who are.
-
-export function applyOrder<T extends { id: string }>(rows: T[], order: string[]): T[] {
-  if (!order || !order.length) return rows;
-  const rank = new Map(order.map((id, i) => [id, i]));
-  return rows.slice().sort((a, b) => {
-    const ra = rank.has(a.id) ? rank.get(a.id)! : Infinity;
-    const rb = rank.has(b.id) ? rank.get(b.id)! : Infinity;
-    return ra - rb;
-  });
-}
-
-/** Move one id up (-1) or down (+1). Seeds the list from the shown order. */
-/**
- * Nudge one man up or down YOUR order.
- *
- * `all` is the whole board in its current order; `shown` is what is on screen
- * after the filters, in display order. Both are needed and for different reasons.
- *
- * Seeding the saved order from `shown` alone was the bug: tab to QB, nudge one
- * quarterback, and the order became the 42 visible QB ids — so applyOrder then
- * hoisted every quarterback above every back and receiver on the ALL board. The
- * user asked to move one player one row and re-ranked the entire draft.
- *
- * And a move on a filtered view swaps him with his neighbour AMONG THE SHOWN —
- * "up" on the QB tab means above the next quarterback, not above whoever happens
- * to sit one row up on the unfiltered board.
- */
-export function moveInOrder(order: string[], all: string[], shown: string[], id: string, delta: number): string[] {
-  const seed = order && order.length ? order.slice() : (all && all.length ? all.slice() : shown.slice());
-  const base = seed.slice();
-  for (const s of all || []) if (!base.includes(s)) base.push(s);
-  for (const s of shown) if (!base.includes(s)) base.push(s);
-
-  // The neighbour is the next VISIBLE man in that direction.
-  const visible = shown.filter((x) => base.includes(x));
-  const vi = visible.indexOf(id);
-  if (vi < 0) return base;
-  const vj = vi + delta;
-  if (vj < 0 || vj >= visible.length) return base;
-
-  const i = base.indexOf(id);
-  const j = base.indexOf(visible[vj]);
-  if (i < 0 || j < 0) return base;
-  [base[i], base[j]] = [base[j], base[i]];
-  return base;
-}
+// The board's order used to be overlaid with a hand-built list of ids, and
+// applyOrder/moveInOrder lived here to do it. That model is gone: ranking a man
+// yourself is now a COLUMN (see Sheet.svelte), so there is no shadow ordering to
+// apply and nothing here to apply it with.
 
 /** Which of the league's live scoring rules had NO projected stat behind them. */
 export function coverage(
