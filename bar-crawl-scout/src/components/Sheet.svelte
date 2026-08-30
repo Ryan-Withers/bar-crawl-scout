@@ -295,9 +295,6 @@
   let rookiesOnly = false;
   let favsOnly = false;
   let tagFilter = '';
-  let sortKey = 'vorpSeason';
-  let sortDir = -1;
-  let limit = 300;
   // WHICH WAY IS "BEST" depends on the column, and a sort that opens the wrong
   // way makes you click twice every time. On every points column — Sleeper,
   // Actual, VORP, Value, Gain — more is better, so the first click puts the
@@ -306,6 +303,20 @@
   // first click has to put the LOWEST first or the board opens on the men you
   // will never draft.
   const ASC_FIRST = new Set(['adp', 'adpMarket', 'adpPpr', 'adpConsensus', 'myRank']);
+
+  // THE BOARD OPENS IN DRAFT ORDER, on full-PPR ADP. It used to open on VORP,
+  // which is the most USEFUL column and the wrong one to land on: VORP answers
+  // "who is worth the most" and the question you have in front of a draft board
+  // is "who is going soon". Full PPR rather than half because our scoring pays
+  // half a point a catch AND half a point a first down, so of the two public
+  // prices it is the nearer one to how this room will actually draft.
+  //
+  // Derived rather than written twice, so a default can never disagree with the
+  // direction its own column opens in.
+  const DEFAULT_SORT = 'adpPpr';
+  let sortKey = DEFAULT_SORT;
+  let sortDir = ASC_FIRST.has(DEFAULT_SORT) ? 1 : -1;
+  let limit = 300;
   function sortBy(k) {
     if (sortKey === k) sortDir = -sortDir;
     else { sortKey = k; sortDir = ASC_FIRST.has(k) ? 1 : -1; }

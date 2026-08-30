@@ -708,3 +708,30 @@ test('shows a full-PPR per-game rate beside our own', async ({ page }) => {
   await page.locator('thead th').filter({ hasText: /^\s*PPG1\s*$/ }).hover();
   await expect(page.locator('.tip')).toContainText('full PPR');
 });
+
+test('the board opens in draft order, on full-PPR ADP', async ({ page }) => {
+  // It opened on VORP, which is the most useful column and the wrong one to
+  // land on: VORP answers "who is worth the most" and the question in front of
+  // a draft board is "who is going soon".
+  await mockSheet(page);
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-table')).toBeVisible();
+
+  const heads = page.locator('[data-testid="sheet-table"] thead th');
+  const labels = (await heads.allTextContents()).map((t) => t.replace(/[▼▲]/g, '').trim());
+  const col = labels.indexOf('ADP1');
+  await expect(heads.nth(col), 'ADP1 carries the sort').toContainText('▲');
+  for (const other of ['VORP', 'Sleeper', 'ADP']) {
+    await expect(heads.nth(labels.indexOf(other)), other).not.toContainText('▲');
+    await expect(heads.nth(labels.indexOf(other)), other).not.toContainText('▼');
+  }
+
+  // Lowest first, because that is what a price means, and blanks still trail.
+  const shown = (await page.locator(
+    `[data-testid="sheet-table"] tbody tr td:nth-child(${col + 1})`,
+  ).allTextContents()).map((t) => t.trim());
+  const priced = shown.filter((t) => t && t !== '—').map(Number);
+  expect([...priced].sort((a, b) => a - b)).toEqual(priced);
+  const firstBlank = shown.findIndex((t) => !t || t === '—');
+  if (firstBlank > -1) expect(shown.slice(firstBlank).every((t) => !t || t === '—')).toBe(true);
+});
