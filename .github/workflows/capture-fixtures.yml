@@ -11,6 +11,10 @@ on:
         description: Sleeper league ID
         required: false
         default: "1311995695032467456"
+      out:
+        description: Fixture directory under src/lib/api (use a separate one for a second league)
+        required: false
+        default: "fixtures"
 
 permissions:
   contents: write
@@ -25,16 +29,17 @@ jobs:
           node-version: 20
       - name: Run the capture bot (has real network)
         working-directory: bar-crawl-scout
-        run: node scripts/capture-fixtures.mjs --league "${{ github.event.inputs.league }}"
+        run: node scripts/capture-fixtures.mjs --league "${{ github.event.inputs.league }}" --out "${{ github.event.inputs.out }}"
       - name: Push fixtures to a branch (no PR-create permission needed)
         run: |
-          if git diff --quiet -- bar-crawl-scout/src/lib/api/fixtures; then
+          DIR="bar-crawl-scout/src/lib/api/${{ github.event.inputs.out }}"
+          if git diff --quiet -- "$DIR" && [ -z "$(git status --porcelain -- "$DIR")" ]; then
             echo "No fixture changes — nothing to push."; exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B fixtures/refresh
-          git add bar-crawl-scout/src/lib/api/fixtures
+          git checkout -B "fixtures/refresh-${{ github.event.inputs.out }}"
+          git add -A "$DIR"
           git commit -m "Refresh Sleeper fixtures (capture bot)"
-          git push -f origin fixtures/refresh
-          echo "::notice::Fixtures pushed. Open a PR: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...fixtures/refresh"
+          git push -f origin "fixtures/refresh-${{ github.event.inputs.out }}"
+          echo "::notice::Fixtures pushed. Open a PR: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...fixtures/refresh-${{ github.event.inputs.out }}"
