@@ -40,6 +40,7 @@
   const DraftGrades = lazy(() => import('./components/DraftGrades.svelte'));
   const DraftRoom = lazy(() => import('./components/DraftRoom.svelte'));
   const Sheet = lazy(() => import('./components/Sheet.svelte'));
+  const SheetKings = lazy(() => import('./components/SheetKings.svelte'));
   const TheBook = lazy(() => import('./components/TheBook.svelte'));
   const BetLedger = lazy(() => import('./components/BetLedger.svelte'));
   const Wall = lazy(() => import('./components/Wall.svelte'));
@@ -83,6 +84,9 @@
     // Hidden on purpose: a real route, deliberately absent from nav.js so the
     // app never links to it. Security by obscurity — the repo is public.
     '/sheet': Sheet,
+    // The redraft league's board. Hidden on the same terms as /sheet — a real
+    // route, deliberately absent from nav.js, never linked to.
+    '/sheet/kings': SheetKings,
     '/book': TheBook,
     '/leaderboard': BetLedger,
     '/history': Wall,

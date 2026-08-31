@@ -13,10 +13,12 @@ import { createQuery } from '@tanstack/svelte-query';
 import { leagueQuery, stateQuery, realDraftQuery } from '../api/queries';
 import { leaguePhase, draftCountdown, untilDraft } from './engine/phase.ts';
 
-export function usePhase() {
-  const leagueQ = createQuery(leagueQuery());
+export function usePhase(leagueId) {
+  // Undefined means "the league this app was built for" — every existing caller
+  // passes nothing and keeps exactly the behaviour it had.
+  const leagueQ = createQuery(leagueQuery(leagueId));
   const stateQ = createQuery(stateQuery());
-  const draftQ = createQuery(realDraftQuery());
+  const draftQ = createQuery(realDraftQuery(leagueId));
 
   return derived([leagueQ, stateQ, draftQ], ([$league, $state, $draft]) => {
     const input = {

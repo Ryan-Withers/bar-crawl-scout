@@ -25,21 +25,35 @@
   import { draftSheetQuery, playersQuery } from '../api/queries';
   import { userHandleMap } from '../api/league';
   import { TEAMSHORT, byName } from '../lib/data.js';
-  import { board } from '../lib/store.js';
+  import { boardFor } from '../lib/store.js';
+  import { LEAGUES, nsKey } from '../lib/leagues.js';
   import {
     buildSheet, coverage, slotDemand, adpKeyFor, STOCK_SCORING,
   } from '../lib/engine/sheet.ts';
 
+  // WHICH LEAGUE THIS BOARD IS FOR. Defaults to the league the app was built
+  // for, so /sheet is byte-for-byte the page it was before a second one existed.
+  // Everything that could differ between leagues is READ from the league's own
+  // settings further down — teams, rounds, ADP family, whether anyone is kept —
+  // so this prop carries only what the data cannot say for itself.
+  export let league = LEAGUES.bar;
+
+  // The board record — favourites, tags, your own ranking — under this league's
+  // own key. Set once at init and never swapped: a board is mounted for one
+  // league at one route, and re-pointing a store mid-life would strand the
+  // subscriptions taken out against it.
+  const board = boardFor(league.ns);
+
   const qc = useQueryClient();
-  const sheetQ = createQuery(draftSheetQuery());
+  const sheetQ = createQuery(draftSheetQuery(league.id));
   const playersQ = createQuery(playersQuery());
 
   let refreshing = false;
   async function refresh() {
     refreshing = true;
     try {
-      await qc.invalidateQueries({ queryKey: ['draftsheet'] });
-      await qc.refetchQueries({ queryKey: ['draftsheet'] });
+      await qc.invalidateQueries({ queryKey: ['draftsheet', league.id] });
+      await qc.refetchQueries({ queryKey: ['draftsheet', league.id] });
     } finally { refreshing = false; }
   }
 
@@ -310,7 +324,7 @@
   });
   // Remembered, because a page you have to re-collapse every visit is a page
   // that annoys you every visit.
-  const NOTES_LS = 'bcs_sheet_notes_v1';
+  const NOTES_LS = nsKey(league, 'bcs_sheet_notes_v1');
   let showNotes = (() => { try { return localStorage.getItem(NOTES_LS) === '1'; } catch { return false; } })();
   const setNotes = (v) => { showNotes = v; try { localStorage.setItem(NOTES_LS, v ? '1' : '0'); } catch { /* blocked */ } };
 
@@ -420,17 +434,17 @@
   // sixteen numbers on it is worthless if you have to remember what nine of
   // them are, and "Edge" in particular means something specific here that no
   // other site's Edge column means.
-  const COLS = [
+  $: ALL_COLS = [
     ['name', 'Player', 'l', 'Who he is. Italic means Sleeper only projects him for part of the season.'],
     ['pos', 'Pos', 'l', 'What he plays.'],
     ['team', 'Tm', 'l', 'His NFL club.'],
     ['sleeper', 'Sleeper', '', 'WHAT YOUR LEAGUEMATES SEE. Exactly the PTS number in your Sleeper draft room — their projection, scored under our league rules by them. This column IS that column, digit for digit.'],
     ['adjusted', 'Actual', '', 'THE REAL PROJECTION — every scored rule in the league, applied. Sleeper\u2019s number plus the one rule they cannot carry: we dock a point per fumble as well as for losing it, and no projection counts plain fumbles. Usually a point or two, occasionally seven.'],
-    ['adp', 'ADP', '', 'The ADP in YOUR draft room. Sleeper serves the one matching our format — IDP with one quarterback — and this is the price you will actually pay. Nothing about it knows our thirty keepers are gone.'],
-    ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes.'],
+    ['adp', 'ADP', '', `The ADP in YOUR draft room. Sleeper serves the one matching this league's format (${adpKey.replace(/^adp_/, '').replace(/_/g, ' ')}), and this is the price you will actually pay. It is set by every league in the world, not by this one${goneIds.size ? `, and nothing about it knows the ${goneIds.size} already gone are gone` : ''}.`],
+    ['adpMarket', 'ADP½', '', 'The mainstream half-PPR ADP — what every ranking, article and mock outside your draft room quotes.', 'notHalf'],
     ['adpPpr', 'ADP1', '', 'Full-PPR ADP. Our scoring is half a point a catch plus half a point a first down, so it sits BETWEEN half and full PPR — these two bracket where he really belongs.'],
-    ['adpDyn', 'DYN', '', 'The DYNASTY price — what the market pays for his future rather than his season. We keep three men and the clock follows the player, so this is a real input: Derrick Henry goes 22nd in our room and 50th here.'],
-    ['keepGap', 'Keep', '', 'How many places EARLIER he goes in dynasty than in our own draft room. Positive means the market rates his future above his present, which is the question in a league where you keep three.'],
+    ['adpDyn', 'DYN', '', 'The DYNASTY price — what the market pays for his future rather than his season. We keep three men and the clock follows the player, so this is a real input: Derrick Henry goes 22nd in our room and 50th here.', 'dynasty'],
+    ['keepGap', 'Keep', '', 'How many places EARLIER he goes in dynasty than in our own draft room. Positive means the market rates his future above his present, which is the question in a league where you keep three.', 'dynasty'],
     ['adpConsensus', 'FP', '', 'The FantasyPros consensus half-PPR ADP, which aggregates ESPN, Yahoo, CBS and NFL. The only price here that is not Sleeper marking its own homework.'],
     ['vorpSeason', 'VORP', '', 'Season points over a replacement starter AT HIS POSITION, from the pool you can really draft. What taking him actually wins you. Sleeper does not compute this at all.'],
     ['myRank', 'My', '', 'YOUR ranking. It starts as the board and every man has a number; the arrows move him. It shows in every sort, so the places you disagree with the board stay visible — a man you have third sitting fourteenth on VORP is you backing a hunch.'],
@@ -440,6 +454,32 @@
     ['ours', 'PPG', '', 'The Sleeper number, per game — his rate under OUR rules.'],
     ['pprPpg', 'PPG1', '', 'The same per-game rate under full PPR. A possession receiver scores here more like a full-PPR player than a half-PPR one, because we pay half a point a catch AND half a point a first down — so this is the closer public rate for him, and the further one for a back who never catches.'],
   ];
+
+  // WHICH OF THEM THIS LEAGUE ACTUALLY WANTS.
+  //
+  // The fifth element of a column is the condition it needs. Two columns are
+  // about keeping players — what the market pays for a man's future, and how far
+  // that sits from his price in the room — and in a redraft league neither is a
+  // question anyone has to answer. They are dropped rather than shown empty,
+  // because a column of dashes still costs width on a phone and still has to be
+  // read past.
+  //
+  // The body has a matching {#if} per optional column, and an E2E test counts
+  // headers against cells on BOTH boards — that pairing has been got wrong
+  // before, and when it goes wrong every heading from there rightwards names the
+  // column to its left.
+  //   dynasty — only where keeping a player is a thing anyone does
+  //   notHalf — the mainstream half-PPR price, which is only worth its own column
+  //             when it is a DIFFERENT number from the price in your own room.
+  //             In a half-PPR redraft league Sleeper serves that very family, so
+  //             the two columns print the same figure for all 470 players and one
+  //             of them is pure width.
+  $: COLS = ALL_COLS.filter((c) => {
+    if (!c[4]) return true;
+    if (c[4] === 'dynasty') return league.dynasty;
+    if (c[4] === 'notHalf') return adpKey !== 'adp_half_ppr';
+    return true;
+  });
 
   // THE COLUMN EXPLAINER. Rendered OUTSIDE the scrollport and positioned fixed,
   // because the header is sticky inside an `overflow: auto` box and a tooltip
@@ -459,7 +499,8 @@
     <a class="back" href="/board" use:link>← Big Board</a>
     <div class="ttl">
       <b>THE SHEET</b>
-      <span class="sub">your draft room's own numbers, against the scoring the market prices them on · not linked from anywhere</span>
+      <span class="lg" data-testid="sheet-league">{league.name}</span>
+      <span class="sub">{league.blurb} · not linked from anywhere</span>
     </div>
     <div class="acts">
       <button class="btn go" data-testid="sheet-refresh" on:click={refresh} disabled={refreshing || $sheetQ.isFetching}>
@@ -563,7 +604,7 @@
         Season {raw.season} projections. <b>Sleeper</b> is their own number, league-scored by them — the same figure as your draft room, and <b>ADP</b> the price beside it.
         <b>Actual</b> adds the one league rule no projection carries: a point per fumble as well as for losing it, estimated from {raw.prior}.
         <b>ADP½</b>, <b>ADP1</b> and <b>FP</b> are the half-PPR, full-PPR and FantasyPros consensus prices — our scoring sits between the first two, so they bracket him.
-        <b>DYN</b> is the dynasty price and <b>Keep</b> how many places earlier he goes there than here: positive means the market rates his future over his present, which is what you are buying when you keep three.
+        {#if league.dynasty}<b>DYN</b> is the dynasty price and <b>Keep</b> how many places earlier he goes there than here: positive means the market rates his future over his present, which is what you are buying when you keep three.{/if}
         <b>VORP</b> is season points over replacement at his position, from a greedy fill of the real lineup with the men already gone taken out.
         Hover any heading for what it means. Stars, tags and your order are saved in this browser only.
       </p>
@@ -644,10 +685,14 @@
               <td class="big" title="the PTS column in your Sleeper draft room">{n1(r.sleeper)}</td>
               <td class="big">{n1(r.adjusted)}</td>
               <td class="muted">{r.adp != null ? r.adp.toFixed(1) : '—'}</td>
-              <td class="muted alt">{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
+              {#if adpKey !== 'adp_half_ppr'}
+                <td class="muted alt">{r.adpMarket != null ? r.adpMarket.toFixed(1) : '—'}</td>
+              {/if}
               <td class="muted alt">{r.adpPpr != null ? r.adpPpr.toFixed(1) : '—'}</td>
-              <td class="muted alt">{r.adpDyn != null ? r.adpDyn.toFixed(1) : '—'}</td>
-              <td class="edge" class:up={r.keepGap > 12} class:dn={r.keepGap < -12}>{r.keepGap != null ? plus(r.keepGap) : ''}</td>
+              {#if league.dynasty}
+                <td class="muted alt">{r.adpDyn != null ? r.adpDyn.toFixed(1) : '—'}</td>
+                <td class="edge" class:up={r.keepGap > 12} class:dn={r.keepGap < -12}>{r.keepGap != null ? plus(r.keepGap) : ''}</td>
+              {/if}
               <td class="muted alt">{r.adpConsensus != null ? r.adpConsensus.toFixed(1) : '—'}</td>
               <td class="big">{n0(r.vorpSeason)}</td>
               <td class="my" class:mine={touched}>
@@ -702,6 +747,9 @@
 <style>
   .sheet { padding: 0 10px 30px; font-family: var(--mono); }
   .shd { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 8px 0 10px; }
+  /* Two boards that look identical is a way to read the wrong one on the day,
+     so each says whose draft it is, right next to the title. */
+  .lg { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--neon); margin-left: 8px; }
   .back { font-size: 11px; color: var(--blue); text-decoration: none; }
   .back:hover { text-decoration: underline; }
   .ttl b { font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: .04em; color: var(--chalk); }

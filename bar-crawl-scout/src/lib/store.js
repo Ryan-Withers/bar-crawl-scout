@@ -133,6 +133,28 @@ function initBoard(existing) {
 }
 export const board = persisted('hq_board_v3', initBoard(readJSON('hq_board_v3')));
 
+// THE SAME BOARD RECORD, PER LEAGUE.
+//
+// Everything above is keyed by PLAYER NAME and saved under one key, which was
+// right while there was one league. It is wrong the moment there are two: a star
+// on Bijan Robinson, a tag reading "handcuff for Gibbs", or a whole custom
+// ranking would show up on both boards at once. Both drafts are on the same
+// afternoon two hours apart, so that would happen on the day, mid-draft.
+//
+// The default league keeps the bare key and therefore keeps everything anyone
+// has already saved. Any other league gets its own record under a suffixed key.
+// Memoised, so mounting the same board twice does not build two stores that then
+// race each other into localStorage.
+const boards = new Map([['', board]]);
+export function boardFor(ns) {
+  const suffix = ns || '';
+  if (!boards.has(suffix)) {
+    const key = `hq_board_v3__${suffix}`;
+    boards.set(suffix, persisted(key, initBoard(readJSON(key))));
+  }
+  return boards.get(suffix);
+}
+
 // Live data pulled by sync (rosters) or the Worker auto-load.
 export const rosters = writable(readJSON('hq_rosters_v2'));
 export const draft = writable(readJSON('hq_draft_v1'));
