@@ -35,6 +35,26 @@ const PREV = read('league-2025.json');
 const DRAFT_ID = read('drafts-2026.json')[0].draft_id;
 const PREV_DRAFT_ID = read('drafts-2025.json')[0].draft_id;
 
+// THE SECOND LEAGUE, from its own captured set.
+//
+// The redraft league is a different league id and a different draft id, and its
+// fixtures live in their own directory so that capturing one cannot overwrite the
+// other. Everything below matches on those ids BEFORE the league-A routes, so a
+// request for the redraft board is answered with the redraft league's real data
+// rather than falling through and being served ten teams and thirty keepers under
+// its own name — which is exactly the bug a shared mock invites.
+const DIR_B = path.join(process.cwd(), 'src/lib/api/fixtures-b');
+const cacheB = new Map();
+const readB = (name) => {
+  if (!cacheB.has(name)) {
+    const file = path.join(DIR_B, name);
+    cacheB.set(name, fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null);
+  }
+  return cacheB.get(name);
+};
+const LEAGUE_B = readB('league.json');
+const DRAFT_ID_B = (readB('drafts-2026.json') || [{}])[0].draft_id;
+
 // The Worker's roster snapshot, built from the captured rosters so My Team, the
 // Bye Radar and the Matchup preview see real squads rather than one man each.
 const workerRosters = () => {
@@ -73,6 +93,26 @@ export async function mockSleeper(page) {
 
   await page.route(/api\.sleeper\.app/, (route) => {
     const url = route.request().url().split('?')[0];
+
+    // The redraft league first — its ids are distinct, so this can never shadow
+    // a league-A route, and leaving it later would let the generic /rosters and
+    // /drafts handlers below answer for it with the wrong league's data.
+    if (LEAGUE_B && url.includes(`/league/${LEAGUE_B.league_id}`)) {
+      if (url.endsWith('/users')) return json(route, readB('users-2026.json'));
+      if (url.endsWith('/rosters')) return json(route, readB('rosters-2026.json'));
+      if (url.endsWith('/drafts')) return json(route, readB('drafts-2026.json'));
+      if (url.endsWith('/traded_picks')) return json(route, readB('traded_picks-2026.json'));
+      if (url.endsWith('/winners_bracket')) return json(route, readB('winners_bracket-2026.json'));
+      if (url.includes('/matchups/')) return json(route, readB(`matchups-2026-${weekOf(url)}.json`));
+      if (url.includes('/transactions/')) return json(route, readB(`transactions-2026-${weekOf(url)}.json`));
+      if (/\/league\/\d+$/.test(url)) return json(route, LEAGUE_B);
+      return json(route, []);
+    }
+    if (DRAFT_ID_B && url.includes(`/draft/${DRAFT_ID_B}`)) {
+      if (url.endsWith('/picks')) return json(route, readB('draft-picks-2026.json'));
+      if (url.endsWith('/traded_picks')) return json(route, readB('traded_picks-2026.json'));
+      return json(route, []);
+    }
 
     if (url.endsWith('/state/nfl')) return json(route, read('state.json'));
     if (url.includes('/players/nfl')) return json(route, read('players-trimmed.json'));

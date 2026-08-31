@@ -38,10 +38,10 @@ export const qk = {
   trendingAdds: ['trending', 'add'] as const,
 };
 
-export const leagueQuery = () => ({ queryKey: qk.league, queryFn: () => S.getLeague(), staleTime: 5 * MIN });
-export const usersQuery = () => ({ queryKey: qk.users, queryFn: () => S.getUsers(), staleTime: 5 * MIN });
+export const leagueQuery = (leagueId: string = S.LEAGUE_ID) => ({ queryKey: [...qk.league, leagueId] as const, queryFn: () => S.getLeague(leagueId), staleTime: 5 * MIN });
+export const usersQuery = (leagueId: string = S.LEAGUE_ID) => ({ queryKey: [...qk.users, leagueId] as const, queryFn: () => S.getUsers(leagueId), staleTime: 5 * MIN });
 // The keepers live here, so this is the one a mid-week declaration moves.
-export const rostersQuery = () => ({ queryKey: qk.rosters, queryFn: () => S.getRosters(), staleTime: NEARLY, refetchInterval: NEARLY });
+export const rostersQuery = (leagueId: string = S.LEAGUE_ID) => ({ queryKey: [...qk.rosters, leagueId] as const, queryFn: () => S.getRosters(leagueId), staleTime: NEARLY, refetchInterval: NEARLY });
 export const stateQuery = () => ({ queryKey: qk.state, queryFn: () => S.getState(), staleTime: 30 * MIN });
 export const playersQuery = () => ({ queryKey: qk.players, queryFn: loadPlayers, staleTime: 24 * 60 * MIN });
 export const foundingQuery = () => ({ queryKey: qk.founding, queryFn: () => S.getFoundingSeason(), staleTime: Infinity, gcTime: Infinity });
@@ -80,8 +80,8 @@ export const seasonTransactionsQuery = () => ({
 // appear here with is_keeper set, sitting in the last picks each manager still
 // owns. Before that the endpoint returns [] and the keeper board derives the
 // placement instead — so an empty array is a normal state, not a failure.
-export const realDraftQuery = () => ({
-  queryKey: ['realdraft'] as const,
+export const realDraftQuery = (leagueId: string = S.LEAGUE_ID) => ({
+  queryKey: ['realdraft', leagueId] as const,
   // Thirty minutes was the single worst offender: the draft order, the traded
   // picks AND the keeper placement all sat behind it.
   staleTime: LIVE,
@@ -92,8 +92,8 @@ export const realDraftQuery = () => ({
     // draft's own rounds 15, which is Sleeper's marker for a second, rookie
     // draft — and `.find` would take whichever came back first.
     const [drafts, league] = await Promise.all([
-      S.getLeagueDrafts(),
-      S.getLeague().catch(() => null as Awaited<ReturnType<typeof S.getLeague>> | null),
+      S.getLeagueDrafts(leagueId),
+      S.getLeague(leagueId).catch(() => null as Awaited<ReturnType<typeof S.getLeague>> | null),
     ]);
     const list = Array.isArray(drafts) ? drafts : [];
     const named = league && (league as { draft_id?: string }).draft_id;
@@ -106,7 +106,7 @@ export const realDraftQuery = () => ({
     // exist on the league endpoint, and the fixtures this is tested against come
     // from there. Fall back to the draft's own set if the league call fails.
     const [traded, picks] = await Promise.all([
-      S.getLeagueTradedPicks().catch(() => S.getTradedPicks(draft.draft_id).catch(() => [])),
+      S.getLeagueTradedPicks(leagueId).catch(() => S.getTradedPicks(draft.draft_id).catch(() => [])),
       S.getDraftPicks(draft.draft_id).catch(() => []),
     ]);
     return { draft, traded, picks };
@@ -154,8 +154,12 @@ export const draftVaultQuery = () => ({
 // stats backfill what Sleeper leaves out; the league object supplies the
 // scoring rules and the real lineup, never transcribed.
 // staleTime 0 on purpose: the Refresh button must actually re-pull.
-export const draftSheetQuery = () => ({
-  queryKey: ['draftsheet'] as const,
+export const draftSheetQuery = (leagueId: string = S.LEAGUE_ID) => ({
+  // THE LEAGUE IS PART OF THE KEY, and it has to be. Two boards can be open in
+  // one app; a bare ['draftsheet'] key would serve whichever league mounted
+  // first to both of them, and the second board would quietly show the first
+  // league's players, prices and picks under its own heading.
+  queryKey: ['draftsheet', leagueId] as const,
   staleTime: 0,
   gcTime: 10 * MIN,
   // Refresh is the only thing that moves this board. A silent refetch on window
@@ -166,12 +170,12 @@ export const draftSheetQuery = () => ({
     const season = (state && state.season) || String(new Date().getFullYear());
     const prior = String(Number(season) - 1);
     const [league, proj, priorStats, rosters, users, drafts] = await Promise.all([
-      S.getLeague(),
+      S.getLeague(leagueId),
       S.getSeasonProjections(season),
       S.getSeasonStats(prior).catch(() => ({} as Record<string, Record<string, number>>)),
-      S.getRosters().catch(() => []),
-      S.getUsers().catch(() => []),
-      S.getLeagueDrafts().catch(() => []),
+      S.getRosters(leagueId).catch(() => []),
+      S.getUsers(leagueId).catch(() => []),
+      S.getLeagueDrafts(leagueId).catch(() => []),
     ]);
     // THE LIVE BOARD. On draft night the picks endpoint fills up as they happen,
     // so pulling it here is what turns this page from a pre-draft ranking into

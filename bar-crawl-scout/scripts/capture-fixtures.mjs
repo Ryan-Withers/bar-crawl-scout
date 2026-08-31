@@ -16,7 +16,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = join(HERE, '..', 'src', 'lib', 'api', 'fixtures');
+// WHERE THE CAPTURE LANDS. Defaults to the fixtures the whole suite reconciles
+// against; --out puts a SECOND league somewhere of its own. Without that, running
+// this for another league would silently overwrite the first league's fixtures
+// under the same filenames and every known-answer test would start reconciling
+// against a league it was never written for.
+const argOut = (() => { const i = process.argv.indexOf('--out'); return i >= 0 ? process.argv[i + 1] : null; })();
+const OUT_DIR = (argOut || 'fixtures').replace(/[^a-z0-9_-]/gi, '');
+const OUT = join(HERE, '..', 'src', 'lib', 'api', OUT_DIR);
 const API = 'https://api.sleeper.app/v1';
 const WEEKS = 18;
 
@@ -41,7 +48,7 @@ const ok = async (fn) => { try { return await fn(); } catch (e) { console.log(' 
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  console.log('Capturing fixtures for league', LEAGUE_ID);
+  console.log('Capturing fixtures for league', LEAGUE_ID, '->', OUT_DIR);
 
   const state = await ok(() => j('/state/nfl'));
   await save('state.json', state);

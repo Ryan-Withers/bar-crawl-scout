@@ -13,9 +13,9 @@ import { rostersQuery, usersQuery, playersQuery } from '../api/queries';
 import { userHandleMap } from '../api/league';
 import { nameKey } from './data.js';
 
-export function useOwners() {
-  const rostersQ = createQuery(rostersQuery());
-  const usersQ = createQuery(usersQuery());
+export function useOwners(leagueId) {
+  const rostersQ = createQuery(rostersQuery(leagueId));
+  const usersQ = createQuery(usersQuery(leagueId));
   const playersQ = createQuery(playersQuery());
 
   return derived([rostersQ, usersQ, playersQ], ([$rosters, $users, $players]) => {
