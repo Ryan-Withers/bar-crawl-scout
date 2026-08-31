@@ -135,3 +135,50 @@ test('the captured league is what the board is built on', async ({ page }) => {
   const rows = await board(page).locator('tbody tr').count();
   expect(rows).toBeGreaterThan(50);
 });
+
+// ---------------------------------------------------------------------------
+// MOVING BETWEEN THE TWO, on the day.
+//
+// Both drafts are on 2026-09-05, two hours apart. The design decision under test
+// is that a URL always means the same board — the alternative, /sheet opening
+// whichever you looked at last, is the one version that can hand you the wrong
+// league without saying so, at exactly the moment you would not check.
+test('each board keeps its own address, and says which it is', async ({ page }) => {
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-league')).toHaveText('Bar Crawl');
+  await page.goto('./sheet/kings');
+  await expect(page.getByTestId('sheet-league')).toHaveText('Re-Draft Kings');
+
+  // ...and going back to the bare URL still gives the keeper league. Nothing is
+  // remembered, on purpose.
+  await page.goto('./sheet');
+  await expect(page.getByTestId('sheet-league')).toHaveText('Bar Crawl');
+});
+
+test('the switcher moves between them and marks where you are', async ({ page }) => {
+  await page.goto('./sheet');
+  const swap = page.getByTestId('sheet-swap');
+  await expect(swap).toBeVisible();
+  // The board you are on is not a link, so there is no click that leaves you
+  // where you already were and looks like it did something.
+  await expect(swap.locator('b.on')).toHaveText('Bar Crawl');
+  await expect(page.getByTestId('swap-bar')).toHaveCount(0);
+
+  await page.getByTestId('swap-kings').click();
+  await expect(page.getByTestId('sheet-league')).toHaveText('Re-Draft Kings');
+  await expect(page).toHaveURL(/\/sheet\/kings$/);
+  await expect(swap.locator('b.on')).toHaveText('Re-Draft');
+
+  await page.getByTestId('swap-bar').click();
+  await expect(page.getByTestId('sheet-league')).toHaveText('Bar Crawl');
+  await expect(page).toHaveURL(/\/sheet$/);
+});
+
+test('each board counts down to its OWN draft', async ({ page }) => {
+  // The two are two hours apart. A board showing the other league's clock would
+  // be worse than showing none.
+  for (const route of ['./sheet', './sheet/kings']) {
+    await page.goto(route);
+    await expect(page.getByTestId('sheet-countdown')).toContainText(/drafts in|drafting now|drafted/);
+  }
+});
