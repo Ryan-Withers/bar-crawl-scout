@@ -26,7 +26,8 @@
   import { userHandleMap } from '../api/league';
   import { TEAMSHORT, byName } from '../lib/data.js';
   import { boardFor } from '../lib/store.js';
-  import { LEAGUES, nsKey } from '../lib/leagues.js';
+  import { LEAGUES, LEAGUE_LIST, nsKey } from '../lib/leagues.js';
+  import { usePhase } from '../lib/usePhase.js';
   import {
     buildSheet, coverage, slotDemand, adpKeyFor, STOCK_SCORING,
   } from '../lib/engine/sheet.ts';
@@ -43,6 +44,11 @@
   // league at one route, and re-pointing a store mid-life would strand the
   // subscriptions taken out against it.
   const board = boardFor(league.ns);
+
+  // WHEN THIS LEAGUE DRAFTS. Two boards that look alike is a way to read the
+  // wrong one, and both of these drafts are on the same afternoon — so each says
+  // whose room it is and how long that room has left, off its own draft's status.
+  const phaseStore = usePhase(league.id);
 
   const qc = useQueryClient();
   const sheetQ = createQuery(draftSheetQuery(league.id));
@@ -500,9 +506,27 @@
     <div class="ttl">
       <b>THE SHEET</b>
       <span class="lg" data-testid="sheet-league">{league.name}</span>
+      {#if $phaseStore.countdown}
+        <span class="cd" class:live={$phaseStore.drafting} data-testid="sheet-countdown">
+          {$phaseStore.drafting ? '● drafting now' : $phaseStore.planning ? 'drafted' : `drafts ${$phaseStore.countdown}`}
+        </span>
+      {/if}
       <span class="sub">{league.blurb} · not linked from anywhere</span>
     </div>
     <div class="acts">
+      {#if LEAGUE_LIST.length > 1}
+        <!-- Fixed addresses, explicit move. Each board keeps its own URL so a
+             bookmark never changes meaning under you. -->
+        <span class="swap" data-testid="sheet-swap" role="group" aria-label="Which league's board">
+          {#each LEAGUE_LIST as lg (lg.key)}
+            {#if lg.key === league.key}
+              <b class="on" aria-current="page">{lg.short}</b>
+            {:else}
+              <a href={lg.route} use:link data-testid={'swap-' + lg.key}>{lg.short}</a>
+            {/if}
+          {/each}
+        </span>
+      {/if}
       <button class="btn go" data-testid="sheet-refresh" on:click={refresh} disabled={refreshing || $sheetQ.isFetching}>
         {refreshing || $sheetQ.isFetching ? '↻ pulling…' : '↻ Refresh'}
       </button>
@@ -750,6 +774,15 @@
   /* Two boards that look identical is a way to read the wrong one on the day,
      so each says whose draft it is, right next to the title. */
   .lg { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--neon); margin-left: 8px; }
+  .cd { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); margin-left: 6px; }
+  .cd.live { color: #4fb286; font-weight: 700; }
+  /* The switcher. Small, always in the same place, and the board you are on is
+     not a link — so there is no click that quietly leaves you where you were. */
+  .swap { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line, rgba(22,32,43,.2)); border-radius: 999px; padding: 2px; background: var(--paper); }
+  .swap a, .swap b { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .04em; padding: 4px 10px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
+  .swap a { color: var(--ink-soft); }
+  .swap a:hover { color: #2f7fb8; background: rgba(130,201,252,.14); }
+  .swap b.on { background: #2f7fb8; color: #fff; font-weight: 700; }
   .back { font-size: 11px; color: var(--blue); text-decoration: none; }
   .back:hover { text-decoration: underline; }
   .ttl b { font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: .04em; color: var(--chalk); }

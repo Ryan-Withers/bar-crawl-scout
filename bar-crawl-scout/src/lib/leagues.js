@@ -8,6 +8,7 @@
 //
 // So this holds only what CANNOT be derived:
 //   id       — which league to ask Sleeper about
+//   route    — where its board lives, which stays FIXED
 //   ns       — a namespace for anything saved locally, because two boards on one
 //              device must not share a star, a tag or a custom ranking
 //   dynasty  — whether the dynasty price is worth a column, which is a judgement
@@ -25,7 +26,9 @@ export const LEAGUES = {
     key: 'bar',
     id: '1311995695032467456',
     name: 'Bar Crawl',
+    short: 'Bar Crawl',
     blurb: "your draft room's own numbers, against the scoring the market prices them on",
+    route: '/sheet',
     ns: '',
     dynasty: true,
   },
@@ -36,13 +39,28 @@ export const LEAGUES = {
     key: 'kings',
     id: '1397440173184172032',
     name: 'Re-Draft Kings',
+    short: 'Re-Draft',
     blurb: 'redraft — twelve teams, fourteen rounds, everyone starts empty',
+    route: '/sheet/kings',
     ns: 'kings',
     dynasty: false,
   },
 };
 
 export const leagueByKey = (key) => LEAGUES[key] || LEAGUES.bar;
+
+// Every board, in the order they should be offered. Used by the switcher, so
+// adding a third league here puts it on both existing boards for free.
+export const LEAGUE_LIST = Object.values(LEAGUES);
+
+// A URL MEANS ONE BOARD, ALWAYS.
+//
+// The tempting version of "make one of them the default" is to have /sheet open
+// whichever you looked at last. That is the one design that can hand you the
+// wrong league without saying so — and both drafts are on the same afternoon,
+// two hours apart, which is precisely when you would not notice. So the routes
+// above are fixed, each board says whose it is, and moving between them is an
+// explicit click rather than something the app decides for you.
 
 /**
  * A localStorage key for a league. The default league keeps the bare key it has
