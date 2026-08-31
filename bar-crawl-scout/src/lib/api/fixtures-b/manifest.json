@@ -1,0 +1,354 @@
+{
+  "capturedAt": "2026-08-31T23:05:22.403Z",
+  "leagueId": "1397440173184172032",
+  "files": {
+    "state.json": {
+      "hash": "3a3bb504fec75c89",
+      "bytes": 211
+    },
+    "league.json": {
+      "hash": "a1e2b6208b39c1f1",
+      "bytes": 3882
+    },
+    "league-scoring.json": {
+      "hash": "87dc115a9329047b",
+      "bytes": 1991
+    },
+    "users-2026.json": {
+      "hash": "cd2d03cbf4818416",
+      "bytes": 2962
+    },
+    "rosters-2026.json": {
+      "hash": "7fb9f1e2103ee88c",
+      "bytes": 4263
+    },
+    "traded_picks-2026.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "drafts-2026.json": {
+      "hash": "bb0467fcf6a77702",
+      "bytes": 1115
+    },
+    "draft-picks-2026.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "winners_bracket-2026.json": {
+      "hash": "d683f146fdf23357",
+      "bytes": 512
+    },
+    "matchups-2026-1.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-1.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-1.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-1.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-2.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-2.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-2.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-2.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-3.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-3.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-3.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-3.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-4.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-4.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-4.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-4.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-5.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-5.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-5.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-5.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-6.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-6.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-6.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-6.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-7.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-7.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-7.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-7.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-8.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-8.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-8.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-8.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-9.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-9.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-9.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-9.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-10.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-10.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-10.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-10.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-11.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-11.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-11.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-11.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-12.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-12.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-12.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-12.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-13.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-13.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-13.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-13.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-14.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-14.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-14.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-14.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-15.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-15.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-15.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-15.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-16.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-16.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-16.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-16.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-17.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-17.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-17.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-17.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "matchups-2026-18.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "transactions-2026-18.json": {
+      "hash": "4f53cda18c2baa0c",
+      "bytes": 2
+    },
+    "stats-2026-18.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "projections-2026-18.json": {
+      "hash": "44136fa355b3678a",
+      "bytes": 2
+    },
+    "players-trimmed.json": {
+      "hash": "6cb3276096a68941",
+      "bytes": 117360
+    },
+    "season-stats-2026.json": {
+      "hash": "f4f7616cd85fb480",
+      "bytes": 74093
+    },
+    "season-projections-2026.json": {
+      "hash": "e899c839d3c31161",
+      "bytes": 233213
+    },
+    "trending-add.json": {
+      "hash": "aee329061e0a2a5b",
+      "bytes": 895
+    },
+    "trending-drop.json": {
+      "hash": "ca78e87b1ad76b63",
+      "bytes": 889
+    },
+    "keeper-ledger.json": {
+      "hash": "0aa6695cdbb8aeb4",
+      "bytes": 487
+    }
+  }
+}
