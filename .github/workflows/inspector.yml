@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   drift:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: bar-crawl-scout
@@ -46,7 +46,7 @@ jobs:
             });
 
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: bar-crawl-scout

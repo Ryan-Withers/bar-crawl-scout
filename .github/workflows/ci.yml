@@ -1,3 +1,11 @@
+# RUNNER PINNED ON PURPOSE.
+#
+# `ubuntu-latest` moved to Ubuntu 26.04 and took the nightly build with it:
+# Playwright 1.56.1 has no browser dependencies for that image, so
+# `playwright install --with-deps chromium` fails before a single test runs.
+# Nothing in this repo changed — the ground did. A pinned image is one less
+# thing that can break while nobody is watching; raise it deliberately when
+# Playwright supports the newer one.
 name: CI
 
 on:
@@ -6,7 +14,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: bar-crawl-scout
@@ -31,7 +39,7 @@ jobs:
       - run: npm run bundle-budget  # THE STOPWATCH — JS stays small, no 5MB blob
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: bar-crawl-scout
